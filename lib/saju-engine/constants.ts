@@ -118,7 +118,8 @@ export const BRANCH_THREE_COMBINE: Array<{trio: Branch[], element: Element}> = [
   {trio:["巳","酉","丑"], element:"金"},
   {trio:["亥","卯","未"], element:"木"},
 ];
-export const THREE_COMBINE_CENTER: Record<Element, Branch> = {"水":"子","火":"午","金":"酉","木":"卯"};
+// 삼합 중심 글자. 土 삼합은 존재하지 않아 4개만 정의되나, 소비처는 水/火/金/木만 인덱싱한다.
+export const THREE_COMBINE_CENTER = {"水":"子","火":"午","金":"酉","木":"卯"} as Record<Element, Branch>;
 export const BRANCH_CLASH_PAIRS: Set<string> = new Set([
   "子午","午子","丑未","未丑","寅申","申寅","卯酉","酉卯","辰戌","戌辰","巳亥","亥巳",
 ]);

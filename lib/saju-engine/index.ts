@@ -72,7 +72,12 @@ export function runSajuEngine(input: {
     health: { score: 50, watch_list: [] },
     life_patterns: { repeating_themes: facts.core_structure.map(t => t.tag), major_life_lessons: [] },
     current_phase: (() => {
-      const cur = facts.daewoon_narrative.timeline[0];
+      const currentYear = new Date().getFullYear();
+      const birthYear = parseInt(input.birth_date.slice(0, 4));
+      const currentAge = currentYear - birthYear;
+      const cur = facts.daewoon_narrative.timeline.find(
+        (d) => currentAge >= d.start_age && currentAge <= d.end_age
+      ) ?? facts.daewoon_narrative.timeline[0];
       return cur ? { age_range: `${cur.start_age}-${cur.end_age}`, theme: cur.favorability, opportunities: [], warnings: [] }
                  : { age_range: "미정", theme: "계산중", opportunities: [], warnings: [] };
     })(),
@@ -100,14 +105,65 @@ function strengthToLevel(ratio: number): number {
   return -3;
 }
 
-/** chat context용 compact 버전 (200-400 tokens) */
+/** chat context용 compact 버전 — 개인 질문 답변에 충분한 데이터 포함 */
 export function toSajuCompact(saju_json: ReturnType<typeof runSajuEngine>["saju_json"]) {
+  // 용신 오행 → 개운 방향/색상/장소 매핑
+  const elementGuide: Record<string, { direction: string; place: string; color: string }> = {
+    "木": { direction: "동쪽", place: "숲·산·공원", color: "초록·청색" },
+    "火": { direction: "남쪽", place: "따뜻한 곳·일조량 많은 도시", color: "빨강·주황" },
+    "土": { direction: "중앙", place: "대지·농촌·내륙 도시", color: "황토·베이지" },
+    "金": { direction: "서쪽", place: "도시·금속 산업 지역", color: "흰색·은색" },
+    "水": { direction: "북쪽", place: "바다·강변·호수", color: "검정·진남색" },
+  };
+  const yongsinElements = saju_json.yongsin.eokbu.length > 0 ? saju_json.yongsin.eokbu : saju_json.yongsin.johu;
+  const kaiun = yongsinElements.map((e: string) => elementGuide[e] ?? null).filter(Boolean);
+
   return {
+    // 기본 정체성
     day_master: saju_json.identity.day_master,
+    day_master_element: saju_json.identity.day_master_element,
     strength: saju_json.identity.strength_label,
+    core_description: saju_json.identity.core_description,
+
+    // 성격 강약
+    top_strengths: saju_json.personality.strengths.slice(0, 4),
+    top_weaknesses: saju_json.personality.weaknesses.slice(0, 4),
+
+    // 오행 분포 (과다/부족 파악용)
+    elements: saju_json.elements,
+
+    // 용신 (개운의 핵심)
+    yongsin: {
+      eokbu: saju_json.yongsin.eokbu,
+      johu: saju_json.yongsin.johu,
+      climate: saju_json.yongsin.climate,
+    },
+
+    // 개운 가이드 (여행지·색상·방향)
+    kaiun_guide: kaiun,
+
+    // 현재 대운 흐름
+    current_phase: {
+      age_range: saju_json.current_phase.age_range,
+      theme: saju_json.current_phase.theme,
+      opportunities: saju_json.current_phase.opportunities,
+      warnings: saju_json.current_phase.warnings,
+    },
+    next_luck_cycle: saju_json.luck_cycles[1] ?? null,
+
+    // 직업·재물 (score는 규칙 미구현 placeholder라 LLM 입력에서 제외 — 가짜 정밀도 방지)
+    career: {
+      work_style: saju_json.career.work_style.slice(0, 3),
+      risk_factors: saju_json.career.risk_factors.slice(0, 2),
+    },
+
+    // 연애·관계 (score 제외 — 위와 동일)
+    love: {
+      relationship_strengths: saju_json.love.relationship_strengths.slice(0, 2),
+      relationship_risks: saju_json.love.relationship_risks.slice(0, 2),
+    },
+
+    // 핵심 태그
     core_tags: saju_json.core_tags.map((t: {tag: string}) => t.tag),
-    top_strengths: saju_json.personality.strengths.slice(0, 3),
-    top_weaknesses: saju_json.personality.weaknesses.slice(0, 3),
-    current_phase: `${saju_json.current_phase.age_range} ${saju_json.current_phase.theme}`,
   };
 }

@@ -71,11 +71,24 @@ export default function FreeSajuPage() {
           <div>
             <label className="block text-xs font-medium text-[#6B6661] uppercase tracking-wider mb-2">생년월일</label>
             <input
-              type="date"
+              type="text"
+              inputMode="numeric"
+              placeholder="YYYY-MM-DD"
               value={form.birth_date}
-              max={maxBirthDate()}
-              onChange={(e) => setForm({ ...form, birth_date: e.target.value })}
-              className="w-full border border-[#E5DFD4] rounded-xl px-4 py-3.5 text-sm bg-[#FBF8F2] focus:outline-none focus:border-[#1F3D34] focus:ring-2 focus:ring-[#1F3D34]/10 transition-all"
+              maxLength={10}
+              onChange={(e) => {
+                let v = e.target.value.replace(/[^0-9]/g, "");
+                if (v.length > 4) v = v.slice(0, 4) + "-" + v.slice(4);
+                if (v.length > 7) v = v.slice(0, 7) + "-" + v.slice(7);
+                setForm({ ...form, birth_date: v.slice(0, 10) });
+              }}
+              onBlur={() => {
+                if (form.birth_date.length === 10 && form.birth_date > maxBirthDate()) {
+                  alert("14세 미만은 이용할 수 없습니다.");
+                  setForm({ ...form, birth_date: "" });
+                }
+              }}
+              className="w-full border border-[#E5DFD4] rounded-xl px-4 py-3.5 text-sm bg-[#FBF8F2] focus:outline-none focus:border-[#1F3D34] focus:ring-2 focus:ring-[#1F3D34]/10 transition-all tracking-widest"
             />
           </div>
 
@@ -83,11 +96,18 @@ export default function FreeSajuPage() {
           <div>
             <label className="block text-xs font-medium text-[#6B6661] uppercase tracking-wider mb-2">태어난 시각</label>
             <input
-              type="time"
+              type="text"
+              inputMode="numeric"
+              placeholder="HH:MM (예: 14:30)"
               disabled={form.no_time}
               value={form.birth_time}
-              onChange={(e) => setForm({ ...form, birth_time: e.target.value })}
-              className="w-full border border-[#E5DFD4] rounded-xl px-4 py-3.5 text-sm bg-[#FBF8F2] disabled:opacity-40 focus:outline-none focus:border-[#1F3D34] transition-all"
+              maxLength={5}
+              onChange={(e) => {
+                let v = e.target.value.replace(/[^0-9]/g, "");
+                if (v.length > 2) v = v.slice(0, 2) + ":" + v.slice(2);
+                setForm({ ...form, birth_time: v.slice(0, 5) });
+              }}
+              className="w-full border border-[#E5DFD4] rounded-xl px-4 py-3.5 text-sm bg-[#FBF8F2] disabled:opacity-40 focus:outline-none focus:border-[#1F3D34] transition-all tracking-widest"
             />
             <label className="flex items-center gap-2.5 mt-2.5 text-sm text-[#6B6661] cursor-pointer select-none">
               <div

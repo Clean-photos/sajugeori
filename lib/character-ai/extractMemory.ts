@@ -66,7 +66,8 @@ concerns/facts 추출 기준:
       messages: [{ role: "user", content: prompt }],
     });
 
-    const text = res.content[0].type === "text" ? res.content[0].text.trim() : "";
+    const textBlock = res.content.find((b) => b.type === "text");
+    const text = textBlock && textBlock.type === "text" ? textBlock.text.trim() : "";
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) return base;
 

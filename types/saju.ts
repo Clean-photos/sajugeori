@@ -134,7 +134,12 @@ export interface SajuCompact {
   core_tags: string[];
   top_strengths: string[];
   top_weaknesses: string[];
-  current_phase: string;
+  current_phase: {
+    age_range: string;
+    theme: string;
+    opportunities: string[];
+    warnings: string[];
+  };
 }
 
 export interface CompatibilityResult {

@@ -112,6 +112,17 @@ export default function CharacterRoomPage() {
         body: JSON.stringify({ message: text }),
       });
 
+      // 게이트 응답(로그인/사주등록/페이월) — JSON으로 내려오면 안내 후 이동
+      if (res.status === 401 || res.status === 402 || res.status === 403) {
+        const data = await res.json().catch(() => null);
+        const msg = data?.message ?? "계속하려면 로그인이 필요합니다.";
+        setMessages([...next, { role: "assistant", content: msg }]);
+        if (data?.redirect) {
+          setTimeout(() => { window.location.href = data.redirect; }, 1400);
+        }
+        return;
+      }
+
       if (!res.ok || !res.body) throw new Error("응답 오류");
 
       setMessages([...next, { role: "assistant", content: "" }]);

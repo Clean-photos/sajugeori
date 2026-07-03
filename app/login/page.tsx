@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
@@ -24,7 +24,7 @@ function KakaoIcon() {
   );
 }
 
-export default function LoginPage() {
+function LoginInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("redirect") ?? searchParams.get("callbackUrl") ?? "/";
@@ -37,6 +37,12 @@ export default function LoginPage() {
   const [error, setError] = useState(
     errorCode === "invalid_credentials" ? "이메일 또는 비밀번호가 올바르지 않습니다." : ""
   );
+
+  // 소셜 로그인 준비 중 (OAuth 키 미연결)
+  const SOCIAL_READY = false;
+  function handleSocialSoon() {
+    setError("소셜 로그인은 준비 중이에요. 이메일로 로그인해 주세요.");
+  }
 
   async function handleEmailLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -71,20 +77,24 @@ export default function LoginPage() {
       </div>
 
       <div className="flex-1 px-5 py-7 flex flex-col gap-4 max-w-sm mx-auto w-full">
-        {/* Social logins */}
+        {/* Social logins — OAuth 키 연결 전까지 준비 중 */}
         <button
-          onClick={() => signIn("google", { callbackUrl })}
-          className="w-full flex items-center justify-center gap-3 bg-white border border-[#E5DFD4] rounded-xl py-3.5 text-sm font-medium text-[#1A1A18] shadow-sm active:scale-[0.97] transition-all"
+          onClick={() => (SOCIAL_READY ? signIn("google", { callbackUrl }) : handleSocialSoon())}
+          disabled={!SOCIAL_READY}
+          className="relative w-full flex items-center justify-center gap-3 bg-white border border-[#E5DFD4] rounded-xl py-3.5 text-sm font-medium text-[#1A1A18] shadow-sm transition-all disabled:opacity-50"
         >
           <GoogleIcon />
           Google로 계속하기
+          {!SOCIAL_READY && <span className="absolute right-3 text-[10px] text-[#6B6661] bg-[#F6F1E7] border border-[#E5DFD4] rounded-full px-2 py-0.5">준비 중</span>}
         </button>
         <button
-          onClick={() => signIn("kakao", { callbackUrl })}
-          className="w-full flex items-center justify-center gap-3 bg-[#FEE500] rounded-xl py-3.5 text-sm font-medium text-[#1A1A18] shadow-sm active:scale-[0.97] transition-all"
+          onClick={() => (SOCIAL_READY ? signIn("kakao", { callbackUrl }) : handleSocialSoon())}
+          disabled={!SOCIAL_READY}
+          className="relative w-full flex items-center justify-center gap-3 bg-[#FEE500] rounded-xl py-3.5 text-sm font-medium text-[#1A1A18] shadow-sm transition-all disabled:opacity-50"
         >
           <KakaoIcon />
           카카오로 계속하기
+          {!SOCIAL_READY && <span className="absolute right-3 text-[10px] text-[#6B6661] bg-white/70 border border-black/10 rounded-full px-2 py-0.5">준비 중</span>}
         </button>
 
         {/* Divider */}
@@ -165,5 +175,13 @@ export default function LoginPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginInner />
+    </Suspense>
   );
 }

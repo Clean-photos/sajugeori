@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 
@@ -12,7 +12,7 @@ function maxBirthDate() {
   return d.toISOString().split("T")[0];
 }
 
-export default function OnboardingPage() {
+function OnboardingInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const from = searchParams.get("from");
@@ -123,11 +123,18 @@ export default function OnboardingPage() {
           <div className="flex flex-col gap-4 animate-fade-up">
             <p className="text-[#1A1A18] font-medium">태어난 시각을 알고 계신가요?</p>
             <input
-              type="time"
+              type="text"
+              inputMode="numeric"
+              placeholder="HH:MM (예: 14:30)"
               disabled={form.no_time}
               value={form.birth_time}
-              onChange={(e) => setForm({ ...form, birth_time: e.target.value })}
-              className="w-full border border-[#E5DFD4] rounded-xl px-4 py-4 text-base bg-[#FBF8F2] disabled:opacity-40 focus:outline-none focus:border-[#1F3D34] transition-all"
+              maxLength={5}
+              onChange={(e) => {
+                let v = e.target.value.replace(/[^0-9]/g, "");
+                if (v.length > 2) v = v.slice(0, 2) + ":" + v.slice(2);
+                setForm({ ...form, birth_time: v.slice(0, 5) });
+              }}
+              className="w-full border border-[#E5DFD4] rounded-xl px-4 py-4 text-base bg-[#FBF8F2] disabled:opacity-40 focus:outline-none focus:border-[#1F3D34] transition-all tracking-widest"
             />
             <button
               onClick={() => setForm({ ...form, no_time: !form.no_time, birth_time: "" })}
@@ -231,5 +238,13 @@ export default function OnboardingPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function OnboardingPage() {
+  return (
+    <Suspense fallback={null}>
+      <OnboardingInner />
+    </Suspense>
   );
 }

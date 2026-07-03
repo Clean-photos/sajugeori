@@ -76,15 +76,24 @@ CREATE TABLE IF NOT EXISTS user_memory (
 );
 
 -- ─── Subscriptions ────────────────────────────────────────
+-- NOTE: 실제 배포 DB 컬럼과 일치시킴. 구독 만료 시각은 expires_at 사용.
 CREATE TABLE IF NOT EXISTS subscriptions (
   id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id               UUID REFERENCES users(id) ON DELETE CASCADE,
   status                TEXT NOT NULL CHECK (status IN ('active','canceled','expired')),
   plan                  TEXT,
-  toss_billing_key      TEXT,
-  current_period_end    TIMESTAMPTZ,
+  expires_at            TIMESTAMPTZ,
   created_at            TIMESTAMPTZ DEFAULT now()
 );
+
+-- ─── Premium Reports (프리미엄 사주 풀이 캐시) ────────────
+CREATE TABLE IF NOT EXISTS premium_reports (
+  saju_profile_id UUID PRIMARY KEY REFERENCES saju_profiles(id) ON DELETE CASCADE,
+  user_id         UUID REFERENCES users(id) ON DELETE CASCADE,
+  content         JSONB NOT NULL,   -- { personality, career, money, love, health, life_pattern, current_phase, yearly }
+  created_at      TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_premium_reports_user ON premium_reports(user_id);
 
 -- ─── Ad Tokens (1-use reward verification) ────────────────
 CREATE TABLE IF NOT EXISTS ad_tokens (

@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { BottomTabBar } from "@/components/layout/BottomTabBar";
+import { HeaderAuth } from "./HeaderAuth";
 
 const MENU_CARDS = [
   {
     href: "/free/saju",
     icon: "☯",
-    title: "일반 사주",
+    title: "무료 일반사주",
     subtitle: "팔자와 운명의 흐름",
     delay: "animate-fade-up-delay-1",
     accent: true,
@@ -14,15 +15,15 @@ const MENU_CARDS = [
   {
     href: "/free/compatibility",
     icon: "∞",
-    title: "궁합",
+    title: "무료 궁합",
     subtitle: "두 운명의 교차점",
     delay: "animate-fade-up-delay-2",
     accent: false,
   },
   {
     href: "/free/taekil",
-    icon: "曆",
-    title: "택일",
+    icon: "📅",
+    title: "무료 택일",
     subtitle: "좋은 날을 고르다",
     delay: "animate-fade-up-delay-3",
     accent: false,
@@ -30,7 +31,7 @@ const MENU_CARDS = [
   {
     href: "/free/yearly",
     icon: "運",
-    title: "연운세",
+    title: "무료 연운세",
     subtitle: "올해와 내년의 기운",
     delay: "animate-fade-up-delay-4",
     accent: false,
@@ -48,14 +49,19 @@ export default async function HomePage() {
         <div className="absolute -top-12 -right-12 w-48 h-48 rounded-full bg-[#1F3D34]/5" />
         <div className="absolute top-4 right-8 w-24 h-24 rounded-full bg-[#C8743A]/8" />
 
+        {/* 로그인/회원가입 or 로그아웃 */}
+        <div className="absolute top-6 right-6 z-10">
+          <HeaderAuth isLoggedIn={isLoggedIn} />
+        </div>
+
         <p className="text-xs font-medium tracking-[0.2em] text-[#C8743A] uppercase mb-2 animate-fade-up">
-          AI 역술 · Saju Street
+          Saju Street
         </p>
         <h1 className="font-serif text-[32px] font-bold text-[#1F3D34] leading-tight animate-fade-up" style={{animationDelay:'0.05s'}}>
           사주거리
         </h1>
-        <p className="text-sm text-[#6B6661] mt-1.5 animate-fade-up" style={{animationDelay:'0.1s'}}>
-          AI 역술가들이 모인 골목
+        <p className="text-sm text-[#6B6661] mt-1.5 animate-fade-up" style={{animationDelay:'0.05s'}}>
+          당신을 잘 아는 역술가들이 모인 골목
         </p>
       </header>
 
@@ -145,6 +151,26 @@ export default async function HomePage() {
             </div>
           </Link>
         )}
+      </section>
+
+      {/* Premium Banner */}
+      <section className="px-4 mt-3 animate-fade-up" style={{animationDelay:'0.4s'}}>
+        <Link href={isLoggedIn ? "/premium" : "/login?redirect=/premium"}>
+          <div className="relative overflow-hidden rounded-2xl bg-[#FBF8F2] border border-[#C8743A]/40 p-5 flex items-center gap-4 active:scale-[0.98] transition-all duration-200 shadow-sm">
+            <div className="relative w-14 h-14 rounded-xl bg-[#C8743A]/10 flex items-center justify-center text-3xl flex-shrink-0">
+              🔮
+            </div>
+            <div className="relative flex-1">
+              <p className="font-bold text-lg text-[#1A1A18] leading-snug">프리미엄 사주 풀이</p>
+              <p className="text-sm text-[#6B6661] mt-0.5">내 사주 8개 영역 전체 심층 분석</p>
+            </div>
+            <div className="relative w-8 h-8 rounded-full bg-[#C8743A] flex items-center justify-center flex-shrink-0">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M5 12h14M12 5l7 7-7 7"/>
+              </svg>
+            </div>
+          </div>
+        </Link>
       </section>
 
       {/* Teaser / onboarding nudge */}

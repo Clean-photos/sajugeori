@@ -1,68 +1,117 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdRewardProvider } from "@/lib/ads";
-import { getLLMAdapter } from "@/lib/llm";
+import { runSajuEngine } from "@/lib/saju-engine";
 
-// POST /api/free/report
-// Gate: ad_token must verify before LLM is called
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { saju_json, kind, ad_token, extra } = body;
+  const { ad_token, extra } = body;
 
-  if (!ad_token) {
-    return NextResponse.json({ error: "ad_token required" }, { status: 400 });
-  }
+  if (!ad_token) return NextResponse.json({ error: "ad_token required" }, { status: 400 });
 
   const ip = req.headers.get("x-forwarded-for") ?? "unknown";
-  const adProvider = getAdRewardProvider();
-  const valid = await adProvider.verify(ad_token, ip);
+  const valid = await getAdRewardProvider().verify(ad_token, ip);
+  if (!valid) return NextResponse.json({ error: "Invalid or used ad token" }, { status: 403 });
 
-  if (!valid) {
-    return NextResponse.json({ error: "Invalid or used ad token" }, { status: 403 });
-  }
-
-  // TODO: if saju_json is null, calculate from extra.birth_date etc. using saju engine
-  // TODO: mark ad_token as used in DB
-
-  // Demo: run engine on the provided birth info
-  let engineResult = "";
+  let engineSummary = "";
   try {
-    const { runSajuEngine } = await import("@/lib/saju-engine");
-    const birthDate = extra?.birth_date ?? "1990-01-01";
-    const birthTime = extra?.birth_time ?? null;
-    const gender = extra?.gender ?? "M";
-    const result = runSajuEngine({ birth_date: birthDate, birth_time: birthTime, calendar: "solar", gender });
-    const chart = result.saju_json;
-    engineResult = `일간 ${chart.identity.day_master} · ${chart.identity.strength_label}`;
-  } catch {
-    engineResult = "사주 계산 완료";
+    const birthDate: string = extra?.birth_date ?? "1990-01-01";
+    const result = runSajuEngine({
+      birth_date: birthDate,
+      birth_time: extra?.birth_time ?? null,
+      calendar: "solar",
+      gender: extra?.gender ?? "M",
+    });
+    const j = result.saju_json;
+
+    const elementGuide: Record<string, string> = {
+      "木": "숲·산·공원", "火": "따뜻한 남쪽",
+      "土": "대지·내륙", "金": "도시·서쪽", "水": "바다·강변",
+    };
+    const yongsin = j.yongsin.eokbu.length > 0 ? j.yongsin.eokbu : j.yongsin.johu;
+    const kaiun = yongsin.map((e: string) => elementGuide[e] ?? e).join(", ");
+
+    // 현재 나이 계산 (2026 기준)
+    const birthYear = parseInt(birthDate.slice(0, 4));
+    const currentAge = 2026 - birthYear;
+
+    // 현재 대운 사이클
+    const currentCycle = j.luck_cycles.find(
+      (c: { start_age: number; end_age: number }) => currentAge >= c.start_age && currentAge <= c.end_age
+    );
+
+    // 10대 이하 대운
+    const earlyLuck = j.luck_cycles.filter((c: { end_age: number }) => c.end_age <= 19);
+    const earlyLuckStr = earlyLuck
+      .map((c: { start_age: number; end_age: number; ganji: string; favorability: string }) =>
+        `${c.start_age}~${c.end_age}세 ${c.ganji}(${c.favorability})`)
+      .join(", ") || "없음";
+
+    engineSummary = `
+일간: ${j.identity.day_master} (${j.identity.day_master_element}오행) / 강약: ${j.identity.strength_label}
+핵심: ${j.identity.core_description}
+강점: ${j.personality.strengths.slice(0, 3).join(", ")}
+약점: ${j.personality.weaknesses.slice(0, 3).join(", ")}
+오행: ${Object.entries(j.elements).map(([e, v]) => `${e}${v}`).join(" ")}
+용신: ${yongsin.join(", ")} / 개운장소: ${kaiun || "없음"}
+현재나이: ${currentAge}세 (2026년 기준)
+현재대운: ${currentCycle ? `${currentCycle.start_age}~${currentCycle.end_age}세 ${currentCycle.ganji}(${currentCycle.favorability})` : "정보 없음"}
+대운주의: ${j.current_phase.warnings.slice(0, 2).join(", ") || "없음"}
+10대까지대운: ${earlyLuckStr}
+    `.trim();
+  } catch (e) {
+    console.error(e);
+    return NextResponse.json({ error: "사주 계산 오류" }, { status: 500 });
   }
 
-  const mockReport = `🔮 무료 사주 분석 결과 (${engineResult})
+  const prompt = `명리학 전문가로서 무료 사주 리포트를 작성하세요.
+
+${engineSummary}
+
+형식 (각 섹션 반드시 포함, 지시한 분량 엄수):
 
 【 핵심 성격 】
-단단하고 책임감이 강한 성향입니다. 한 번 결정하면 끝까지 밀고 나가는 추진력이 있으며, 맡은 일에 성실하게 임합니다. 다만 혼자 짐을 다 지려는 경향이 있어 때로 스스로를 혹사시킬 수 있습니다.
+일간·강약 근거로 3문장.
 
 【 현재 운세 】
-지금 시기는 실력을 쌓고 기반을 다지는 축적기입니다. 빠른 결과보다 꾸준한 준비가 더 중요한 때입니다. 인정받을 기회는 반드시 옵니다.
+현재나이와 현재대운(ganji, favorability)을 반드시 언급. "현재 XX세, XX대운 시기로..." 형식으로 시작. 2026년 지금 이 시기의 운세를 3문장으로.
+
+【 개운 포인트 】
+용신 오행 기반 개운 장소·방향 2가지. 2문장.
 
 【 조언 】
-재물운은 안목과 성실함으로 쌓이는 구조입니다. 투자보다 전문성 강화에 집중하는 것이 이 시기에 맞습니다.
+강점 활용 + 약점 보완 실용 조언. 반드시 2문장만. 각 문장 40자 이내로 짧게.
 
-━━━━━━━━━━━━━━━
-🔒 더 자세한 분석 (직업운 · 연애운 · 건강 · 대운 전체)은 프리미엄에서 확인하세요.`;
+【 대운 (大運) 】
+• 10대까지: ${/* earlyLuckStr 직접 삽입 */""}10대 대운 특징 1문장.
+• 이후 대운은 20대부터 본격적으로 펼쳐집니다. 현재 내 대운이 궁금하다면 AI 역술가와 직접 대화해보세요.
+
+주의: 한국어. 과장 금지. 지시한 문장 수 초과 금지. 마크다운 절대 금지(#, ##, **, *, @, >, - 기호 사용 금지). 섹션 제목은 【 】 형식만 사용.
+한자 표기 규칙: 한자 뒤에 반드시 한글 독음 괄호 표기. 예: 庚(경), 辛未(신미). 한자 단독 사용 절대 금지.`;
+
+  const Anthropic = (await import("@anthropic-ai/sdk")).default;
+  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
   const stream = new ReadableStream({
     async start(controller) {
       const enc = new TextEncoder();
-      for (const char of mockReport) {
-        controller.enqueue(enc.encode(char));
-        await new Promise(r => setTimeout(r, 12));
+      try {
+        const aiStream = client.messages.stream({
+          model: "claude-haiku-4-5-20251001",
+          max_tokens: 1100,
+          messages: [{ role: "user", content: prompt }],
+        });
+        for await (const event of aiStream) {
+          if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
+            controller.enqueue(enc.encode(event.delta.text));
+          }
+        }
+      } catch {
+        controller.enqueue(enc.encode("분석 중 오류가 발생했습니다. 다시 시도해주세요."));
+      } finally {
+        controller.close();
       }
-      controller.close();
     },
   });
 
-  return new Response(stream, {
-    headers: { "Content-Type": "text/plain; charset=utf-8" },
-  });
+  return new Response(stream, { headers: { "Content-Type": "text/plain; charset=utf-8" } });
 }

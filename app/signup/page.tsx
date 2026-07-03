@@ -125,21 +125,25 @@ export default function SignupPage() {
       </div>
 
       <div className="flex-1 px-5 py-6 max-w-sm mx-auto w-full flex flex-col gap-5">
-        {/* Social signup */}
+        {/* Social signup — OAuth 키 연결 전까지 준비 중 */}
         <div className="flex flex-col gap-3">
           <button
-            onClick={() => signIn("google", { callbackUrl: "/onboarding" })}
-            className="w-full flex items-center justify-center gap-3 bg-white border border-[#E5DFD4] rounded-xl py-3.5 text-sm font-medium text-[#1A1A18] shadow-sm active:scale-[0.97] transition-all"
+            onClick={() => setError("소셜 로그인은 준비 중이에요. 이메일로 가입해 주세요.")}
+            disabled
+            className="relative w-full flex items-center justify-center gap-3 bg-white border border-[#E5DFD4] rounded-xl py-3.5 text-sm font-medium text-[#1A1A18] shadow-sm transition-all disabled:opacity-50"
           >
             <GoogleIcon />
             Google로 시작하기
+            <span className="absolute right-3 text-[10px] text-[#6B6661] bg-[#F6F1E7] border border-[#E5DFD4] rounded-full px-2 py-0.5">준비 중</span>
           </button>
           <button
-            onClick={() => signIn("kakao", { callbackUrl: "/onboarding" })}
-            className="w-full flex items-center justify-center gap-3 bg-[#FEE500] rounded-xl py-3.5 text-sm font-medium text-[#1A1A18] shadow-sm active:scale-[0.97] transition-all"
+            onClick={() => setError("소셜 로그인은 준비 중이에요. 이메일로 가입해 주세요.")}
+            disabled
+            className="relative w-full flex items-center justify-center gap-3 bg-[#FEE500] rounded-xl py-3.5 text-sm font-medium text-[#1A1A18] shadow-sm transition-all disabled:opacity-50"
           >
             <KakaoIcon />
             카카오로 시작하기
+            <span className="absolute right-3 text-[10px] text-[#6B6661] bg-white/70 border border-black/10 rounded-full px-2 py-0.5">준비 중</span>
           </button>
         </div>
 
