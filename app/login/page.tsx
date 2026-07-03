@@ -38,8 +38,8 @@ function LoginInner() {
     errorCode === "invalid_credentials" ? "이메일 또는 비밀번호가 올바르지 않습니다." : ""
   );
 
-  // 소셜 로그인 준비 중 (OAuth 키 미연결)
-  const SOCIAL_READY = false;
+  // 소셜 로그인 (OAuth 키 연결됨)
+  const SOCIAL_READY = true;
   function handleSocialSoon() {
     setError("소셜 로그인은 준비 중이에요. 이메일로 로그인해 주세요.");
   }
