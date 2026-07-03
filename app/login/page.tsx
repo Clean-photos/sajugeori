@@ -5,6 +5,15 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
 
+function Spinner() {
+  return (
+    <svg className="animate-spin" width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2.5" strokeOpacity="0.25" />
+      <path d="M21 12a9 9 0 00-9-9" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 function GoogleIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24">
@@ -40,8 +49,14 @@ function LoginInner() {
 
   // 소셜 로그인 (OAuth 키 연결됨)
   const SOCIAL_READY = true;
-  function handleSocialSoon() {
-    setError("소셜 로그인은 준비 중이에요. 이메일로 로그인해 주세요.");
+  const [socialLoading, setSocialLoading] = useState<"google" | "kakao" | null>(null);
+  function handleSocial(provider: "google" | "kakao") {
+    if (!SOCIAL_READY) {
+      setError("소셜 로그인은 준비 중이에요. 이메일로 로그인해 주세요.");
+      return;
+    }
+    setSocialLoading(provider); // 클릭 즉시 스피너 표시 (OAuth 리다이렉트 대기)
+    signIn(provider, { callbackUrl });
   }
 
   async function handleEmailLogin(e: React.FormEvent) {
@@ -77,24 +92,22 @@ function LoginInner() {
       </div>
 
       <div className="flex-1 px-5 py-7 flex flex-col gap-4 max-w-sm mx-auto w-full">
-        {/* Social logins — OAuth 키 연결 전까지 준비 중 */}
+        {/* Social logins */}
         <button
-          onClick={() => (SOCIAL_READY ? signIn("google", { callbackUrl }) : handleSocialSoon())}
-          disabled={!SOCIAL_READY}
-          className="relative w-full flex items-center justify-center gap-3 bg-white border border-[#E5DFD4] rounded-xl py-3.5 text-sm font-medium text-[#1A1A18] shadow-sm transition-all disabled:opacity-50"
+          onClick={() => handleSocial("google")}
+          disabled={socialLoading !== null}
+          className="relative w-full flex items-center justify-center gap-3 bg-white border border-[#E5DFD4] rounded-xl py-3.5 text-sm font-medium text-[#1A1A18] shadow-sm transition-all active:scale-[0.97] disabled:opacity-60"
         >
-          <GoogleIcon />
-          Google로 계속하기
-          {!SOCIAL_READY && <span className="absolute right-3 text-[10px] text-[#6B6661] bg-[#F6F1E7] border border-[#E5DFD4] rounded-full px-2 py-0.5">준비 중</span>}
+          {socialLoading === "google" ? <Spinner /> : <GoogleIcon />}
+          {socialLoading === "google" ? "연결 중..." : "Google로 계속하기"}
         </button>
         <button
-          onClick={() => (SOCIAL_READY ? signIn("kakao", { callbackUrl }) : handleSocialSoon())}
-          disabled={!SOCIAL_READY}
-          className="relative w-full flex items-center justify-center gap-3 bg-[#FEE500] rounded-xl py-3.5 text-sm font-medium text-[#1A1A18] shadow-sm transition-all disabled:opacity-50"
+          onClick={() => handleSocial("kakao")}
+          disabled={socialLoading !== null}
+          className="relative w-full flex items-center justify-center gap-3 bg-[#FEE500] rounded-xl py-3.5 text-sm font-medium text-[#1A1A18] shadow-sm transition-all active:scale-[0.97] disabled:opacity-60"
         >
-          <KakaoIcon />
-          카카오로 계속하기
-          {!SOCIAL_READY && <span className="absolute right-3 text-[10px] text-[#6B6661] bg-white/70 border border-black/10 rounded-full px-2 py-0.5">준비 중</span>}
+          {socialLoading === "kakao" ? <Spinner /> : <KakaoIcon />}
+          {socialLoading === "kakao" ? "연결 중..." : "카카오로 계속하기"}
         </button>
 
         {/* Divider */}

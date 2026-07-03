@@ -10,8 +10,8 @@ export interface Plan {
 
 export const PREMIUM_MONTHLY: Plan = {
   id: "premium_monthly",
-  name: "Captique 프리미엄 (30일)",
-  amount: 9900,
+  name: "사주거리 프리미엄 (30일)",
+  amount: 5900,
   days: 30,
 };
 

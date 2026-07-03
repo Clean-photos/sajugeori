@@ -24,6 +24,15 @@ function PasswordStrength({ password }: { password: string }) {
   );
 }
 
+function Spinner() {
+  return (
+    <svg className="animate-spin" width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2.5" strokeOpacity="0.25" />
+      <path d="M21 12a9 9 0 00-9-9" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 function GoogleIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24">
@@ -51,6 +60,11 @@ export default function SignupPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+  const [socialLoading, setSocialLoading] = useState<"google" | "kakao" | null>(null);
+  function handleSocial(provider: "google" | "kakao") {
+    setSocialLoading(provider); // 클릭 즉시 스피너
+    signIn(provider, { callbackUrl: "/onboarding" });
+  }
 
   const pwValid = form.password.length >= 8 && /[A-Za-z]/.test(form.password) && /[0-9]/.test(form.password);
   const canSubmit = form.email && pwValid && form.nickname.trim() && agreed;
@@ -128,18 +142,20 @@ export default function SignupPage() {
         {/* Social signup */}
         <div className="flex flex-col gap-3">
           <button
-            onClick={() => signIn("google", { callbackUrl: "/onboarding" })}
-            className="w-full flex items-center justify-center gap-3 bg-white border border-[#E5DFD4] rounded-xl py-3.5 text-sm font-medium text-[#1A1A18] shadow-sm active:scale-[0.97] transition-all"
+            onClick={() => handleSocial("google")}
+            disabled={socialLoading !== null}
+            className="w-full flex items-center justify-center gap-3 bg-white border border-[#E5DFD4] rounded-xl py-3.5 text-sm font-medium text-[#1A1A18] shadow-sm active:scale-[0.97] transition-all disabled:opacity-60"
           >
-            <GoogleIcon />
-            Google로 시작하기
+            {socialLoading === "google" ? <Spinner /> : <GoogleIcon />}
+            {socialLoading === "google" ? "연결 중..." : "Google로 시작하기"}
           </button>
           <button
-            onClick={() => signIn("kakao", { callbackUrl: "/onboarding" })}
-            className="w-full flex items-center justify-center gap-3 bg-[#FEE500] rounded-xl py-3.5 text-sm font-medium text-[#1A1A18] shadow-sm active:scale-[0.97] transition-all"
+            onClick={() => handleSocial("kakao")}
+            disabled={socialLoading !== null}
+            className="w-full flex items-center justify-center gap-3 bg-[#FEE500] rounded-xl py-3.5 text-sm font-medium text-[#1A1A18] shadow-sm active:scale-[0.97] transition-all disabled:opacity-60"
           >
-            <KakaoIcon />
-            카카오로 시작하기
+            {socialLoading === "kakao" ? <Spinner /> : <KakaoIcon />}
+            {socialLoading === "kakao" ? "연결 중..." : "카카오로 시작하기"}
           </button>
         </div>
 

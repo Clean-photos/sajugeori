@@ -72,7 +72,7 @@ export default function SubscribePage() {
     <div className="min-h-screen bg-[#F6F1E7] flex flex-col">
       <header className="px-5 pt-14 pb-6 bg-[#1F3D34] text-white">
         <p className="text-xs opacity-70 mb-1">프리미엄 구독</p>
-        <h1 className="font-serif text-2xl font-bold">Captique 프리미엄</h1>
+        <h1 className="font-serif text-2xl font-bold">사주거리 프리미엄</h1>
       </header>
 
       <div className="flex-1 px-5 py-7 max-w-sm mx-auto w-full flex flex-col gap-5">

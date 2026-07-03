@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { AdGate } from "../AdGate";
 
 type Step = "form" | "ad" | "result";
 
@@ -25,22 +26,16 @@ export default function FreeCompatibilityPage() {
     context: "romance",
   });
   const [result, setResult] = useState("");
-  const [adCount, setAdCount] = useState(0);
 
-  async function watchAd() {
+  function watchAd() {
     setStep("ad");
-    for (let i = 1; i <= 3; i++) {
-      await new Promise((r) => setTimeout(r, 500));
-      setAdCount(i);
-    }
-    await fetchReport();
   }
 
-  async function fetchReport() {
+  async function fetchReport(adToken: string) {
     const res = await fetch("/api/free/compatibility", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...form, ad_token: "mock-token" }),
+      body: JSON.stringify({ ...form, ad_token: adToken }),
     });
     setResult(await res.text());
     setStep("result");
@@ -137,21 +132,7 @@ export default function FreeCompatibilityPage() {
   }
 
   if (step === "ad") {
-    return (
-      <div className="min-h-screen flex items-center justify-center flex-col gap-6 bg-[#0E2521]">
-        <div className="relative w-24 h-24 flex items-center justify-center">
-          <div className="absolute inset-0 rounded-full bg-[#C8743A]/20 animate-ping" />
-          <div className="w-20 h-20 rounded-full bg-[#1F3D34] border-2 border-[#C8743A]/40 flex items-center justify-center text-4xl">📺</div>
-        </div>
-        <div className="text-center">
-          <p className="text-white font-medium mb-1">광고 시청 중...</p>
-          <p className="text-white/40 text-sm">잠시만 기다려 주세요</p>
-        </div>
-        <div className="w-48 h-1 bg-white/10 rounded-full overflow-hidden">
-          <div className="h-full bg-[#C8743A] rounded-full transition-all duration-500" style={{ width: `${(adCount / 3) * 100}%` }} />
-        </div>
-      </div>
-    );
+    return <AdGate onComplete={fetchReport} />;
   }
 
   return (

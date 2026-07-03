@@ -1,12 +1,13 @@
 import type { AdRewardProvider } from "./types";
 
 export function getAdRewardProvider(): AdRewardProvider {
-  if (process.env.AD_PROVIDER === "mock" || process.env.NODE_ENV !== "production") {
+  // AD_PROVIDER=mock일 때만 mock(무조건 통과). 그 외엔 DB 1회용 토큰 검증(dev·prod 공통).
+  if (process.env.AD_PROVIDER === "mock") {
     const { MockAdReward } = require("./mock");
     return new MockAdReward();
   }
-  // TODO: swap in real AdSense rewarded provider
-  throw new Error("Production ad reward provider not configured");
+  const { DbAdReward } = require("./db");
+  return new DbAdReward();
 }
 
 export type { AdRewardProvider };
