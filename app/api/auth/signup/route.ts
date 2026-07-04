@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { createHash } from "crypto";
 import { supabaseAdmin } from "@/lib/db/client";
+import { hashPassword } from "@/lib/auth/password";
 
 const SignupSchema = z.object({
   email: z.string().email("유효한 이메일을 입력하세요"),
@@ -13,12 +13,6 @@ const SignupSchema = z.object({
   nickname: z.string().min(1, "별명을 입력하세요").max(20, "별명은 20자 이하여야 합니다"),
   agreed: z.literal(true, { errorMap: () => ({ message: "약관에 동의해야 합니다" }) }),
 });
-
-function hashPassword(password: string): string {
-  // SHA-256 + salt (production에서는 bcrypt 권장)
-  const salt = process.env.AUTH_SECRET!.slice(0, 16);
-  return createHash("sha256").update(salt + password).digest("hex");
-}
 
 export async function POST(req: NextRequest) {
   const body = await req.json();

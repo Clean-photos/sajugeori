@@ -2,16 +2,11 @@ import NextAuth, { CredentialsSignin } from "next-auth";
 import Google from "next-auth/providers/google";
 import Kakao from "next-auth/providers/kakao";
 import Credentials from "next-auth/providers/credentials";
-import { createHash } from "crypto";
 import { supabaseAdmin } from "@/lib/db/client";
+import { hashPassword } from "@/lib/auth/password";
 
 class InvalidCredentials extends CredentialsSignin {
   code = "invalid_credentials";
-}
-
-function hashPassword(password: string): string {
-  const salt = process.env.AUTH_SECRET!.slice(0, 16);
-  return createHash("sha256").update(salt + password).digest("hex");
 }
 
 export const { handlers: { GET, POST }, auth, signIn, signOut } = NextAuth({

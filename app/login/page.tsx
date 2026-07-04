@@ -156,6 +156,9 @@ function LoginInner() {
               )}
             </button>
           </div>
+          <Link href="/forgot-password" className="text-xs text-[#6B6661] text-right -mt-1 underline underline-offset-2">
+            비밀번호를 잊으셨나요?
+          </Link>
 
           {error && (
             <p className="text-xs text-[#C0392B] px-1">{error}</p>
