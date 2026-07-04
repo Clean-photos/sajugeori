@@ -41,7 +41,8 @@ function OnboardingInner() {
         }),
       });
       if (!res.ok) throw new Error("계산 실패");
-      router.push(from === "street" ? "/street" : "/street");
+      // 사주거리 잠금에서 등록하러 온 경우만 사주거리로, 그 외 일반 등록은 홈으로
+      router.push(from === "street" ? "/street" : "/");
     } catch {
       alert("오류가 발생했습니다. 다시 시도해주세요.");
     } finally {
@@ -114,7 +115,7 @@ function OnboardingInner() {
               }}
               className="w-full border border-[#E5DFD4] rounded-xl px-4 py-4 text-base bg-[#FBF8F2] focus:outline-none focus:border-[#1F3D34] focus:ring-2 focus:ring-[#1F3D34]/10 transition-all tracking-widest"
             />
-            <p className="text-xs text-[#6B6661]">예: 1990-05-23 · 양력/음력은 다음 단계에서 선택합니다</p>
+            <p className="text-xs text-[#6B6661]">예: 1990-05-23</p>
           </div>
         )}
 

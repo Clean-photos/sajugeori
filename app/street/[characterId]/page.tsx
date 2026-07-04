@@ -89,12 +89,23 @@ export default function CharacterRoomPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
+  // 무료 체험 상태: premium이면 배너 숨김, 아니면 remaining 표시
+  const [trial, setTrial] = useState<{ premium: boolean; limit?: number; remaining?: number } | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  useEffect(() => {
+    fetch("/api/chat/status")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d?.loggedIn) setTrial({ premium: !!d.premium, limit: d.limit, remaining: d.remaining });
+      })
+      .catch(() => {});
+  }, []);
 
   async function send() {
     const text = input.trim();
@@ -124,6 +135,13 @@ export default function CharacterRoomPage() {
       }
 
       if (!res.ok || !res.body) throw new Error("응답 오류");
+
+      // 무료 메시지 1개 소비 반영
+      setTrial((t) =>
+        t && !t.premium && typeof t.remaining === "number"
+          ? { ...t, remaining: Math.max(0, t.remaining - 1) }
+          : t
+      );
 
       setMessages([...next, { role: "assistant", content: "" }]);
       const reader = res.body.getReader();
@@ -168,6 +186,22 @@ export default function CharacterRoomPage() {
 
         <div className="w-2 h-2 rounded-full bg-[#4F7A5C] ring-2 ring-[#4F7A5C]/20" title="온라인" />
       </header>
+
+      {/* 무료 체험 배너 (비프리미엄) */}
+      {trial && !trial.premium && typeof trial.remaining === "number" && (
+        <Link
+          href="/premium"
+          className="flex-shrink-0 flex items-center justify-center gap-1.5 bg-[#C8743A]/10 border-b border-[#C8743A]/20 px-4 py-2 text-xs text-[#9A5A2A] active:opacity-70"
+        >
+          <span className="font-semibold">체험 중</span>
+          <span className="opacity-70">·</span>
+          {trial.remaining > 0 ? (
+            <span>무료 채팅 <b className="font-bold">{trial.remaining}</b>개 남았어요</span>
+          ) : (
+            <span>무료 체험이 끝났어요 · 프리미엄으로 계속하기 →</span>
+          )}
+        </Link>
+      )}
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 py-5 flex flex-col gap-4">
