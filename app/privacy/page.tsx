@@ -2,7 +2,7 @@ import Link from "next/link";
 
 const EFFECTIVE_DATE = "2026년 1월 1일";
 const SERVICE_NAME = "사주거리";
-const CONTACT_EMAIL = "privacy@saju.street";
+const CONTACT_EMAIL = "privacy@sajugeori.com";
 
 export default function PrivacyPage() {
   return (
@@ -100,7 +100,24 @@ export default function PrivacyPage() {
           <div className="h-px bg-[#E5DFD4]" />
 
           <section>
-            <h2 className="font-semibold text-base text-[#1F3D34] mb-2">5. 이용자의 권리</h2>
+            <h2 className="font-semibold text-base text-[#1F3D34] mb-2">5. 쿠키 및 광고</h2>
+            <p className="text-[#6B6661] leading-relaxed">
+              본 서비스는 무료 콘텐츠 운영을 위해 Google AdSense 등 제3자 광고 서비스를 이용할 수 있습니다.
+              Google 등 광고 제공업체는 이용자의 관심사에 맞는 광고를 제공하기 위해 쿠키를 사용하여 이 사이트 및 다른 사이트 방문 정보를 수집할 수 있습니다.
+            </p>
+            <p className="text-[#6B6661] leading-relaxed mt-2">
+              이용자는{" "}
+              <a href="https://adssettings.google.com" target="_blank" rel="noopener noreferrer" className="text-[#1F3D34] font-medium underline underline-offset-2">
+                Google 광고 설정
+              </a>
+              에서 맞춤 광고를 거부할 수 있으며, 브라우저 설정에서 쿠키 사용을 차단할 수 있습니다.
+            </p>
+          </section>
+
+          <div className="h-px bg-[#E5DFD4]" />
+
+          <section>
+            <h2 className="font-semibold text-base text-[#1F3D34] mb-2">6. 이용자의 권리</h2>
             <p className="text-[#6B6661] leading-relaxed">
               이용자는 언제든지 자신의 개인정보를 조회하거나 수정, 삭제를 요청할 수 있습니다. 계정 설정 또는 아래 이메일로 요청하시면 5 영업일 이내에 처리합니다.
             </p>
@@ -109,7 +126,7 @@ export default function PrivacyPage() {
           <div className="h-px bg-[#E5DFD4]" />
 
           <section>
-            <h2 className="font-semibold text-base text-[#1F3D34] mb-2">6. 개인정보 보호책임자</h2>
+            <h2 className="font-semibold text-base text-[#1F3D34] mb-2">7. 개인정보 보호책임자</h2>
             <div className="bg-[#F6F1E7] rounded-xl p-4 text-[#6B6661] text-sm">
               <p>서비스명: {SERVICE_NAME}</p>
               <p className="mt-1">

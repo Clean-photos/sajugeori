@@ -2,7 +2,7 @@ import Link from "next/link";
 
 const EFFECTIVE_DATE = "2026년 1월 1일";
 const SERVICE_NAME = "사주거리";
-const CONTACT_EMAIL = "support@saju.street";
+const CONTACT_EMAIL = "support@sajugeori.com";
 
 export default function TermsPage() {
   return (
@@ -158,7 +158,17 @@ export default function TermsPage() {
           <div className="h-px bg-[#E5DFD4]" />
 
           <section>
-            <h2 className="font-semibold text-base text-[#1F3D34] mb-2">8. 문의</h2>
+            <h2 className="font-semibold text-base text-[#1F3D34] mb-2">8. 사업자 정보</h2>
+            <p className="text-[#6B6661] leading-relaxed">
+              본 서비스는 개인 운영자가 제공하며, 현재 통신판매업 신고 전 단계입니다.
+              사업자등록번호 등 상세 사업자 정보는 등록 완료 후 본 페이지에 게시합니다.
+            </p>
+          </section>
+
+          <div className="h-px bg-[#E5DFD4]" />
+
+          <section>
+            <h2 className="font-semibold text-base text-[#1F3D34] mb-2">9. 문의</h2>
             <div className="bg-[#F6F1E7] rounded-xl p-4 text-[#6B6661]">
               <p>서비스명: {SERVICE_NAME}</p>
               <p className="mt-1">
