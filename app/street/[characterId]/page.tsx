@@ -24,41 +24,76 @@ function ChatText({ text }: { text: string }) {
   );
 }
 
-const CHARACTER_META: Record<string, { name: string; emoji: string; color: string; bgColor: string; greeting: string }> = {
+const CHARACTER_META: Record<string, { name: string; emoji: string; color: string; bgColor: string; greetings: string[] }> = {
   sobaeksan_grandma: {
     name: "소백산 할머니",
     emoji: "👵",
     color: "#4F7A5C",
     bgColor: "#4F7A5C14",
-    greeting: "아이고 어서 오너라~ 무엇이 궁금하냐?",
+    greetings: [
+      "왔느냐, 뭐가 그리 궁금해서 이 할미를 찾아왔을꼬.",
+      "아이고 아가야, 어서 오너라. 오늘은 무슨 바람이 불었느냐.",
+      "그래, 마침 잘 왔다. 무엇이 마음에 걸리느냐.",
+      "이 할미한테 다 털어놓거라. 뭐가 궁금한 게냐.",
+      "어서 와 앉거라. 차 한잔 내오는 셈 치고 얘기해보렴.",
+      "오냐오냐, 얼굴 보니 좋구나. 무슨 일로 왔느냐.",
+    ],
   },
   bulte_doryeong: {
     name: "뿔테도령",
     emoji: "🤓",
     color: "#1F3D34",
     bgColor: "#1F3D3414",
-    greeting: "안녕하십니까. 무엇을 분석해 드릴까요?",
+    greetings: [
+      "안녕하십니까. 무엇을 분석해 드릴까요?",
+      "어서 오십시오. 궁금한 점을 차분히 말씀해 주십시오.",
+      "반갑습니다. 오늘은 어떤 사안을 살펴볼까요?",
+      "편히 앉으시지요. 무엇이 궁금하신지 여쭙겠습니다.",
+      "잘 오셨습니다. 하나씩 정리해 드리겠습니다.",
+      "무엇이든 물어보십시오. 근거를 들어 말씀드리겠습니다.",
+    ],
   },
   tsundere_seonnyeo: {
     name: "츤데레선녀",
     emoji: "🧚",
     color: "#7B5EA7",
     bgColor: "#7B5EA714",
-    greeting: "흥, 뭐가 궁금한 거야. 빨리 말해.",
+    greetings: [
+      "뭐가 궁금해서 왔어? 빨리 말해봐.",
+      "흥, 또 왔네. ...뭐, 왔으니까 봐줄게.",
+      "왜, 무슨 일인데. 뜸 들이지 말고.",
+      "뭐야 그 표정은. 할 말 있으면 해.",
+      "됐고, 궁금한 거나 말해. 시간 없어.",
+      "...왔으면 앉든가. 뭐 물어보려고 온 거잖아.",
+    ],
   },
   tla_misuk_robot: {
     name: "T라미숙로봇",
     emoji: "🤖",
     color: "#2563EB",
     bgColor: "#2563EB14",
-    greeting: "분석 대기 중. 질문을 입력하십시오.",
+    greetings: [
+      "분석 대기 중. 질문을 입력하십시오.",
+      "시스템 가동. 요청 사항 접수 준비 완료.",
+      "접속 확인. 무엇을 분석할지 입력 요망.",
+      "대기 상태. 데이터 입력을 기다립니다.",
+      "가동 준비 완료. 질의 입력 시 분석 개시.",
+      "세션 시작. 처리할 항목을 입력하십시오.",
+    ],
   },
   daewang_f_hamzzi: {
     name: "대왕F햄찌",
     emoji: "🐹",
     color: "#C8743A",
     bgColor: "#C8743A14",
-    greeting: "어서 와어어~!! 뭐든지 물어봐!! 🐹",
+    greetings: [
+      "어서 와어어~!! 뭐든지 물어봐!! 🐹",
+      "왔햄?? 기다렸어어 ㅠㅠ 오늘 뭐 궁금해?",
+      "헤헤 반가워어! 무슨 얘기 하고 싶햄?",
+      "왔구나 왔구나~ 편하게 다 말해도 돼햄!",
+      "오늘도 와줘서 고마워어🫳 뭐가 궁금해?",
+      "햄찌 여기 있어! 무슨 고민이든 말해봐햄!",
+    ],
   },
 };
 
@@ -84,8 +119,10 @@ export default function CharacterRoomPage() {
     emoji: "🔮",
     color: "#1F3D34",
     bgColor: "#1F3D3414",
-    greeting: "안녕하세요. 무엇이 궁금하신가요?",
+    greetings: ["안녕하세요. 무엇이 궁금하신가요?"],
   };
+  // 방 입장 때마다 인사말을 랜덤으로 하나 골라 고정 (매 렌더마다 안 바뀌게)
+  const [greeting] = useState(() => meta.greetings[Math.floor(Math.random() * meta.greetings.length)]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
@@ -215,7 +252,7 @@ export default function CharacterRoomPage() {
               {meta.emoji}
             </div>
             <div className="bg-[#FBF8F2] border border-[#E5DFD4] rounded-2xl rounded-tl-md px-4 py-2.5 text-sm text-[#1A1A18] leading-relaxed shadow-sm">
-              {meta.greeting}
+              {greeting}
             </div>
           </div>
         </div>
