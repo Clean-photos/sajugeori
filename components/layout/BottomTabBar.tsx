@@ -55,13 +55,20 @@ const TABS = [
   },
 ];
 
-export function BottomTabBar() {
+export function BottomTabBar({ dark = false }: { dark?: boolean }) {
   const pathname = usePathname();
+
+  const activeColor = dark ? "#F6F1E7" : "#1F3D34";
+  const inactiveColor = dark ? "#8FA39C" : "#6B6661";
 
   return (
     <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[480px] z-50">
       {/* Blur backdrop */}
-      <div className="absolute inset-0 bg-white/90 backdrop-blur-md border-t border-[#E5DFD4]" />
+      <div
+        className={`absolute inset-0 backdrop-blur-md border-t ${
+          dark ? "bg-[#0E2521]/90 border-[#2A4742]" : "bg-white/90 border-[#E5DFD4]"
+        }`}
+      />
       <div className="relative flex">
         {TABS.map((tab) => {
           const active = pathname === tab.href || (tab.href !== "/" && pathname.startsWith(tab.href));
@@ -72,21 +79,22 @@ export function BottomTabBar() {
               className="flex-1 flex flex-col items-center pt-2.5 pb-3 gap-1"
             >
               <span
-                className={`transition-all duration-200 ${
-                  active ? "text-[#1F3D34] scale-110" : "text-[#6B6661]"
-                }`}
+                className="transition-all duration-200"
+                style={{ color: active ? activeColor : inactiveColor, transform: active ? "scale(1.1)" : undefined }}
               >
                 {tab.icon}
               </span>
               <span
-                className={`text-[10px] font-medium tracking-tight transition-colors ${
-                  active ? "text-[#1F3D34]" : "text-[#6B6661]"
-                }`}
+                className="text-[10px] font-medium tracking-tight transition-colors"
+                style={{ color: active ? activeColor : inactiveColor }}
               >
                 {tab.label}
               </span>
               {active && (
-                <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-4 h-0.5 rounded-full bg-[#1F3D34]" style={{ bottom: 2 }} />
+                <span
+                  className="absolute bottom-0 left-1/2 -translate-x-1/2 w-4 h-0.5 rounded-full"
+                  style={{ bottom: 2, backgroundColor: activeColor }}
+                />
               )}
             </Link>
           );
