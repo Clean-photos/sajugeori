@@ -1,7 +1,7 @@
 import { supabaseAdmin } from "@/lib/db/client";
 
 // 무료 사용자가 사주거리 채팅에서 보낼 수 있는 누적 메시지 수 (전체 캐릭터 합산)
-export const FREE_CHAT_MESSAGE_LIMIT = 10;
+export const FREE_CHAT_MESSAGE_LIMIT = 20;
 
 /** 활성 구독(프리미엄) 여부. expires_at이 미래인 active 구독이 있으면 true. */
 export async function isPremiumUser(userId: string): Promise<boolean> {
