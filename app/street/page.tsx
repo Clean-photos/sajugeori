@@ -69,14 +69,14 @@ export default async function StreetPage() {
 
       {/* Header */}
       <header className="relative px-6 pt-14 pb-5 text-center">
-        <p className="text-[10px] font-medium tracking-[0.28em] text-[#D98A52] uppercase mb-2">
-          사주 거리 · 夜市
+        <p className="text-[11px] font-medium tracking-[0.2em] text-[#D98A52] mb-2">
+          사주거리에 잘 오셨습니다
         </p>
-        <h1 className="font-serif text-[24px] font-bold text-[#F6F1E7] leading-tight">
+        <h1 className="font-serif text-[27px] font-bold text-[#F6F1E7] leading-tight">
           어느 집을 두드릴까요
         </h1>
         <div className="w-14 h-px mx-auto mt-2.5 bg-gradient-to-r from-transparent via-[#D98A52] to-transparent" />
-        <p className="text-xs text-[#8FA39C] mt-2.5">창호에 불빛이 비치면, 안에 역술가가 있어요</p>
+        <p className="text-sm text-[#8FA39C] mt-2.5">창호에 불빛이 비치면, 안에 역술가가 있어요</p>
       </header>
 
       {/* 잠금 배너 */}
@@ -103,7 +103,7 @@ export default async function StreetPage() {
       )}
 
       {/* Character Houses */}
-      <div className="relative px-4 flex flex-col gap-2.5">
+      <div className="relative px-8 flex flex-col gap-2.5">
         {CHARACTERS.map((char, i) => {
           const card = (
             <div
@@ -136,12 +136,23 @@ export default async function StreetPage() {
 
               <div className="flex-1 min-w-0 flex flex-col justify-center">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <p className="font-semibold text-[14px] text-[#F6F1E7]">{char.name}</p>
-                  <span className="text-[9px] font-medium px-2 py-0.5 rounded-full bg-[#D98A5222] text-[#D98A52]">
+                  <p className="font-semibold text-[17px] text-[#F6F1E7]">{char.name}</p>
+                  <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-[#D98A5222] text-[#D98A52]">
                     {char.tone}
                   </span>
                 </div>
-                <p className="text-[11px] text-[#8FA39C] mt-1 leading-snug">{char.tagline}</p>
+                <p className="text-[13px] text-[#8FA39C] mt-1.5 leading-snug">{char.tagline}</p>
+              </div>
+
+              <div className="flex-shrink-0 flex items-center pr-1">
+                <div className="w-11 h-11 rounded-full flex items-center justify-center bg-[#D98A5218] border border-[#D98A5233]">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#D98A52" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    {locked
+                      ? <><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></>
+                      : <path d="M5 12h14M12 5l7 7-7 7"/>
+                    }
+                  </svg>
+                </div>
               </div>
             </div>
           );
