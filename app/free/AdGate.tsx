@@ -72,7 +72,7 @@ export function AdGate({ onComplete }: { onComplete: (token: string) => void }) 
   const progress = ((COUNTDOWN_SECONDS - remaining) / COUNTDOWN_SECONDS) * 100;
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center gap-6 bg-[#0E2521] px-6">
+    <div className="min-h-screen flex flex-col items-center justify-center gap-7 bg-[#0E2521] px-6 py-16">
       <p className="text-white/80 text-sm">광고 시청 중... {remaining > 0 ? `${remaining}초` : "완료"}</p>
 
       {/* 광고 영역 */}
