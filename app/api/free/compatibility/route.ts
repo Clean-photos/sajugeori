@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
     const otherChart = buildChart(otherIso, other_gender ?? "F", false);
     const pair = pairAnalysis(meChart, otherChart, "나", "상대", context ?? "romance");
 
-    normalizedScore = Math.min(100, Math.max(0, Math.round(50 + pair.score * 6)));
+    normalizedScore = Math.min(100, Math.max(0, Math.round(38 + pair.score * 6)));
     engineData = `궁합 점수: ${normalizedScore}/100\n분석 포인트:\n${pair.notes.map((n) => `- ${n}`).join("\n")}`;
   } catch {
     engineData = "엔진 데이터 없음 — 일반적인 사주 궁합 이론으로 분석";
