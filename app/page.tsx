@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { BottomTabBar } from "@/components/layout/BottomTabBar";
+import { BannerAd } from "@/components/ads/BannerAd";
 import { HeaderAuth } from "./HeaderAuth";
 
 const MENU_CARDS = [
@@ -99,6 +100,11 @@ export default async function HomePage() {
             </div>
           </Link>
         ))}
+      </section>
+
+      {/* Banner Ad */}
+      <section className="px-4 mb-4">
+        <BannerAd />
       </section>
 
       {/* Divider */}
