@@ -7,6 +7,8 @@ import * as C from "./constants";
 export { buildChart, calcYearPillar, calcDayPillar, stemBranchKr } from "./engine";
 export { buildFacts, coreStructureTags, strengthsAndWeaknesses, daewoonNarrative } from "./facts";
 export { pairAnalysis } from "./compatibility";
+export { scoreDate, rankDates } from "./taekil";
+export type { TaekilPurpose, DayScore, TaekilResult } from "./taekil";
 export type { SajuChart, Pillar, Pillars, StrengthResult, YongsinResult, DaewoonResult, SalEntry } from "./engine";
 
 import { buildChart } from "./engine";
