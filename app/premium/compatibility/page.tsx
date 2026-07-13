@@ -1,5 +1,10 @@
-import { ComingSoon } from "../_ComingSoon";
+import { PremiumGate } from "../_PremiumGate";
+import { CompatForm } from "./CompatForm";
 
 export default function PremiumCompatibilityPage() {
-  return <ComingSoon title="프리미엄 궁합" description="두 사람의 사주를 심층 분석해드려요" />;
+  return (
+    <PremiumGate title="프리미엄 궁합" subtitle="내 사주와 상대를 양방향으로 심층 분석" path="/premium/compatibility">
+      <CompatForm />
+    </PremiumGate>
+  );
 }

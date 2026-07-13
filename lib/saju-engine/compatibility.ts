@@ -97,3 +97,25 @@ export function pairAnalysis(a: SajuChart, b: SajuChart, aName = "A", bName = "B
 
   return { from: aName, to: bName, context, score: Math.round(score*100)/100, notes, details };
 }
+
+/**
+ * 양방향 궁합 분석. pairAnalysis는 A 기준으로만 계산(B가 A에게 해주는 것)하므로,
+ * 프리미엄에서는 나→상대 / 상대→나 두 방향을 모두 돌려 "서로 주고받는 것"을 본다.
+ * 천간·일지 항목은 대칭이라 양방향 동일, 오행 보완·용신 공급만 방향에 따라 달라진다.
+ */
+export function mutualAnalysis(
+  a: SajuChart, b: SajuChart,
+  aName = "나", bName = "상대",
+  context: CompatContext = "romance"
+) {
+  const forA = pairAnalysis(a, b, aName, bName, context); // 상대(b)가 나(a)에게 해주는 것
+  const forB = pairAnalysis(b, a, bName, aName, context); // 내(a)가 상대(b)에게 해주는 것
+  const combined = (forA.score + forB.score) / 2;
+  return {
+    context,
+    combinedScore: Math.round(combined * 100) / 100,
+    // 상대가 나에게 (forA) / 내가 상대에게 (forB)
+    partnerToMe: forA,
+    meToPartner: forB,
+  };
+}
