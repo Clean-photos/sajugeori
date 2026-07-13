@@ -2,6 +2,8 @@ import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { BottomTabBar } from "@/components/layout/BottomTabBar";
 import { BannerAd } from "@/components/ads/BannerAd";
+import { SiteFooter } from "@/components/layout/SiteFooter";
+import { ARTICLES } from "./guide/articles";
 import { HeaderAuth } from "./HeaderAuth";
 
 const MENU_CARDS = [
@@ -207,6 +209,25 @@ export default async function HomePage() {
         </div>
       </section>
 
+      {/* 읽을거리 */}
+      <section className="px-4 mt-6">
+        <div className="flex items-center justify-between mb-3 px-1">
+          <p className="text-sm font-semibold text-[#1F3D34]">사주 읽을거리</p>
+          <Link href="/guide" className="text-xs font-medium text-[#C8743A]">전체보기 →</Link>
+        </div>
+        <div className="flex flex-col gap-2.5">
+          {ARTICLES.slice(0, 3).map((a) => (
+            <Link key={a.slug} href={`/guide/${a.slug}`}>
+              <div className="bg-[#FBF8F2] border border-[#E5DFD4] rounded-xl px-4 py-3 active:scale-[0.98] transition-all">
+                <p className="text-sm font-semibold text-[#1A1A18]">{a.title}</p>
+                <p className="text-xs text-[#6B6661] mt-0.5 leading-snug">{a.summary}</p>
+              </div>
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      <SiteFooter />
       <BottomTabBar />
     </div>
   );
