@@ -3,6 +3,7 @@ import Script from "next/script";
 import "./globals.css";
 
 const ADSENSE_CLIENT = process.env.NEXT_PUBLIC_ADSENSE_CLIENT;
+const GA4_ID = process.env.NEXT_PUBLIC_GA4_ID;
 
 export const metadata: Metadata = {
   title: "사주거리",
@@ -43,6 +44,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             crossOrigin="anonymous"
             strategy="beforeInteractive"
           />
+        )}
+        {GA4_ID && (
+          <>
+            <Script src={`https://www.googletagmanager.com/gtag/js?id=${GA4_ID}`} strategy="afterInteractive" />
+            <Script id="ga4" strategy="afterInteractive">
+              {`window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','${GA4_ID}');`}
+            </Script>
+          </>
         )}
       </head>
       <body>
