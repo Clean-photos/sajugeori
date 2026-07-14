@@ -73,12 +73,12 @@ export async function POST(req: NextRequest) {
     const extended = new Date(base + plan.days * 24 * 60 * 60 * 1000).toISOString();
     await supabaseAdmin
       .from("subscriptions")
-      .update({ plan: plan.id, expires_at: extended, status: "active" })
+      .update({ plan: plan.id, expires_at: extended, status: "active", order_id: orderId, payment_key: paymentKey })
       .eq("id", existing.id);
   } else {
     await supabaseAdmin
       .from("subscriptions")
-      .insert({ user_id: userId, status: "active", plan: plan.id, expires_at: expiresAt });
+      .insert({ user_id: userId, status: "active", plan: plan.id, expires_at: expiresAt, order_id: orderId, payment_key: paymentKey });
   }
 
   return NextResponse.json({ ok: true, plan: plan.id, expires_at: expiresAt });
