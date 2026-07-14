@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { cleanReportText } from "@/lib/report-format";
 
 type Step = "form" | "loading" | "result";
 
@@ -26,7 +27,7 @@ export function YearlyForm() {
         setStep("form");
         return;
       }
-      setReport(data.report);
+      setReport(cleanReportText(data.report));
       setStep("result");
     } catch {
       setError("네트워크 오류가 발생했습니다.");

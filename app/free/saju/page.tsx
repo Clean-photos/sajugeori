@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { AdGate } from "../AdGate";
+import { cleanReportText } from "@/lib/report-format";
 
 type Step = "form" | "ad" | "result";
 
@@ -37,7 +38,7 @@ export default function FreeSajuPage() {
       }),
     });
     const text = await res.text();
-    setResult(text);
+    setResult(cleanReportText(text));
     setStep("result");
   }
 

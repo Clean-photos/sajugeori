@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { cleanReportText } from "@/lib/report-format";
 
 type Step = "form" | "loading" | "result";
 
@@ -50,7 +51,7 @@ export function TaekilForm() {
         setStep("form");
         return;
       }
-      setReport(data.report);
+      setReport(cleanReportText(data.report));
       setBest(data.best ?? []);
       setStep("result");
     } catch {

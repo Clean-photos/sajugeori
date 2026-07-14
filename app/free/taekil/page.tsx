@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { AdGate } from "../AdGate";
+import { cleanReportText } from "@/lib/report-format";
 
 type Step = "form" | "ad" | "result";
 
@@ -49,7 +50,7 @@ export default function FreeTaekilPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...form, ad_token: adToken }),
     });
-    setResult(await res.text());
+    setResult(cleanReportText(await res.text()));
     setStep("result");
   }
 

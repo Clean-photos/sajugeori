@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { cleanReportText } from "@/lib/report-format";
 
 const SECTIONS: { id: string; label: string; icon: string }[] = [
   { id: "personality", label: "타고난 성격·기질", icon: "🧠" },
@@ -31,7 +32,9 @@ export function PremiumReport() {
         setError(data?.error === "profile_required" ? "먼저 사주를 등록해 주세요." : (data?.error ?? "불러오지 못했습니다."));
         return;
       }
-      setReport(data.report);
+      const cleaned: Report = {};
+      for (const k of Object.keys(data.report ?? {})) cleaned[k] = cleanReportText(data.report[k]);
+      setReport(cleaned);
     } catch {
       setError("풀이를 불러오지 못했습니다.");
     } finally {

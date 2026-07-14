@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { cleanReportText } from "@/lib/report-format";
 
 type Step = "form" | "loading" | "result";
 
@@ -39,7 +40,7 @@ export function CompatForm() {
         setStep("form");
         return;
       }
-      setReport(data.report);
+      setReport(cleanReportText(data.report));
       setScore(data.score ?? null);
       setStep("result");
     } catch {
