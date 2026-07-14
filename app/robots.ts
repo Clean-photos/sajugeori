@@ -8,5 +8,6 @@ export default function robots(): MetadataRoute.Robots {
       disallow: ["/api/", "/mypage", "/onboarding"],
     },
     host: "https://sajugeori.com",
+    sitemap: "https://sajugeori.com/sitemap.xml",
   };
 }
