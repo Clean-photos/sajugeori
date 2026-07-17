@@ -3,6 +3,8 @@
 import { useState, useRef, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
+import { seasonalCharacterImage } from "@/lib/season";
 
 function ChatText({ text }: { text: string }) {
   // [텍스트](url) 마크다운 링크를 <a> 로 변환
@@ -102,6 +104,37 @@ interface Message {
   content: string;
 }
 
+function CharAvatar({
+  src,
+  emoji,
+  bgColor,
+  className,
+}: {
+  src: string | null;
+  emoji: string;
+  bgColor: string;
+  className: string;
+}) {
+  return (
+    <div
+      className={`${className} overflow-hidden flex items-center justify-center flex-shrink-0`}
+      style={{ backgroundColor: bgColor }}
+    >
+      {src ? (
+        <Image
+          src={src}
+          alt=""
+          width={80}
+          height={80}
+          className="w-full h-full object-cover object-[50%_25%]"
+        />
+      ) : (
+        emoji
+      )}
+    </div>
+  );
+}
+
 function TypingIndicator() {
   return (
     <div className="flex gap-1.5 items-center px-4 py-3">
@@ -123,6 +156,8 @@ export default function CharacterRoomPage() {
   };
   // 방 입장 때마다 인사말을 랜덤으로 하나 골라 고정 (매 렌더마다 안 바뀌게)
   const [greeting] = useState(() => meta.greetings[Math.floor(Math.random() * meta.greetings.length)]);
+  // 알려진 캐릭터만 시즌 프로필 이미지 사용, 그 외엔 이모지 폴백
+  const avatarSrc = characterId in CHARACTER_META ? seasonalCharacterImage(characterId) : null;
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
@@ -209,12 +244,12 @@ export default function CharacterRoomPage() {
           </svg>
         </Link>
 
-        <div
-          className="w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0 border border-[#E5DFD4]"
-          style={{ backgroundColor: meta.bgColor }}
-        >
-          {meta.emoji}
-        </div>
+        <CharAvatar
+          src={avatarSrc}
+          emoji={meta.emoji}
+          bgColor={meta.bgColor}
+          className="w-10 h-10 rounded-xl text-xl border border-[#E5DFD4]"
+        />
 
         <div className="flex-1 min-w-0">
           <p className="font-semibold text-sm text-[#1A1A18] leading-none">{meta.name}</p>
@@ -245,12 +280,12 @@ export default function CharacterRoomPage() {
         {/* Greeting bubble */}
         <div className="flex justify-start animate-fade-up">
           <div className="flex gap-2.5 max-w-[85%]">
-            <div
-              className="w-8 h-8 rounded-full flex items-center justify-center text-base flex-shrink-0 mt-0.5"
-              style={{ backgroundColor: meta.bgColor }}
-            >
-              {meta.emoji}
-            </div>
+            <CharAvatar
+              src={avatarSrc}
+              emoji={meta.emoji}
+              bgColor={meta.bgColor}
+              className="w-8 h-8 rounded-full text-base mt-0.5"
+            />
             <div className="bg-[#FBF8F2] border border-[#E5DFD4] rounded-2xl rounded-tl-md px-4 py-2.5 text-sm text-[#1A1A18] leading-relaxed shadow-sm">
               {greeting}
             </div>
@@ -264,12 +299,12 @@ export default function CharacterRoomPage() {
           >
             {msg.role === "assistant" && (
               <div className="flex gap-2.5 max-w-[85%]">
-                <div
-                  className="w-8 h-8 rounded-full flex items-center justify-center text-base flex-shrink-0 mt-0.5"
-                  style={{ backgroundColor: meta.bgColor }}
-                >
-                  {meta.emoji}
-                </div>
+                <CharAvatar
+                  src={avatarSrc}
+                  emoji={meta.emoji}
+                  bgColor={meta.bgColor}
+                  className="w-8 h-8 rounded-full text-base mt-0.5"
+                />
                 <div className="bg-[#FBF8F2] border border-[#E5DFD4] rounded-2xl rounded-tl-md px-4 py-2.5 text-sm text-[#1A1A18] leading-relaxed shadow-sm">
                   {msg.content ? <ChatText text={msg.content} /> : <TypingIndicator />}
                 </div>
@@ -289,12 +324,12 @@ export default function CharacterRoomPage() {
         {streaming && messages[messages.length - 1]?.role !== "assistant" && (
           <div className="flex justify-start">
             <div className="flex gap-2.5">
-              <div
-                className="w-8 h-8 rounded-full flex items-center justify-center text-base"
-                style={{ backgroundColor: meta.bgColor }}
-              >
-                {meta.emoji}
-              </div>
+              <CharAvatar
+                src={avatarSrc}
+                emoji={meta.emoji}
+                bgColor={meta.bgColor}
+                className="w-8 h-8 rounded-full text-base"
+              />
               <div className="bg-[#FBF8F2] border border-[#E5DFD4] rounded-2xl rounded-tl-md px-4 py-2.5">
                 <TypingIndicator />
               </div>
