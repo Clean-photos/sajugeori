@@ -5,8 +5,12 @@ import { buildSystemPrompt } from "@/lib/character-ai/buildContext";
 import { extractAndMergeMemory } from "@/lib/character-ai/extractMemory";
 import { buildChart, toSajuCompact, runSajuEngine } from "@/lib/saju-engine";
 import { pairAnalysis } from "@/lib/saju-engine";
-import { isPremiumUser, countUserChatMessages, FREE_CHAT_MESSAGE_LIMIT } from "@/lib/billing/access";
+import { isPremiumUser, countUserChatMessages, currentMonthStartKstIso, FREE_CHAT_MESSAGE_LIMIT, PREMIUM_MONTHLY_CHAT_LIMIT } from "@/lib/billing/access";
 import type { UserMemory } from "@/types/saju";
+
+// 캐릭터 채팅 모델. 속어·뉘앙스 이해력 때문에 Sonnet 사용 (Haiku는 "출퇴근 쉣" 같은
+// 표현을 오독하는 사례가 있었음). env로 교체 가능해 비용 이슈 시 즉시 롤백 가능.
+const CHAT_MODEL = process.env.LLM_CHAT_MODEL ?? "claude-sonnet-5";
 
 function textStream(text: string) {
   return new ReadableStream({
@@ -189,7 +193,7 @@ export async function POST(
     );
   }
 
-  // ── 진입 게이트 3: 무료 한도 / 프리미엄 ────────────────
+  // ── 진입 게이트 3: 무료 한도 / 프리미엄 월간 한도 ──────
   const premium = await isPremiumUser(userId);
   if (!premium) {
     const used = await countUserChatMessages(userId);
@@ -199,6 +203,18 @@ export async function POST(
           error: "paywall",
           message: `무료 대화 ${FREE_CHAT_MESSAGE_LIMIT}회를 모두 사용했어요. 프리미엄으로 무제한 대화하세요.`,
           redirect: "/premium",
+        },
+        { status: 402 }
+      );
+    }
+  } else {
+    // 공정 사용 정책: 프리미엄도 월간 한도 적용 (매월 1일 KST 초기화)
+    const usedThisMonth = await countUserChatMessages(userId, currentMonthStartKstIso());
+    if (usedThisMonth >= PREMIUM_MONTHLY_CHAT_LIMIT) {
+      return NextResponse.json(
+        {
+          error: "monthly_limit",
+          message: `이번 달 대화 한도(${PREMIUM_MONTHLY_CHAT_LIMIT.toLocaleString()}회)에 도달했어요. 다음 달 1일에 다시 이용할 수 있습니다.`,
         },
         { status: 402 }
       );
@@ -301,8 +317,10 @@ export async function POST(
       try {
         // 1차 호출 (툴 사용 가능)
         const firstResponse = await client.messages.create({
-          model: "claude-haiku-4-5-20251001",
+          model: CHAT_MODEL,
           max_tokens: 1200,
+          // Sonnet 5는 thinking 생략 시 적응형 사고가 기본 — 채팅 지연/비용 때문에 명시적으로 끔
+          thinking: { type: "disabled" },
           system: systemBlocks,
           tools: TOOLS as unknown as Parameters<typeof client.messages.create>[0]["tools"],
           messages: withCacheBreakpoint(messages) as Parameters<typeof client.messages.create>[0]["messages"],
@@ -325,8 +343,9 @@ export async function POST(
 
           // 2차 호출 — 툴 결과 포함하여 최종 응답 스트리밍
           const secondStream = client.messages.stream({
-            model: "claude-haiku-4-5-20251001",
+            model: CHAT_MODEL,
             max_tokens: 1200,
+            thinking: { type: "disabled" },
             system: systemBlocks,
             messages: [
               ...messages.map((m) => ({ role: m.role, content: m.content })),
