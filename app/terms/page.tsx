@@ -139,7 +139,20 @@ export default function TermsPage() {
           <div className="h-px bg-[#E5DFD4]" />
 
           <section>
-            <h2 className="font-semibold text-base text-[#1F3D34] mb-2">6. 서비스 변경 및 중단</h2>
+            <h2 className="font-semibold text-base text-[#1F3D34] mb-2">6. 이용 한도 (공정 사용 정책)</h2>
+            <p className="text-[#6B6661] leading-relaxed">
+              안정적인 서비스 제공을 위해 일부 기능에는 공정 사용 정책에 따른 이용 한도가 적용됩니다.
+              무료 회원의 AI 역술가 대화는 누적 20회, 유료(프리미엄) 회원의 AI 역술가 대화는
+              월 1,000회(매월 1일 0시 한국 시간 기준 초기화)로 제한됩니다.
+              한도에 도달한 경우 해당 기능 이용이 일시 제한되며, 유료 회원의 한도는 다음 달 1일에 자동으로 초기화됩니다.
+              서비스는 운영 상황에 따라 한도를 변경할 수 있으며, 변경 시 서비스 내 공지 등으로 안내합니다.
+            </p>
+          </section>
+
+          <div className="h-px bg-[#E5DFD4]" />
+
+          <section>
+            <h2 className="font-semibold text-base text-[#1F3D34] mb-2">7. 서비스 변경 및 중단</h2>
             <p className="text-[#6B6661] leading-relaxed">
               서비스는 운영상·기술상 필요에 따라 서비스 내용을 변경하거나 중단할 수 있습니다.
               중요한 변경 사항은 서비스 내 공지 또는 등록된 이메일로 사전 안내합니다.
@@ -149,7 +162,7 @@ export default function TermsPage() {
           <div className="h-px bg-[#E5DFD4]" />
 
           <section>
-            <h2 className="font-semibold text-base text-[#1F3D34] mb-2">7. 준거법 및 관할</h2>
+            <h2 className="font-semibold text-base text-[#1F3D34] mb-2">8. 준거법 및 관할</h2>
             <p className="text-[#6B6661] leading-relaxed">
               본 약관은 대한민국 법령에 따라 해석되며, 분쟁 발생 시 서비스 소재지 관할 법원을 전속 관할 법원으로 합니다.
             </p>
@@ -158,7 +171,7 @@ export default function TermsPage() {
           <div className="h-px bg-[#E5DFD4]" />
 
           <section>
-            <h2 className="font-semibold text-base text-[#1F3D34] mb-2">8. 사업자 정보</h2>
+            <h2 className="font-semibold text-base text-[#1F3D34] mb-2">9. 사업자 정보</h2>
             <p className="text-[#6B6661] leading-relaxed">
               본 서비스는 개인 운영자가 제공하며, 현재 통신판매업 신고 전 단계입니다.
               사업자등록번호 등 상세 사업자 정보는 등록 완료 후 본 페이지에 게시합니다.
@@ -168,7 +181,7 @@ export default function TermsPage() {
           <div className="h-px bg-[#E5DFD4]" />
 
           <section>
-            <h2 className="font-semibold text-base text-[#1F3D34] mb-2">9. 문의</h2>
+            <h2 className="font-semibold text-base text-[#1F3D34] mb-2">10. 문의</h2>
             <div className="bg-[#F6F1E7] rounded-xl p-4 text-[#6B6661]">
               <p>서비스명: {SERVICE_NAME}</p>
               <p className="mt-1">
