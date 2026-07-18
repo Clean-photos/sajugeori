@@ -82,3 +82,8 @@ export function currentSeason(now: Date = new Date()): Season {
 export function seasonalCharacterImage(characterId: string, now?: Date): string {
   return `/characters/seasonal/${currentSeason(now)}/${characterId}.png`;
 }
+
+/** 채팅방 전용 정사각 프로필 사진 (헤더·말풍선 아바타). 스트리트 목록의 창호 이미지와 별개. */
+export function seasonalProfileImage(characterId: string, now?: Date): string {
+  return `/characters/profile/${currentSeason(now)}/${characterId}.png`;
+}

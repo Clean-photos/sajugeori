@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { seasonalCharacterImage } from "@/lib/season";
+import { seasonalProfileImage } from "@/lib/season";
 
 function ChatText({ text }: { text: string }) {
   // [텍스트](url) 마크다운 링크를 <a> 로 변환
@@ -126,7 +126,7 @@ function CharAvatar({
           alt=""
           width={80}
           height={80}
-          className="w-full h-full object-cover object-[50%_25%]"
+          className="w-full h-full object-cover"
         />
       ) : (
         emoji
@@ -157,7 +157,7 @@ export default function CharacterRoomPage() {
   // 방 입장 때마다 인사말을 랜덤으로 하나 골라 고정 (매 렌더마다 안 바뀌게)
   const [greeting] = useState(() => meta.greetings[Math.floor(Math.random() * meta.greetings.length)]);
   // 알려진 캐릭터만 시즌 프로필 이미지 사용, 그 외엔 이모지 폴백
-  const avatarSrc = characterId in CHARACTER_META ? seasonalCharacterImage(characterId) : null;
+  const avatarSrc = characterId in CHARACTER_META ? seasonalProfileImage(characterId) : null;
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
