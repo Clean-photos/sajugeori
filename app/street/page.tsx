@@ -3,37 +3,41 @@ import Image from "next/image";
 import { auth } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/db/client";
 import { BottomTabBar } from "@/components/layout/BottomTabBar";
-import { seasonalCharacterImage } from "@/lib/season";
 
 const CHARACTERS = [
   {
     id: "sobaeksan_grandma",
     name: "소백산 할머니",
     tagline: "다정하고 푸근한 산신령 같은 할머니 역술가",
+    image: "/characters/sobaeksan_grandma.png",
     tone: "따뜻함",
   },
   {
     id: "bulte_doryeong",
     name: "뿔테도령",
     tagline: "뿔테 안경 쓴 선비풍 역술가, 논리와 데이터",
+    image: "/characters/bulte_doryeong.png",
     tone: "체계적",
   },
   {
     id: "tsundere_seonnyeo",
     name: "츤데레선녀",
     tagline: "퉁명한 척하지만 결국 다 챙겨주는 선녀",
+    image: "/characters/tsundere_seonnyeo.png",
     tone: "냉소·따뜻",
   },
   {
     id: "tla_misuk_robot",
     name: "T라미숙로봇",
     tagline: "감정 빼고 데이터로만 말하는 분석 로봇",
+    image: "/characters/tla_misuk_robot.png",
     tone: "데이터",
   },
   {
     id: "daewang_f_hamzzi",
     name: "대왕F햄찌",
     tagline: "공감 폭발 대왕 햄스터, 감정 먼저 보듬는 극F",
+    image: "/characters/daewang_f_hamzzi.png",
     tone: "공감",
   },
 ];
@@ -118,7 +122,7 @@ export default async function StreetPage() {
                     <div className="w-full h-full flex items-center justify-center text-xl">🔒</div>
                   ) : (
                     <Image
-                      src={seasonalCharacterImage(char.id)}
+                      src={char.image}
                       alt={char.name}
                       fill
                       sizes="76px"
