@@ -79,7 +79,7 @@ export default function SubscribePage() {
         <div className="bg-[#FBF8F2] border border-[#E5DFD4] rounded-2xl p-5">
           <p className="text-sm font-semibold text-[#1A1A18] mb-3">{PREMIUM_MONTHLY.name}</p>
           <ul className="flex flex-col gap-2 text-sm text-[#6B6661]">
-            <li>· 역술가와 무제한 대화</li>
+            <li>· 역술가와 대화 월 1,000회</li>
             <li>· 전체 사주 풀이 열람</li>
             <li>· 연도별 운세·택일 무제한</li>
           </ul>

@@ -54,7 +54,7 @@ function SuccessInner() {
         <>
           <div className="text-5xl">🎉</div>
           <h1 className="font-serif text-xl font-bold text-[#1F3D34]">프리미엄이 활성화됐어요</h1>
-          <p className="text-sm text-[#6B6661]">이제 역술가와 무제한으로 대화할 수 있어요.</p>
+          <p className="text-sm text-[#6B6661]">이제 역술가와 마음껏 대화할 수 있어요.</p>
           <button
             onClick={() => router.push("/street")}
             className="mt-2 bg-[#1F3D34] text-white rounded-xl px-6 py-3 text-sm font-semibold"

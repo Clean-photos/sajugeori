@@ -65,7 +65,7 @@ export default async function PremiumPage() {
               className="block rounded-2xl bg-[#C8743A] text-white px-5 py-4 text-center"
             >
               <p className="text-sm font-semibold">프리미엄으로 전체 풀이 열람하기</p>
-              <p className="text-xs opacity-80 mt-0.5">5,900원 / 30일 · 역술가 무제한 대화 포함</p>
+              <p className="text-xs opacity-80 mt-0.5">5,900원 / 30일 · 역술가 대화 월 1,000회 포함</p>
             </Link>
           </div>
 

@@ -63,7 +63,7 @@ export async function PremiumGate({
           {gate.kind === "subscribe" && (
             <>
               <p className="text-sm font-medium text-[#1A1A18]">프리미엄 구독자 전용 기능이에요</p>
-              <p className="text-xs text-[#6B6661] max-w-[240px] leading-relaxed">5,900원 / 30일로 프리미엄 3종 분석과 역술가 무제한 대화를 이용하세요.</p>
+              <p className="text-xs text-[#6B6661] max-w-[240px] leading-relaxed">5,900원 / 30일로 프리미엄 3종 분석과 역술가 대화(월 1,000회)를 이용하세요.</p>
               <Link href="/premium/subscribe" className="rounded-xl bg-[#C8743A] text-white px-6 py-3 text-sm font-semibold">프리미엄 구독하기</Link>
             </>
           )}

@@ -201,7 +201,7 @@ export async function POST(
       return NextResponse.json(
         {
           error: "paywall",
-          message: `무료 대화 ${FREE_CHAT_MESSAGE_LIMIT}회를 모두 사용했어요. 프리미엄으로 무제한 대화하세요.`,
+          message: `무료 대화 ${FREE_CHAT_MESSAGE_LIMIT}회를 모두 사용했어요. 프리미엄으로 대화를 이어가세요.`,
           redirect: "/premium",
         },
         { status: 402 }
