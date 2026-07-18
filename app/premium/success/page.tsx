@@ -8,6 +8,7 @@ function SuccessInner() {
   const router = useRouter();
   const [state, setState] = useState<"confirming" | "done" | "error">("confirming");
   const [message, setMessage] = useState("");
+  const isSalpuriOne = params.get("planId") === "salpuri_one";
 
   useEffect(() => {
     const paymentKey = params.get("paymentKey");
@@ -53,13 +54,17 @@ function SuccessInner() {
       {state === "done" && (
         <>
           <div className="text-5xl">🎉</div>
-          <h1 className="font-serif text-xl font-bold text-[#1F3D34]">프리미엄이 활성화됐어요</h1>
-          <p className="text-sm text-[#6B6661]">이제 역술가와 마음껏 대화할 수 있어요.</p>
+          <h1 className="font-serif text-xl font-bold text-[#1F3D34]">
+            {isSalpuriOne ? "살풀이 이용권이 준비됐어요" : "프리미엄이 활성화됐어요"}
+          </h1>
+          <p className="text-sm text-[#6B6661]">
+            {isSalpuriOne ? "지금 바로 내 사주의 살을 확인해보세요." : "이제 역술가와 마음껏 대화할 수 있어요."}
+          </p>
           <button
-            onClick={() => router.push("/street")}
+            onClick={() => router.push(isSalpuriOne ? "/premium/salpuri" : "/street")}
             className="mt-2 bg-[#1F3D34] text-white rounded-xl px-6 py-3 text-sm font-semibold"
           >
-            대화하러 가기
+            {isSalpuriOne ? "살풀이 보러 가기" : "대화하러 가기"}
           </button>
         </>
       )}

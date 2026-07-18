@@ -56,6 +56,13 @@ export async function POST(req: NextRequest) {
         : await query.eq("payment_key", paymentKey ?? "__none__");
       if (error) console.error("toss webhook: subscription update error", error);
       else console.log(`toss webhook: subscription canceled (order=${orderId}, status=${data.status})`);
+
+      // 단건 이용권도 같은 orderId/paymentKey 기준으로 회수
+      const otpQuery = supabaseAdmin.from("one_time_purchases").update({ status: "canceled" });
+      const { error: otpError } = orderId
+        ? await otpQuery.eq("order_id", orderId)
+        : await otpQuery.eq("payment_key", paymentKey ?? "__none__");
+      if (otpError) console.error("toss webhook: one_time purchase update error", otpError);
     }
   } catch (e) {
     console.error("toss webhook processing error:", e);

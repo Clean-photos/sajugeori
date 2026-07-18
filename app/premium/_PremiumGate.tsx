@@ -2,17 +2,29 @@ import Link from "next/link";
 import { BottomTabBar } from "@/components/layout/BottomTabBar";
 import { auth } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/db/client";
-import { isPremiumUser } from "@/lib/billing/access";
+import { isPremiumUser, findUnusedOneTimePass } from "@/lib/billing/access";
+
+/** 구독 없이 단건 이용권으로도 통과할 수 있는 기능의 이용권 옵션 */
+export interface OneTimeOption {
+  productId: string;   // plans.ts의 one_time 상품 id
+  buyPath: string;     // 결제 페이지 경로
+  priceLabel: string;  // 예: "990원 · 1회"
+}
 
 type GateState =
   | { ok: true }
   | { ok: false; kind: "login" | "subscribe" | "onboarding" };
 
-async function checkGate(): Promise<GateState> {
+async function checkGate(oneTime?: OneTimeOption): Promise<GateState> {
   const session = await auth();
   const userId = session?.user?.id;
   if (!userId) return { ok: false, kind: "login" };
-  if (!(await isPremiumUser(userId))) return { ok: false, kind: "subscribe" };
+
+  const premium = await isPremiumUser(userId);
+  const hasPass = !premium && oneTime
+    ? (await findUnusedOneTimePass(userId, oneTime.productId)) !== null
+    : false;
+  if (!premium && !hasPass) return { ok: false, kind: "subscribe" };
 
   const { data: profile } = await supabaseAdmin
     .from("saju_profiles").select("id")
@@ -28,11 +40,12 @@ async function checkGate(): Promise<GateState> {
  * 통과 시 children(폼)을 렌더. 궁합·연운세·택일이 공유한다.
  */
 export async function PremiumGate({
-  title, subtitle, path, children,
+  title, subtitle, path, children, oneTime,
 }: {
   title: string; subtitle: string; path: string; children: React.ReactNode;
+  oneTime?: OneTimeOption;
 }) {
-  const gate = await checkGate();
+  const gate = await checkGate(oneTime);
 
   return (
     <div className="flex flex-col min-h-screen pb-24 bg-[#F6F1E7]">
@@ -62,9 +75,17 @@ export async function PremiumGate({
           )}
           {gate.kind === "subscribe" && (
             <>
-              <p className="text-sm font-medium text-[#1A1A18]">프리미엄 구독자 전용 기능이에요</p>
-              <p className="text-xs text-[#6B6661] max-w-[240px] leading-relaxed">5,900원 / 30일로 프리미엄 3종 분석과 역술가 대화(월 1,000회)를 이용하세요.</p>
+              <p className="text-sm font-medium text-[#1A1A18]">프리미엄 전용 기능이에요</p>
+              <p className="text-xs text-[#6B6661] max-w-[240px] leading-relaxed">5,900원 / 30일로 프리미엄 전체 분석과 역술가 대화(월 1,000회)를 이용하세요.</p>
               <Link href="/premium/subscribe" className="rounded-xl bg-[#C8743A] text-white px-6 py-3 text-sm font-semibold">프리미엄 구독하기</Link>
+              {oneTime && (
+                <>
+                  <p className="text-xs text-[#6B6661] mt-1">구독 없이 이번 한 번만 보고 싶다면</p>
+                  <Link href={oneTime.buyPath} className="rounded-xl border border-[#C8743A] text-[#C8743A] px-6 py-3 text-sm font-semibold">
+                    {oneTime.priceLabel}로 1회 이용하기
+                  </Link>
+                </>
+              )}
             </>
           )}
           {gate.kind === "onboarding" && (

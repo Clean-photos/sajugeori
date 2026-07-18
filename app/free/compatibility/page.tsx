@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { AdGate } from "../AdGate";
+import { ReadingIntro } from "../ReadingIntro";
 import { cleanReportText } from "@/lib/report-format";
 
 type Step = "form" | "ad" | "result";
@@ -128,6 +129,38 @@ export default function FreeCompatibilityPage() {
             <p className="text-center text-xs text-[#6B6661] mt-3">짧은 광고 시청 후 결과를 확인할 수 있어요</p>
           </div>
         </div>
+
+        <ReadingIntro
+          lead="사주 궁합은 두 사람의 사주팔자를 나란히 놓고, 서로의 오행과 십성이 어떻게 어울리는지를 살피는 풀이입니다. 두 사람의 생년월일과 태어난 시각을 입력하면 각자의 일간(日干)과 오행 구성을 세우고, 두 기운이 서로를 돕는지(상생) 부딪치는지(상극)를 종합해 관계의 결을 읽습니다."
+          sections={[
+            {
+              heading: "궁합은 어떻게 보나요?",
+              paragraphs: [
+                "궁합의 핵심은 두 사람의 오행이 서로 부족한 부분을 채워 주는가에 있습니다. 한쪽에 강한 기운이 다른 쪽의 약한 기운을 보완하면 서로에게 힘이 되는 관계로 봅니다. 반대로 같은 기운이 지나치게 겹치거나 서로를 강하게 극하면, 긴장과 마찰이 생기기 쉬운 조합으로 해석합니다.",
+                "다만 오행이 부딪친다고 해서 반드시 나쁜 궁합은 아닙니다. 적당한 극(剋)은 서로를 자극하고 성장시키는 힘이 되기도 합니다. 그래서 궁합은 단순한 점수보다, 두 사람이 어떤 지점에서 잘 맞고 어떤 지점을 조율해야 하는지를 이해하는 데 뜻이 있습니다.",
+              ],
+            },
+            {
+              heading: "연인·부부만 보는 건가요?",
+              paragraphs: [
+                "궁합은 연애와 결혼뿐 아니라 친구, 가족, 동료, 동업자 등 모든 관계에 적용할 수 있습니다. 두 사람의 기운이 어떻게 상호작용하는지를 보는 것이므로, 함께 일하는 사람이나 오래 어울릴 상대와의 결을 이해하는 데에도 활용됩니다.",
+              ],
+            },
+            {
+              heading: "궁합 결과를 대하는 태도",
+              paragraphs: [
+                "궁합은 관계의 가능성과 주의점을 비추는 참고 자료일 뿐, 두 사람의 인연을 확정하는 판정이 아닙니다. 좋은 궁합도 노력이 없으면 흔들리고, 까다로운 궁합도 서로를 이해하면 깊어집니다. 결과는 서로를 조금 더 헤아리는 실마리로 활용하시기를 권합니다.",
+              ],
+            },
+          ]}
+          related={[
+            { slug: "ilgan", label: "일간" },
+            { slug: "wood-strong", label: "오행" },
+            { slug: "jeongjae", label: "정재" },
+            { slug: "jeonggwan", label: "정관" },
+            { slug: "dohwasal", label: "도화살" },
+          ]}
+        />
       </div>
     );
   }

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { AdGate } from "../AdGate";
+import { ReadingIntro } from "../ReadingIntro";
 import { cleanReportText } from "@/lib/report-format";
 
 type Step = "form" | "ad" | "result";
@@ -139,6 +140,38 @@ export default function FreeTaekilPage() {
             <p className="text-center text-xs text-[#6B6661] mt-3">짧은 광고 시청 후 결과를 확인할 수 있어요</p>
           </div>
         </div>
+
+        <ReadingIntro
+          lead="택일(擇日)은 말 그대로 ‘날을 고른다’는 뜻으로, 중요한 일을 앞두고 좋은 날짜를 가려 잡는 전통입니다. 이사, 개업, 계약, 혼례, 여행처럼 새로 시작하는 일에 그 사람의 사주와 어울리는 날의 기운을 맞추어, 순조로운 흐름을 돕는 날을 찾는 것이 택일의 목적입니다."
+          sections={[
+            {
+              heading: "택일은 어떻게 정하나요?",
+              paragraphs: [
+                "택일은 그날의 일진(日辰), 즉 날짜마다 정해진 간지(干支)의 기운이 나의 사주와 어떻게 어울리는지를 봅니다. 그날의 기운이 내 사주에 필요한 오행(용신)을 돕고, 꺼리는 기운과 부딪치지 않는 날을 좋은 날로 봅니다. 여기에 하려는 일의 성격까지 함께 고려해 어울리는 날짜를 가려냅니다.",
+                "생년월일과 태어난 시각, 그리고 원하는 기간을 입력하면 그 기간 안에서 당신의 사주와 잘 맞는 날을 추려 알려 드립니다.",
+              ],
+            },
+            {
+              heading: "어떤 일에 택일을 하나요?",
+              paragraphs: [
+                "예로부터 이사·개업·창업·계약·혼례·고사처럼 새롭게 시작하거나 큰 결정을 내리는 일에 택일을 활용해 왔습니다. 시작의 기운이 중요한 일일수록, 좋은 날을 골라 첫걸음을 떼려는 마음이 담겨 있습니다.",
+              ],
+            },
+            {
+              heading: "택일 결과를 대하는 태도",
+              paragraphs: [
+                "좋은 날을 고른다고 모든 일이 저절로 풀리는 것은 아닙니다. 택일은 순조로운 출발을 돕는 참고일 뿐, 준비와 노력을 대신하지 않습니다. 현실적인 사정(주말, 상대방의 일정 등)과 함께 가늠하여, 마음이 놓이는 날을 고르는 데 활용하시기를 권합니다.",
+              ],
+            },
+          ]}
+          related={[
+            { slug: "seun", label: "세운" },
+            { slug: "yongsin", label: "용신" },
+            { slug: "wood-strong", label: "오행" },
+            { slug: "yeokmasal", label: "역마살" },
+            { slug: "cheoneulgwiin", label: "천을귀인" },
+          ]}
+        />
       </div>
     );
   }

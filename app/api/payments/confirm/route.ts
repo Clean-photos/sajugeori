@@ -52,6 +52,19 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // 단건 이용권: 소진형 구매 기록만 남긴다 (구독 아님)
+  if (plan.kind === "one_time") {
+    const { error } = await supabaseAdmin
+      .from("one_time_purchases")
+      .insert({ user_id: userId, product_id: plan.id, amount: plan.amount, order_id: orderId, payment_key: paymentKey });
+    if (error) {
+      // 승인은 이미 완료된 상태 — 기록 실패는 로그로 남기고 실패 응답 (Toss 대시보드에서 수동 대사 가능)
+      console.error("one_time purchase insert error:", error);
+      return NextResponse.json({ error: "구매 기록 저장에 실패했습니다. 문의해주세요." }, { status: 500 });
+    }
+    return NextResponse.json({ ok: true, plan: plan.id, kind: "one_time" });
+  }
+
   // 구독 활성화 (단건 → expires_at = now + plan.days)
   const expiresAt = new Date(Date.now() + plan.days * 24 * 60 * 60 * 1000).toISOString();
 

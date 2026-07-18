@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { AdGate } from "../AdGate";
+import { ReadingIntro } from "../ReadingIntro";
 import { cleanReportText } from "@/lib/report-format";
 
 type Step = "form" | "ad" | "result";
@@ -153,6 +154,38 @@ export default function FreeSajuPage() {
             <p className="text-center text-xs text-[#6B6661] mt-3">짧은 광고 시청 후 결과를 확인할 수 있어요</p>
           </div>
         </div>
+
+        <ReadingIntro
+          lead="사주(四柱)는 태어난 연·월·일·시를 각각 하늘의 기운(천간)과 땅의 기운(지지) 한 쌍씩, 모두 여덟 글자로 나타낸 것입니다. 그래서 사주팔자(四柱八字)라 부르며, 이 여덟 글자에 담긴 오행(木·火·土·金·水)의 균형과 흐름을 읽어 타고난 기질과 삶의 리듬을 살피는 것이 사주 풀이입니다."
+          sections={[
+            {
+              heading: "무료 사주로 무엇을 알 수 있나요?",
+              paragraphs: [
+                "생년월일과 태어난 시각을 입력하면, 그 사람의 사주팔자를 세우고 일간(日干)을 중심으로 오행의 균형을 분석합니다. 어떤 기운이 강하고 약한지, 타고난 성향은 어떤 결인지, 재물·직업·인간관계에서 어떤 특징이 드러나는지를 핵심만 간추려 무료로 확인할 수 있습니다.",
+                "특히 사주의 주인공인 일간이 무엇인지, 그 일간이 사주 안에서 힘이 강한지 약한지(신강·신약)는 자신을 이해하는 가장 기본적인 출발점입니다. 무료 사주는 이 기본 골격을 알기 쉽게 풀어 드립니다.",
+              ],
+            },
+            {
+              heading: "태어난 시각을 모르면 어떻게 하나요?",
+              paragraphs: [
+                "태어난 시각을 정확히 모른다면 ‘시각 모름’을 선택하면 됩니다. 이 경우 시주(時柱)를 제외한 연·월·일 세 기둥으로 분석하며, 전체적인 기질과 오행의 큰 흐름은 충분히 읽을 수 있습니다. 다만 시주가 관장하는 말년운이나 자녀와 관련한 세밀한 해석은 제한될 수 있습니다.",
+              ],
+            },
+            {
+              heading: "사주 결과는 어떻게 봐야 하나요?",
+              paragraphs: [
+                "사주는 정해진 운명을 통보하는 것이 아니라, 타고난 기질과 삶의 리듬을 이해하는 지도에 가깝습니다. 강한 기운은 잘 살리고 부족한 기운은 채워 가는 방향으로 활용할 때 의미가 있습니다. 결과에 나오는 용어가 낯설다면 아래 용어 백과에서 하나씩 찾아보세요.",
+              ],
+            },
+          ]}
+          related={[
+            { slug: "ilgan", label: "일간" },
+            { slug: "singang-sinyak", label: "신강·신약" },
+            { slug: "yongsin", label: "용신" },
+            { slug: "wood-strong", label: "오행" },
+            { slug: "daeun", label: "대운" },
+          ]}
+        />
       </div>
     );
   }

@@ -182,7 +182,8 @@ export const HONGYEOM: Partial<Record<Stem, Branch>> = {
 export const YANGIN: Partial<Record<Stem, Branch>> = {
   "甲":"卯","丙":"午","戊":"午","庚":"酉","壬":"子",
 };
-export const GOEGANG_DAYS: Set<string> = new Set(["庚辰","庚戌","壬辰","壬戌","戊戌"]);
+// 괴강: 무진·무술·경진·경술·임진·임술 6종 (표준). 유파에 따라 4종으로 좁히기도 하나 넓은 기준 채택.
+export const GOEGANG_DAYS: Set<string> = new Set(["戊辰","戊戌","庚辰","庚戌","壬辰","壬戌"]);
 export const BAEKHO: Set<string> = new Set(["甲辰","乙未","丙戌","丁丑","戊辰","壬戌","癸丑"]);
 export const GWIMUN_PAIRS: Set<string> = new Set([
   "子酉","酉子","丑午","午丑","寅未","未寅","卯申","申卯","辰亥","亥辰","巳戌","戌巳",

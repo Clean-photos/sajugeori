@@ -3,6 +3,8 @@ import Link from "next/link";
 const LINKS = [
   { href: "/about", label: "서비스 소개" },
   { href: "/guide", label: "읽을거리" },
+  { href: "/dictionary", label: "용어 백과" },
+  { href: "/faq", label: "자주 묻는 질문" },
   { href: "/contact", label: "문의하기" },
   { href: "/terms", label: "이용약관" },
   { href: "/privacy", label: "개인정보처리방침" },

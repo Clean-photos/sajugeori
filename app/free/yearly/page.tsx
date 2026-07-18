@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { AdGate } from "../AdGate";
+import { ReadingIntro } from "../ReadingIntro";
 import { cleanReportText } from "@/lib/report-format";
 
 type Step = "form" | "ad" | "result";
@@ -97,6 +98,38 @@ export default function FreeYearlyPage() {
             <p className="text-center text-xs text-[#6B6661] mt-3">짧은 광고 시청 후 결과를 확인할 수 있어요</p>
           </div>
         </div>
+
+        <ReadingIntro
+          lead="연운세(年運勢)는 한 해 동안 나에게 어떤 기운이 흐르는지를 살피는 풀이로, 흔히 말하는 ‘신년운세’, ‘올해의 운세’가 여기에 해당합니다. 그해에 정해진 간지(干支)의 기운이 내 사주, 그리고 10년 단위로 흐르는 대운(大運)과 어떻게 어울리는지를 종합해 한 해의 흐름을 읽습니다."
+          sections={[
+            {
+              heading: "연운세는 어떻게 보나요?",
+              paragraphs: [
+                "한 해의 운은 그해의 간지가 내 사주에 필요한 기운(용신)을 돕는가로 판단합니다. 예를 들어 2026년은 병오(丙午)년인데, 이 병오의 기운이 내 사주와 대운에 더해져 그해의 색을 만듭니다. 그해 기운이 사주의 어떤 십성(十星)을 자극하는지에 따라 재물·직업·인간관계·건강 중 어느 영역이 두드러지는지도 함께 살핍니다.",
+                "생년월일과 태어난 시각을 입력하면, 올해 당신에게 흐르는 기운의 큰 방향과 눈여겨볼 지점을 간추려 알려 드립니다.",
+              ],
+            },
+            {
+              heading: "대운과 세운은 무엇이 다른가요?",
+              paragraphs: [
+                "대운(大運)이 약 10년을 다스리는 큰 계절이라면, 그해 한 해의 운인 세운(歲運)은 그 계절 안에서 매년 바뀌는 날씨에 비유할 수 있습니다. 연운세를 볼 때는 이 두 가지를 함께 보아야 합니다. 같은 해라도 지금 지나는 대운이 다르면 그해의 의미가 달라지기 때문입니다.",
+              ],
+            },
+            {
+              heading: "연운세 결과를 대하는 태도",
+              paragraphs: [
+                "연운세는 한 해의 큰 흐름과 리듬을 미리 헤아리는 지도입니다. 순풍이 부는 해에는 한 걸음 더 나아가고, 조심스러운 해에는 무리하지 않고 내실을 다지는 식으로 활용할 때 뜻이 있습니다. 매일의 길흉을 정하는 것이 아니라, 한 해를 어떻게 보낼지 방향을 잡는 참고로 삼으시기를 권합니다.",
+              ],
+            },
+          ]}
+          related={[
+            { slug: "seun", label: "세운" },
+            { slug: "daeun", label: "대운" },
+            { slug: "yongsin", label: "용신" },
+            { slug: "ilgan", label: "일간" },
+            { slug: "wood-strong", label: "오행" },
+          ]}
+        />
       </div>
     );
   }

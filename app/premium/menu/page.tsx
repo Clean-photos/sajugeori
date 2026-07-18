@@ -30,6 +30,13 @@ const MENU_CARDS = [
     subtitle: "올해와 내년, 깊이 있게",
     ready: false,
   },
+  {
+    href: "/premium/salpuri",
+    icon: "殺",
+    title: "프리미엄 살풀이",
+    subtitle: "내 사주에 든 살을 하나씩",
+    ready: false,
+  },
 ];
 
 export default function PremiumMenuPage() {

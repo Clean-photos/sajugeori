@@ -23,6 +23,34 @@ export async function isPremiumUser(userId: string): Promise<boolean> {
   return new Date(data.expires_at).getTime() > Date.now();
 }
 
+/** 미사용 단건 이용권 id. 없으면 null. (테이블 미생성 시에도 null) */
+export async function findUnusedOneTimePass(userId: string, productId: string): Promise<string | null> {
+  try {
+    const { data } = await supabaseAdmin
+      .from("one_time_purchases")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("product_id", productId)
+      .eq("status", "paid")
+      .is("used_at", null)
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    return data?.id ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** 단건 이용권 소진 처리. 리포트 생성이 성공한 뒤에만 호출할 것. */
+export async function consumeOneTimePass(passId: string): Promise<void> {
+  await supabaseAdmin
+    .from("one_time_purchases")
+    .update({ used_at: new Date().toISOString() })
+    .eq("id", passId)
+    .is("used_at", null);
+}
+
 /** 사용자가 모든 캐릭터에 보낸 user 메시지 누적 개수. sinceIso를 주면 그 시점 이후만 센다. */
 export async function countUserChatMessages(userId: string, sinceIso?: string): Promise<number> {
   const { data: convs } = await supabaseAdmin

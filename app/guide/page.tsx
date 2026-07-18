@@ -20,7 +20,7 @@ export default function GuidePage() {
         </Link>
         <p className="relative text-xs font-medium tracking-[0.2em] text-[#C8743A] uppercase mb-2">Guide</p>
         <h1 className="relative font-serif text-[28px] font-bold text-white leading-tight">사주 읽을거리</h1>
-        <p className="relative text-sm text-white/60 mt-1">명리학의 기본 개념을 쉽게 풀어 썼어요</p>
+        <p className="relative text-sm text-white/60 mt-1">명리학의 기본 개념과 많은 분들이 궁금해할 사주 이야기가 준비되어있습니다</p>
       </header>
 
       <section className="px-4 py-6 flex flex-col gap-3">

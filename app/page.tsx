@@ -68,6 +68,25 @@ export default async function HomePage() {
         </p>
       </header>
 
+      {/* 콘텐츠 3카드 — 애드센스 심사 대비, 정보성 콘텐츠를 상단에 노출 */}
+      <section className="px-4 grid grid-cols-3 gap-2 mb-4 animate-fade-up" style={{animationDelay:'0.08s'}}>
+        {[
+          { href: "/guide", icon: "書", title: "사주에 관하여", subtitle: "읽을거리 15편" },
+          { href: "/dictionary", icon: "字", title: "사주 용어사전", subtitle: "핵심 용어 48개" },
+          { href: "/faq", icon: "問", title: "자주 묻는 질문", subtitle: "양력·음력·시간" },
+        ].map((c) => (
+          <Link key={c.href} href={c.href}>
+            <div className="h-full bg-[#FBF8F2] border border-[#E5DFD4] rounded-xl px-3 py-3.5 flex flex-col gap-1.5 active:scale-[0.96] transition-all shadow-sm">
+              <span className="font-serif text-lg font-bold text-[#C8743A] leading-none">{c.icon}</span>
+              <div>
+                <p className="text-[12.5px] font-semibold text-[#1F3D34] leading-tight">{c.title}</p>
+                <p className="text-[10.5px] text-[#6B6661] mt-0.5 leading-tight">{c.subtitle}</p>
+              </div>
+            </div>
+          </Link>
+        ))}
+      </section>
+
       {/* Service Cards Grid */}
       <section className="px-4 grid grid-cols-2 gap-3 mb-4">
         {MENU_CARDS.map((card) => (

@@ -37,12 +37,18 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="ko">
       <head>
+        {/*
+          AdSense는 next/script가 아니라 평범한 <script>로 넣는다.
+          next/script는 전략과 무관하게 클라이언트에서 __next_s 큐 스크립트로 치환되어
+          (1) <head> 안에서 하이드레이션 불일치를 일으키고
+          (2) SSR HTML에 정적 <script src> 태그가 남지 않아 크롤러가 인지하지 못한다.
+          심사에 필요한 건 정적 태그이므로 아래 형태를 유지할 것.
+        */}
         {ADSENSE_CLIENT && (
-          <Script
+          <script
             async
             src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT}`}
             crossOrigin="anonymous"
-            strategy="beforeInteractive"
           />
         )}
         {GA4_ID && (
