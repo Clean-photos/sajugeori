@@ -123,7 +123,7 @@ export default function FaqPage() {
           <div className="bg-[#1F3D34] rounded-2xl px-5 py-4 flex items-center justify-between active:scale-[0.98] transition-all">
             <div>
               <p className="text-sm font-semibold text-white">사주 용어가 궁금하다면</p>
-              <p className="text-xs text-white/60 mt-0.5">용어 백과에서 30가지 개념을 확인하세요</p>
+              <p className="text-xs text-white/60 mt-0.5">용어 백과에서 48가지 개념을 확인하세요</p>
             </div>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#C8743A" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
           </div>

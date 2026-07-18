@@ -6,9 +6,14 @@ const ADSENSE_CLIENT = process.env.NEXT_PUBLIC_ADSENSE_CLIENT;
 const GA4_ID = process.env.NEXT_PUBLIC_GA4_ID;
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://sajugeori.com"),
   title: "사주거리",
   description: "AI 역술가들이 모인 사주 거리",
   manifest: "/manifest.json",
+  alternates: {
+    canonical: "/",
+    types: { "application/rss+xml": "/rss.xml" },
+  },
   appleWebApp: { capable: true, statusBarStyle: "default", title: "사주거리" },
   openGraph: {
     title: "사주거리",
