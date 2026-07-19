@@ -35,10 +35,10 @@ export function AdGate({ onComplete }: { onComplete: (token: string) => void }) 
   // AdSense 스크립트 로드 + 광고 push
   useEffect(() => {
     if (!ADSENSE_CLIENT) return;
-    const id = "adsbygoogle-js";
-    if (!document.getElementById(id)) {
+    // 레이아웃이 이미 정적 <script>로 adsbygoogle.js를 싣는다(id 없음).
+    // id가 아니라 src로 존재를 판정해야 이중 로드를 막을 수 있다.
+    if (!document.querySelector('script[src*="adsbygoogle.js"]')) {
       const s = document.createElement("script");
-      s.id = id;
       s.async = true;
       s.crossOrigin = "anonymous";
       s.src = `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT}`;

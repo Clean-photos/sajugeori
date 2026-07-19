@@ -18,10 +18,10 @@ export const metadata: Metadata = {
     types: { "application/rss+xml": "/rss.xml" },
   },
   appleWebApp: { capable: true, statusBarStyle: "default", title: "사주거리" },
+  // openGraph/twitter에 title·description·url을 고정하면 canonical 때와 같은
+  // 상속 문제로 전 페이지의 og가 홈 값으로 덮인다. 여기서는 공통 속성만 두고,
+  // og:title/description은 각 페이지의 resolved title/description으로 폴백시킨다.
   openGraph: {
-    title: "사주거리",
-    description: "AI 역술가들이 모인 사주 거리",
-    url: SITE_URL,
     siteName: "사주거리",
     images: [{ url: "/og-image.png", width: 1200, height: 630 }],
     locale: "ko_KR",
@@ -29,8 +29,6 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "사주거리",
-    description: "AI 역술가들이 모인 사주 거리",
     images: ["/og-image.png"],
   },
 };
