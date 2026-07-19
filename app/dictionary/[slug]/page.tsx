@@ -17,6 +17,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   return {
     title: `${title} 뜻 | 사주 용어 백과 | 사주거리`,
     description: term.summary,
+    alternates: { canonical: `/dictionary/${term.slug}` },
   };
 }
 

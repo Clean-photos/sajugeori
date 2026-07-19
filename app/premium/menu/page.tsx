@@ -1,6 +1,14 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { BottomTabBar } from "@/components/layout/BottomTabBar";
 import { SiteFooter } from "@/components/layout/SiteFooter";
+
+export const metadata: Metadata = {
+  title: "프리미엄 운세 — 사주·궁합·택일·연운세·살풀이 | 사주거리",
+  description:
+    "사주 계산 엔진의 실제 데이터를 근거로 만드는 심층 풀이. 프리미엄 사주·궁합·택일·연운세·살풀이 다섯 가지를 소개합니다. 구독 5,900원(30일), 살풀이는 990원 1회 이용권도 있습니다.",
+  alternates: { canonical: "/premium/menu" },
+};
 
 const MENU_CARDS = [
   {

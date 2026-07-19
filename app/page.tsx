@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { BottomTabBar } from "@/components/layout/BottomTabBar";
@@ -41,6 +42,13 @@ const MENU_CARDS = [
     accent: false,
   },
 ];
+
+export const metadata: Metadata = {
+  title: "사주거리 — AI 사주·궁합·택일·연운세 무료 풀이",
+  description:
+    "전통 명리학과 AI를 결합한 사주 서비스. 생년월일로 무료 사주·궁합·택일·연운세를 확인하고, AI 역술가와 대화하며 깊이 있게 물어보세요. 사주 읽을거리와 용어 백과도 무료로 제공합니다.",
+  alternates: { canonical: "/" },
+};
 
 export default async function HomePage() {
   const session = await auth();

@@ -1,8 +1,15 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 
 const EFFECTIVE_DATE = "2026년 1월 1일";
 const SERVICE_NAME = "사주거리";
 const CONTACT_EMAIL = "support@sajugeori.com";
+
+export const metadata: Metadata = {
+  title: "이용약관 | 사주거리",
+  description: "사주거리 서비스 이용약관. 서비스 제공 범위, 이용 한도(공정 사용 정책), 결제 및 환불, 면책 사항을 안내합니다.",
+  alternates: { canonical: "/terms" },
+};
 
 export default function TermsPage() {
   return (

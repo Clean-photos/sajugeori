@@ -7,6 +7,7 @@ export const metadata: Metadata = {
   title: "자주 묻는 질문 (FAQ) | 사주거리",
   description:
     "사주를 볼 때 자주 묻는 질문 모음. 양력·음력, 야자시·조자시, 태어난 시각을 모를 때, 서머타임, 무료·프리미엄 차이, 사주 결과를 대하는 법까지 한눈에.",
+  alternates: { canonical: "/faq" },
 };
 
 interface QA {

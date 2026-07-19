@@ -6,7 +6,8 @@ import { ARTICLES } from "./articles";
 
 export const metadata: Metadata = {
   title: "사주 읽을거리 | 사주거리",
-  description: "사주와 명리학의 기본 개념을 쉽게 풀어 쓴 읽을거리 모음. 사주란 무엇인가부터 오행·십성·궁합·사주 보는 법까지.",
+  description: "사주와 명리학의 기본 개념을 쉽게 풀어 쓴 읽을거리 모음. 사주란 무엇인가부터 오행·십성·궁합·사주 보는 법, 부족한 기운 채우는 법까지.",
+  alternates: { canonical: "/guide" },
 };
 
 export default function GuidePage() {

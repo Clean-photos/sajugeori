@@ -1,8 +1,15 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 
 const EFFECTIVE_DATE = "2026년 1월 1일";
 const SERVICE_NAME = "사주거리";
 const CONTACT_EMAIL = "privacy@sajugeori.com";
+
+export const metadata: Metadata = {
+  title: "개인정보처리방침 | 사주거리",
+  description: "사주거리가 수집하는 개인정보 항목과 이용 목적, 보유 기간, 파기 절차 및 이용자의 권리를 안내합니다.",
+  alternates: { canonical: "/privacy" },
+};
 
 export default function PrivacyPage() {
   return (

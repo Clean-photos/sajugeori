@@ -7,7 +7,8 @@ import { CATEGORY_LABEL, TERMS, termsByCategory, type TermCategory } from "./ter
 export const metadata: Metadata = {
   title: "사주 용어 백과사전 | 사주거리",
   description:
-    "사주·명리학 핵심 용어 30가지를 쉽게 풀어 쓴 백과사전. 십성(비견·겁재·식신·상관·정재·편재·정관·편관·정인·편인), 오행, 신살(도화살·역마살·천을귀인 등), 일간·용신·대운·세운 같은 개념을 한눈에.",
+    "사주·명리학 핵심 용어 48가지를 쉽게 풀어 쓴 백과사전. 십성(비견·겁재·식신·상관·정재·편재·정관·편관·정인·편인), 오행, 신살(도화살·역마살·양인살·공망·삼재·12신살 등), 일간·용신·대운·세운 같은 개념을 한눈에.",
+  alternates: { canonical: "/dictionary" },
 };
 
 const ORDER: TermCategory[] = ["concept", "sipseong", "ohaeng", "sinsal"];

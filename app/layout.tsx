@@ -11,8 +11,10 @@ export const metadata: Metadata = {
   title: "사주거리",
   description: "AI 역술가들이 모인 사주 거리",
   manifest: "/manifest.json",
+  // 주의: alternates.canonical을 여기 두면 모든 하위 페이지가 이 값을 상속받아
+  // 자기 자신이 아니라 홈을 정본으로 선언하게 된다(= 전 페이지가 홈의 중복으로 취급됨).
+  // canonical은 반드시 각 페이지에서 자기 URL로 선언한다. 여기서는 RSS만 선언.
   alternates: {
-    canonical: "/",
     types: { "application/rss+xml": "/rss.xml" },
   },
   appleWebApp: { capable: true, statusBarStyle: "default", title: "사주거리" },
