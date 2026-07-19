@@ -40,10 +40,15 @@ async function checkGate(oneTime?: OneTimeOption): Promise<GateState> {
  * 통과 시 children(폼)을 렌더. 궁합·연운세·택일이 공유한다.
  */
 export async function PremiumGate({
-  title, subtitle, path, children, oneTime,
+  title, subtitle, path, children, oneTime, intro,
 }: {
   title: string; subtitle: string; path: string; children: React.ReactNode;
   oneTime?: OneTimeOption;
+  /**
+   * 게이트에 막힌 방문자에게 보여 줄 공개 설명. 기능이 무엇인지 알려 주는 역할과 함께,
+   * 크롤러가 읽을 실제 텍스트를 확보해 준다(게이트만 있으면 빈 페이지로 인식됨).
+   */
+  intro?: React.ReactNode;
 }) {
   const gate = await checkGate(oneTime);
 
@@ -95,6 +100,12 @@ export async function PremiumGate({
             </>
           )}
         </div>
+      )}
+
+      {!gate.ok && intro && (
+        <section className="px-5 pb-10 pt-7 border-t border-[#E5DFD4] flex flex-col gap-4">
+          {intro}
+        </section>
       )}
 
       <BottomTabBar />

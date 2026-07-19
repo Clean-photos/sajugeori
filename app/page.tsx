@@ -4,6 +4,7 @@ import { BottomTabBar } from "@/components/layout/BottomTabBar";
 import { BannerAd } from "@/components/ads/BannerAd";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { ARTICLES } from "./guide/articles";
+import { TERMS } from "./dictionary/terms";
 import { HeaderAuth } from "./HeaderAuth";
 
 const MENU_CARDS = [
@@ -244,6 +245,38 @@ export default async function HomePage() {
             </Link>
           ))}
         </div>
+      </section>
+
+      {/* 서비스 소개 본문 — 홈에 착지한 방문자(및 크롤러)에게 사이트의 성격을 텍스트로 설명 */}
+      <section className="px-5 mt-8 pt-7 border-t border-[#E5DFD4] flex flex-col gap-4">
+        <h2 className="font-serif text-lg font-bold text-[#1F3D34]">사주거리는 어떤 곳인가요</h2>
+        <p className="text-[15px] text-[#1A1A18] leading-[1.85]">
+          사주거리는 전통 명리학의 해석 방식과 AI를 결합한 사주·운세 서비스입니다.
+          생년월일과 태어난 시각을 입력하면 사주팔자 여덟 글자를 세우고, 오행의 균형과
+          십성의 배치를 계산해 타고난 기질과 삶의 흐름을 풀어 드립니다.
+          무료 사주와 궁합·택일·연운세를 광고 시청만으로 이용할 수 있고,
+          더 깊은 풀이가 필요하면 AI 역술가와 직접 대화하며 이어서 물어볼 수 있습니다.
+        </p>
+
+        <h2 className="font-serif text-lg font-bold text-[#1F3D34] mt-2">읽을거리와 용어 백과</h2>
+        <p className="text-[15px] text-[#1A1A18] leading-[1.85]">
+          사주를 처음 접하면 낯선 한자 용어에 가로막히기 쉽습니다. 그래서 사주거리는
+          결과만 보여 주고 끝내지 않습니다. 사주란 무엇인지, 오행과 십성은 어떻게 읽는지부터
+          부족한 기운을 채우는 전통적인 방법, 같은 사주를 가진 사람이 왜 다른 삶을 사는지까지
+          {" "}{ARTICLES.length}편의 읽을거리로 정리해 두었습니다.
+          비견·상관·도화살·역마살·용신·대운처럼 결과에 자주 등장하는 용어는
+          용어 백과 {TERMS.length}항목에서 하나씩 찾아볼 수 있습니다.
+        </p>
+
+        <h2 className="font-serif text-lg font-bold text-[#1F3D34] mt-2">결과를 대하는 태도</h2>
+        <p className="text-[15px] text-[#1A1A18] leading-[1.85]">
+          사주는 정해진 운명을 통보하는 것이 아니라, 타고난 기질과 삶의 리듬을 이해하는
+          지도에 가깝습니다. 같은 사주를 가진 사람이 또래 중에 수십 명씩 있지만 그들의 삶이
+          모두 같지 않다는 사실이 이를 잘 보여 줍니다. 강한 기운은 잘 살리고 부족한 기운은
+          채워 가는 방향으로 활용할 때 의미가 있습니다.
+          사주거리가 제공하는 콘텐츠는 오락 및 참고 목적으로 제공되며, 법률·의료·재정 등
+          전문적 자문을 대체하지 않습니다.
+        </p>
       </section>
 
       <SiteFooter />

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { BottomTabBar } from "@/components/layout/BottomTabBar";
+import { SiteFooter } from "@/components/layout/SiteFooter";
 
 const MENU_CARDS = [
   {
@@ -86,6 +87,42 @@ export default function PremiumMenuPage() {
         </Link>
       </section>
 
+      {/* 기능 설명 — 결제 전 방문자와 크롤러가 읽을 실제 내용 */}
+      <section className="px-5 mt-8 pt-7 border-t border-[#E5DFD4] flex flex-col gap-4">
+        <h2 className="font-serif text-lg font-bold text-[#1F3D34]">무료 풀이와 무엇이 다른가요</h2>
+        <p className="text-[15px] text-[#1A1A18] leading-[1.85]">
+          무료 사주는 핵심만 간추린 요약형 풀이입니다. 프리미엄은 사주 계산 엔진이 산출한
+          실제 데이터를 근거로 훨씬 길고 구체적인 리포트를 만듭니다. 일간의 강약과 용신,
+          대운의 흐름, 지지끼리의 합과 충 같은 세부 요소까지 반영하므로 같은 생년월일이라도
+          훨씬 개인화된 결과가 나옵니다.
+        </p>
+
+        <h2 className="font-serif text-lg font-bold text-[#1F3D34] mt-2">다섯 가지 프리미엄 풀이</h2>
+        <p className="text-[15px] text-[#1A1A18] leading-[1.85]">
+          프리미엄 사주는 성격·재물·직업·관계 등 여덟 영역을 나누어 깊이 풀이합니다.
+          프리미엄 궁합은 두 사람의 사주를 양방향으로 비교해 서로에게 어떤 영향을 주고받는지 살핍니다.
+          프리미엄 택일은 원하는 기간의 날짜를 일진 기준으로 채점해 내 사주와 맞는 날을 추려 주고,
+          프리미엄 연운세는 그해의 세운과 열두 달의 월운을 함께 계산합니다.
+          프리미엄 살풀이는 사주에 든 신살을 검출해 자리별 작용까지 풀어 줍니다.
+        </p>
+
+        <h2 className="font-serif text-lg font-bold text-[#1F3D34] mt-2">구독과 1회 이용권</h2>
+        <p className="text-[15px] text-[#1A1A18] leading-[1.85]">
+          프리미엄 구독은 30일 동안 위 다섯 가지 풀이를 모두 이용할 수 있고,
+          AI 역술가와의 대화도 월 1,000회까지 포함됩니다.
+          한 가지만 가볍게 보고 싶다면 살풀이는 990원 1회 이용권으로도 확인할 수 있습니다.
+          두 가지 이상 보실 계획이라면 구독이 더 유리합니다.
+        </p>
+
+        <p className="text-[13px] text-[#6B6661] leading-relaxed">
+          결제 전에 사주 개념부터 살펴보고 싶다면{" "}
+          <Link href="/guide" className="underline">사주 읽을거리</Link>와{" "}
+          <Link href="/dictionary" className="underline">용어 백과</Link>를 무료로 이용하실 수 있습니다.
+          본 서비스의 콘텐츠는 오락 및 참고 목적으로 제공됩니다.
+        </p>
+      </section>
+
+      <SiteFooter />
       <BottomTabBar />
     </div>
   );
