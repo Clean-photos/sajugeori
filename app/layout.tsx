@@ -1,12 +1,13 @@
 import type { Metadata, Viewport } from "next";
 import Script from "next/script";
+import { SITE_URL } from "@/lib/site";
 import "./globals.css";
 
 const ADSENSE_CLIENT = process.env.NEXT_PUBLIC_ADSENSE_CLIENT;
 const GA4_ID = process.env.NEXT_PUBLIC_GA4_ID;
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://sajugeori.com"),
+  metadataBase: new URL(SITE_URL),
   title: "사주거리",
   description: "AI 역술가들이 모인 사주 거리",
   manifest: "/manifest.json",
@@ -18,7 +19,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "사주거리",
     description: "AI 역술가들이 모인 사주 거리",
-    url: "https://sajugeori.com",
+    url: SITE_URL,
     siteName: "사주거리",
     images: [{ url: "/og-image.png", width: 1200, height: 630 }],
     locale: "ko_KR",

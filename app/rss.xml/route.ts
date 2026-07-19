@@ -1,7 +1,7 @@
 import { ARTICLES } from "@/app/guide/articles";
 import { TERMS, CATEGORY_LABEL } from "@/app/dictionary/terms";
 
-const BASE_URL = "https://sajugeori.com";
+import { SITE_URL as BASE_URL } from "@/lib/site";
 
 function esc(s: string): string {
   return s
