@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdRewardProvider } from "@/lib/ads";
-import { runSajuEngine } from "@/lib/saju-engine";
+import { runSajuEngine, checkSamjae } from "@/lib/saju-engine";
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
@@ -12,7 +12,9 @@ export async function POST(req: NextRequest) {
   const valid = await getAdRewardProvider().verify(ad_token, ip);
   if (!valid) return NextResponse.json({ error: "Invalid or used ad token" }, { status: 403 });
 
+  const nowYear = new Date().getFullYear();
   let engineSummary = "";
+  let samjaeSection = ""; // 삼재인 해에만 채워지고, 아니면 프롬프트에서 통째로 빠진다.
   try {
     const birthDate: string = extra?.birth_date ?? "1990-01-01";
     const result = runSajuEngine({
@@ -30,14 +32,18 @@ export async function POST(req: NextRequest) {
     const yongsin = j.yongsin.eokbu.length > 0 ? j.yongsin.eokbu : j.yongsin.johu;
     const kaiun = yongsin.map((e: string) => elementGuide[e] ?? e).join(", ");
 
-    // 현재 나이 계산 (2026 기준)
+    // 현재 나이 계산 (실제 연도 기준 — 삼재 판정과도 동일 기준을 쓴다)
     const birthYear = parseInt(birthDate.slice(0, 4));
-    const currentAge = 2026 - birthYear;
+    const currentAge = nowYear - birthYear;
 
     // 현재 대운 사이클
     const currentCycle = j.luck_cycles.find(
       (c: { start_age: number; end_age: number }) => currentAge >= c.start_age && currentAge <= c.end_age
     );
+
+    // 삼재 판정 (년지 + 현재 연도). 삼재는 띠로 보는 간이 신살이라 시각·성별 무관.
+    const samjae = checkSamjae(j.pillars.year.branch, nowYear);
+    const daewoonFavorable = !!currentCycle && /우호/.test(currentCycle.favorability);
 
     // 10대 이하 대운
     const earlyLuck = j.luck_cycles.filter((c: { end_age: number }) => c.end_age <= 19);
@@ -53,11 +59,25 @@ export async function POST(req: NextRequest) {
 약점: ${j.personality.weaknesses.slice(0, 3).join(", ")}
 오행: ${Object.entries(j.elements).map(([e, v]) => `${e}${v}`).join(" ")}
 용신: ${yongsin.join(", ")} / 개운장소: ${kaiun || "없음"}
-현재나이: ${currentAge}세 (2026년 기준)
+현재나이: ${currentAge}세 (${nowYear}년 기준)
 현재대운: ${currentCycle ? `${currentCycle.start_age}~${currentCycle.end_age}세 ${currentCycle.ganji}(${currentCycle.favorability})` : "정보 없음"}
 대운주의: ${j.current_phase.warnings.slice(0, 2).join(", ") || "없음"}
 10대까지대운: ${earlyLuckStr}
+삼재: ${samjae.isSamjae ? `${samjae.phase} (${samjae.years[0]}~${samjae.years[2]}년 삼재 중 ${nowYear}년은 ${nowYear - samjae.years[0] + 1}년차)` : "올해는 삼재 아님"}
     `.trim();
+
+    // 삼재 섹션은 실제 삼재인 해에만 넣는다("해당하는 경우에"). 대운이 우호적이면
+    // "대운이 좋으면 삼재도 무난히 넘긴다"는 취지를, 도전적이면 신중 조언을 붙인다.
+    samjaeSection = samjae.isSamjae
+      ? `
+
+【 올해 삼재 】
+올해는 ${samjae.phase}(${samjae.years[0]}~${samjae.years[2]}년 삼재)입니다. 삼재는 태어난 띠로 보는 3년 주기의 흐름으로, 사주팔자 전체나 대운과는 층위가 다른 참고 개념임을 1문장으로 설명하세요.
+${daewoonFavorable
+          ? `그리고 위 현재대운이 우호적이므로, 대운의 흐름이 받쳐 주어 삼재라도 크게 흔들리지 않고 무난히 지나갈 수 있다는 취지를 1문장 덧붙이세요.`
+          : `그리고 삼재와 대운의 흐름이 겹쳐 조심스러운 시기이니 큰 변동·투자·보증은 신중히 하는 편이 좋다는 취지를 1문장 덧붙이세요.`}
+겁을 주거나 불안을 조장하지 말고 담담하게 쓰세요.`
+      : "";
   } catch (e) {
     console.error(e);
     return NextResponse.json({ error: "사주 계산 오류" }, { status: 500 });
@@ -73,7 +93,8 @@ ${engineSummary}
 일간·강약 근거로 3문장.
 
 【 현재 운세 】
-현재나이와 현재대운(ganji, favorability)을 반드시 언급. "현재 XX세, XX대운 시기로..." 형식으로 시작. 2026년 지금 이 시기의 운세를 3문장으로.
+현재나이와 현재대운(ganji, favorability)을 반드시 언급. "현재 XX세, XX대운 시기로..." 형식으로 시작. ${nowYear}년 지금 이 시기의 운세를 3문장으로.
+${samjaeSection}
 
 【 개운 포인트 】
 용신 오행 기반 개운 장소·방향 2가지. 2문장.
@@ -85,7 +106,7 @@ ${engineSummary}
 • 10대까지: ${/* earlyLuckStr 직접 삽입 */""}10대 대운 특징 1문장.
 • 이후 대운은 20대부터 본격적으로 펼쳐집니다. 현재 내 대운이 궁금하다면 AI 역술가와 직접 대화해보세요.
 
-주의: 추측 없이 위 데이터에 근거해 작성(나이·오행·대운 등 위에 없는 정보 임의 생성 금지). 한국어. 과장 금지. 지시한 문장 수 초과 금지. 마크다운 절대 금지(#, ##, **, *, @, >, - 기호 사용 금지). 섹션 제목은 【 】 형식만 사용.
+주의: 추측 없이 위 데이터에 근거해 작성(나이·오행·대운 등 위에 없는 정보 임의 생성 금지). 위에 '올해 삼재' 섹션 지시가 있으면 현재 운세 다음에 포함하고, 없으면 그 섹션은 만들지 말 것(삼재가 아닌 사람에게 삼재를 언급 금지). 한국어. 과장 금지. 지시한 문장 수 초과 금지. 마크다운 절대 금지(#, ##, **, *, @, >, - 기호 사용 금지). 섹션 제목은 【 】 형식만 사용.
 한자 표기 규칙: 한자 뒤에 반드시 한글 독음 괄호 표기. 예: 庚(경), 辛未(신미). 한자 단독 사용 절대 금지.
 이미 한글로만 쓰인 단어(예: 신약, 극신약, 신강)에는 괄호로 같은 한글을 또 붙이지 말 것 — 한자를 병기할 때만 괄호를 쓴다.`;
 

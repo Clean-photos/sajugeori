@@ -11,6 +11,8 @@ export { scoreDate, rankDates } from "./taekil";
 export type { TaekilPurpose, DayScore, TaekilResult } from "./taekil";
 export { scoreYear } from "./yearly";
 export type { MonthScore, YearlyResult } from "./yearly";
+export { checkSamjae } from "./samjae";
+export type { SamjaeResult, SamjaePhase } from "./samjae";
 export type { SajuChart, Pillar, Pillars, StrengthResult, YongsinResult, DaewoonResult, SalEntry } from "./engine";
 
 import { buildChart } from "./engine";
