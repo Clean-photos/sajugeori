@@ -21,8 +21,16 @@ const SAMJAE_MAP: { group: number[]; samjae: number[] }[] = [
 export interface SamjaeResult {
   isSamjae: boolean;
   phase: SamjaePhase | null;
-  years: number[]; // 이번 삼재 주기의 3개 연도(삼재인 경우만)
+  years: number[];          // 이번 삼재 주기의 3개 연도(삼재인 경우만)
+  nextStartYear: number | null; // 삼재가 아닐 때, 다음 삼재가 시작되는 해
 }
+
+/** 들·눌·날 각 단계가 뜻하는 바 (리포트 설명용) */
+export const PHASE_MEANING: Record<SamjaePhase, string> = {
+  들삼재: "삼재가 들어서는 첫해",
+  눌삼재: "삼재가 머무는 가운데 해",
+  날삼재: "삼재가 물러나는 마지막 해",
+};
 
 /** 해당 연도의 지지 index (子=0). 갑자년(1984 등)이 子. */
 function yearBranchIndex(year: number): number {
@@ -36,15 +44,21 @@ function yearBranchIndex(year: number): number {
 export function checkSamjae(yearBranch: Branch, targetYear: number): SamjaeResult {
   const bi = BRANCHES.indexOf(yearBranch);
   const entry = SAMJAE_MAP.find((e) => e.group.includes(bi));
-  if (!entry) return { isSamjae: false, phase: null, years: [] };
+  if (!entry) return { isSamjae: false, phase: null, years: [], nextStartYear: null };
 
   const pos = entry.samjae.indexOf(yearBranchIndex(targetYear));
-  if (pos === -1) return { isSamjae: false, phase: null, years: [] };
+  if (pos === -1) {
+    // 삼재가 아니면 다음 들삼재가 오는 해를 찾는다(최대 12년 내에 반드시 있음).
+    let next = targetYear + 1;
+    while (yearBranchIndex(next) !== entry.samjae[0]) next++;
+    return { isSamjae: false, phase: null, years: [], nextStartYear: next };
+  }
 
   const startYear = targetYear - pos; // 들삼재 해
   return {
     isSamjae: true,
     phase: PHASE[pos],
     years: [startYear, startYear + 1, startYear + 2],
+    nextStartYear: null,
   };
 }
