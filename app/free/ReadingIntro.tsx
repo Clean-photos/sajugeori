@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SiteFooter } from "@/components/layout/SiteFooter";
 
 export interface IntroSection {
   heading: string;
@@ -58,6 +59,11 @@ export function ReadingIntro({
         본 서비스가 제공하는 사주·운세 콘텐츠는 오락 및 참고 목적으로만 제공되며,
         법률·의료·재정 등 어떠한 전문적 자문도 대체하지 않습니다.
         중요한 결정은 해당 분야 전문가와 상담하시기 바랍니다.
+      </div>
+
+      {/* 입력 폼 페이지에서도 읽을거리·용어 백과 등으로 이동할 수 있도록 공통 푸터를 둔다 */}
+      <div className="-mx-5">
+        <SiteFooter />
       </div>
     </section>
   );

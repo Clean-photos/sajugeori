@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { BottomTabBar } from "@/components/layout/BottomTabBar";
+import { SiteFooter } from "@/components/layout/SiteFooter";
 import { auth } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/db/client";
 import { isPremiumUser, findUnusedOneTimePass } from "@/lib/billing/access";
@@ -103,9 +104,12 @@ export async function PremiumGate({
       )}
 
       {!gate.ok && intro && (
-        <section className="px-5 pb-10 pt-7 border-t border-[#E5DFD4] flex flex-col gap-4">
-          {intro}
-        </section>
+        <>
+          <section className="px-5 pb-10 pt-7 border-t border-[#E5DFD4] flex flex-col gap-4">
+            {intro}
+          </section>
+          <SiteFooter />
+        </>
       )}
 
       <BottomTabBar />

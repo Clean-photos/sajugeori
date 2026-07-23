@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { SiteFooter } from "@/components/layout/SiteFooter";
 
 const EFFECTIVE_DATE = "2026년 1월 1일";
 const SERVICE_NAME = "사주거리";
@@ -150,6 +151,7 @@ export default function PrivacyPage() {
           </p>
         </div>
       </div>
+      <SiteFooter />
     </div>
   );
 }
