@@ -5,6 +5,7 @@ import { BottomTabBar } from "@/components/layout/BottomTabBar";
 import { BannerAd } from "@/components/ads/BannerAd";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { ARTICLES } from "./guide/articles";
+import { pickDaily } from "@/lib/daily-pick";
 import { TERMS } from "./dictionary/terms";
 import { HeaderAuth } from "./HeaderAuth";
 
@@ -191,14 +192,14 @@ export default async function HomePage() {
 
       {/* Premium Banner */}
       <section className="px-4 mt-3 animate-fade-up" style={{animationDelay:'0.4s'}}>
-        <Link href={isLoggedIn ? "/premium" : "/login?redirect=/premium"}>
+        <Link href="/premium/menu">
           <div className="relative overflow-hidden rounded-2xl bg-[#FBF8F2] border border-[#C8743A]/40 p-5 flex items-center gap-4 active:scale-[0.98] transition-all duration-200 shadow-sm">
             <div className="relative w-14 h-14 rounded-xl bg-[#C8743A]/10 flex items-center justify-center text-3xl flex-shrink-0">
               🔮
             </div>
             <div className="relative flex-1">
-              <p className="font-bold text-lg text-[#1A1A18] leading-snug">프리미엄 사주 풀이</p>
-              <p className="text-sm text-[#6B6661] mt-0.5">내 사주 8개 영역 전체 심층 분석</p>
+              <p className="font-bold text-lg text-[#1A1A18] leading-snug">프리미엄 운세보기</p>
+              <p className="text-sm text-[#6B6661] mt-0.5">사주·궁합·택일·연운세·살풀이 심층 풀이</p>
             </div>
             <div className="relative w-8 h-8 rounded-full bg-[#C8743A] flex items-center justify-center flex-shrink-0">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -244,7 +245,7 @@ export default async function HomePage() {
           <Link href="/guide" className="text-xs font-medium text-[#C8743A]">전체보기 →</Link>
         </div>
         <div className="flex flex-col gap-2.5">
-          {ARTICLES.slice(0, 3).map((a) => (
+          {pickDaily(ARTICLES, 3).map((a) => (
             <Link key={a.slug} href={`/guide/${a.slug}`}>
               <div className="bg-[#FBF8F2] border border-[#E5DFD4] rounded-xl px-4 py-3 active:scale-[0.98] transition-all">
                 <p className="text-sm font-semibold text-[#1A1A18]">{a.title}</p>
