@@ -19,7 +19,7 @@ export default function PremiumSalpuriPage() {
       intro={
         <>
           <h2 className="font-serif text-lg font-bold text-[#1F3D34]">살풀이란 무엇인가요</h2>
-          <p className="text-[15px] text-[#1A1A18] leading-[1.85]">
+          <p className="text-[16px] text-[#1A1A18] leading-[1.85]">
             살(殺)은 사주의 여덟 글자가 특정한 조합을 이룰 때 붙는 이름입니다.
             도화살·역마살처럼 널리 알려진 것부터 양인살·귀문관살·공망 같은 개념,
             천을귀인·문창귀인·금여 같은 길신까지 종류가 다양합니다.
@@ -28,7 +28,7 @@ export default function PremiumSalpuriPage() {
           </p>
 
           <h2 className="font-serif text-lg font-bold text-[#1F3D34] mt-2">자리에 따라 작용이 달라집니다</h2>
-          <p className="text-[15px] text-[#1A1A18] leading-[1.85]">
+          <p className="text-[16px] text-[#1A1A18] leading-[1.85]">
             같은 살이라도 사주의 네 기둥 중 어디에 놓였는지에 따라 작용하는 영역이 달라집니다.
             연지(年支)는 조상과 초년, 월지(月支)는 부모와 사회활동, 일지(日支)는 배우자와 본인,
             시지(時支)는 자식과 말년에 대응합니다.
@@ -37,7 +37,7 @@ export default function PremiumSalpuriPage() {
           </p>
 
           <h2 className="font-serif text-lg font-bold text-[#1F3D34] mt-2">흉살이라고 겁내지 않아도 됩니다</h2>
-          <p className="text-[15px] text-[#1A1A18] leading-[1.85]">
+          <p className="text-[16px] text-[#1A1A18] leading-[1.85]">
             이름이 험한 살이 많지만, 신살은 길흉의 낙인이 아니라 그 자리에 놓인 기운의 성격을
             나타내는 좌표에 가깝습니다. 역마살이 과거에는 고단한 타향살이였다가 오늘날 활동력과
             글로벌 감각으로 읽히듯, 같은 글자도 시대와 쓰임에 따라 다르게 해석됩니다.

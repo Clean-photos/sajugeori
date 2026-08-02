@@ -18,7 +18,7 @@ export default function PremiumPetPage() {
       intro={
         <>
           <h2 className="font-serif text-lg font-bold text-[#1F3D34]">반려동물도 궁합을 볼 수 있나요</h2>
-          <p className="text-[15px] text-[#1A1A18] leading-[1.85]">
+          <p className="text-[16px] text-[#1A1A18] leading-[1.85]">
             명리학 원전에는 동물의 사주를 보는 이론이 따로 없습니다. 다만 태어난 순간의 기운이
             그 생명에 새겨진다는 기본 전제를 따르면, 아이의 띠와 오행을 세워 집사님의 사주와
             어떻게 어울리는지 살펴볼 수는 있습니다. 사주거리의 반려동물 궁합은 이 방식으로,
@@ -26,7 +26,7 @@ export default function PremiumPetPage() {
           </p>
 
           <h2 className="font-serif text-lg font-bold text-[#1F3D34] mt-2">강아지는 강아지답게, 고양이는 고양이답게</h2>
-          <p className="text-[15px] text-[#1A1A18] leading-[1.85]">
+          <p className="text-[16px] text-[#1A1A18] leading-[1.85]">
             같은 기운이라도 강아지와 고양이는 그것을 전혀 다른 방식으로 드러냅니다.
             그래서 시작할 때 종을 먼저 고르게 하고, 동물행동학 연구에서 확인된 각 종의 특성을
             사주 해석에 함께 얹습니다. 강아지가 주인을 안전기지로 삼아 낯선 상황에서 집사님을
@@ -35,14 +35,14 @@ export default function PremiumPetPage() {
           </p>
 
           <h2 className="font-serif text-lg font-bold text-[#1F3D34] mt-2">태어난 날을 몰라도 괜찮습니다</h2>
-          <p className="text-[15px] text-[#1A1A18] leading-[1.85]">
+          <p className="text-[16px] text-[#1A1A18] leading-[1.85]">
             반려동물은 정확한 생일을 모르는 경우가 많습니다. 태어난 해만 알아도 아이의 띠와
             타고난 오행을 세울 수 있어 궁합을 볼 수 있고, 달과 날을 알면 그만큼 더 정밀해집니다.
             입양한 아이라면 추정 나이로 계산한 해를 적어 주셔도 됩니다.
           </p>
 
           <h2 className="font-serif text-lg font-bold text-[#1F3D34] mt-2">이런 내용을 담습니다</h2>
-          <p className="text-[15px] text-[#1A1A18] leading-[1.85]">
+          <p className="text-[16px] text-[#1A1A18] leading-[1.85]">
             우리 아이가 어떤 성정을 타고났는지, 집사님은 어떤 결의 사람인지, 둘이 함께일 때
             어떤 케미가 만들어지는지를 차례로 풀이합니다. 아이가 집사님을 어떤 존재로 여기고
             있을지 짚어 드리고, 두 사람의 기운에 맞는 장소와 활동, 시밀러룩으로 맞추면 좋은

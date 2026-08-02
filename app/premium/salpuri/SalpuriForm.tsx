@@ -104,7 +104,7 @@ export function SalpuriForm() {
   return (
     <div className="flex-1 px-5 py-6 flex flex-col gap-5">
       <div className="bg-[#FBF8F2] border border-[#E5DFD4] rounded-2xl p-5">
-        <p className="text-[15px] text-[#1A1A18] leading-[1.85]">
+        <p className="text-[16px] text-[#1A1A18] leading-[1.85]">
           살(殺)은 사주의 여덟 글자가 특정한 조합을 이룰 때 붙는 이름입니다.
           도화살·역마살처럼 널리 알려진 것부터 천을귀인·금여 같은 길신까지,
           사주 엔진이 등록된 내 사주에서 실제로 검출한 살을 하나씩 짚어 풀이해 드립니다.

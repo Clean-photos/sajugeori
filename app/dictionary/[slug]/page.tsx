@@ -3,6 +3,8 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { BottomTabBar } from "@/components/layout/BottomTabBar";
 import { SiteFooter } from "@/components/layout/SiteFooter";
+import { OhaengCycle } from "@/components/diagrams/OhaengCycle";
+import { FourPillars } from "@/components/diagrams/FourPillars";
 import { CATEGORY_LABEL, TERMS, getTerm } from "../terms";
 
 export function generateStaticParams() {
@@ -47,13 +49,17 @@ export default async function TermPage({ params }: { params: Promise<{ slug: str
       </header>
 
       <article className="px-5 py-7 flex flex-col gap-4">
-        {term.body.map((para, i) =>
-          para.startsWith("## ") ? (
+        {term.body.map((para, i) => {
+          // "::도표이름::" 문단은 인라인 SVG 도표로 치환한다.
+          const dia = para.startsWith("::") && para.endsWith("::") ? para.slice(2, -2) : null;
+          if (dia === "ohaeng-cycle") return <OhaengCycle key={i} />;
+          if (dia === "four-pillars") return <FourPillars key={i} />;
+          return para.startsWith("## ") ? (
             <h2 key={i} className="font-serif text-lg font-bold text-[#1F3D34] mt-3">{para.slice(3)}</h2>
           ) : (
-            <p key={i} className="text-[15px] text-[#1A1A18] leading-[1.85]">{para}</p>
-          )
-        )}
+            <p key={i} className="text-[16px] text-[#1A1A18] leading-[1.85]">{para}</p>
+          );
+        })}
       </article>
 
       <div className="px-5">

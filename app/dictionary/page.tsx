@@ -50,7 +50,7 @@ export default function DictionaryPage() {
                 <Link key={t.slug} href={`/dictionary/${t.slug}`}>
                   <article className="h-full bg-[#FBF8F2] border border-[#E5DFD4] rounded-2xl p-4 active:scale-[0.98] transition-all shadow-sm">
                     <div className="flex items-baseline gap-1.5">
-                      <h3 className="font-semibold text-[15px] text-[#1F3D34]">{t.term}</h3>
+                      <h3 className="font-semibold text-[16px] text-[#1F3D34]">{t.term}</h3>
                       {t.hanja && <span className="text-[11px] text-[#6B6661]/70">{t.hanja}</span>}
                     </div>
                     <p className="text-xs text-[#6B6661] mt-1.5 leading-snug line-clamp-3">{t.summary}</p>

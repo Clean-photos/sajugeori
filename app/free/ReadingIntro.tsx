@@ -27,13 +27,13 @@ export function ReadingIntro({
 }) {
   return (
     <section className="px-5 pb-10 pt-2 flex flex-col gap-5 border-t border-[#E5DFD4] mt-4">
-      <p className="text-[15px] text-[#1A1A18] leading-[1.85] pt-5">{lead}</p>
+      <p className="text-[16px] text-[#1A1A18] leading-[1.85] pt-5">{lead}</p>
 
       {sections.map((s, i) => (
         <div key={i} className="flex flex-col gap-2">
           <h2 className="font-serif text-lg font-bold text-[#1F3D34]">{s.heading}</h2>
           {s.paragraphs.map((p, j) => (
-            <p key={j} className="text-[15px] text-[#1A1A18] leading-[1.85]">{p}</p>
+            <p key={j} className="text-[16px] text-[#1A1A18] leading-[1.85]">{p}</p>
           ))}
         </div>
       ))}

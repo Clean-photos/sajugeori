@@ -84,7 +84,7 @@ export default async function HomePage() {
         사이트를 '입력 도구'로 인식하기 쉬웠다. 페이지를 여는 텍스트가 설명글이 되도록 올린다.
       */}
       <section className="px-5 mb-5 flex flex-col gap-3.5 animate-fade-up" style={{animationDelay:'0.06s'}}>
-        <p className="text-[15px] text-[#1A1A18] leading-[1.85]">
+        <p className="text-[16px] text-[#1A1A18] leading-[1.85]">
           사주거리는 전통 명리학의 해석 방식과 AI를 결합한 사주·운세 서비스입니다.
           생년월일과 태어난 시각을 입력하면 사주팔자 여덟 글자를 세우고, 오행의 균형과
           십성의 배치를 계산해 타고난 기질과 삶의 흐름을 풀어 드립니다. 무료 사주와
@@ -93,7 +93,7 @@ export default async function HomePage() {
         </p>
 
         <h2 className="font-serif text-lg font-bold text-[#1F3D34] mt-1">사주는 어떻게 계산되나요</h2>
-        <p className="text-[15px] text-[#1A1A18] leading-[1.85]">
+        <p className="text-[16px] text-[#1A1A18] leading-[1.85]">
           사주는 태어난 연·월·일·시를 각각 하늘의 기운인 천간과 땅의 기운인 지지 한 쌍씩,
           모두 여덟 글자로 옮긴 것입니다. 이때 달과 해의 경계는 달력의 1일이나 1월 1일이
           아니라 입춘·경칩 같은 절기를 기준으로 나뉩니다. 사주거리는 이 절기 계산을 자동으로
@@ -103,7 +103,7 @@ export default async function HomePage() {
         </p>
 
         <h2 className="font-serif text-lg font-bold text-[#1F3D34] mt-1">AI는 무엇을 하나요</h2>
-        <p className="text-[15px] text-[#1A1A18] leading-[1.85]">
+        <p className="text-[16px] text-[#1A1A18] leading-[1.85]">
           사주팔자를 세우고 오행과 십성을 계산하는 일은 정해진 규칙을 따르는 작업이라,
           사주거리에서는 자체 계산 엔진이 맡습니다. AI는 그렇게 산출된 실제 데이터를 근거로
           해석을 문장으로 풀어내는 역할을 합니다. 즉 AI가 사주를 지어내는 것이 아니라,
@@ -112,7 +112,7 @@ export default async function HomePage() {
         </p>
 
         <h2 className="font-serif text-lg font-bold text-[#1F3D34] mt-1">읽을거리와 용어 백과</h2>
-        <p className="text-[15px] text-[#1A1A18] leading-[1.85]">
+        <p className="text-[16px] text-[#1A1A18] leading-[1.85]">
           사주를 처음 접하면 낯선 한자 용어에 가로막히기 쉽습니다. 그래서 사주거리는
           결과만 보여 주고 끝내지 않습니다. 사주란 무엇인지, 오행과 십성은 어떻게 읽는지부터
           부족한 기운을 채우는 전통적인 방법, 같은 사주를 가진 사람이 왜 다른 삶을 사는지까지
@@ -122,7 +122,7 @@ export default async function HomePage() {
         </p>
 
         <h2 className="font-serif text-lg font-bold text-[#1F3D34] mt-1">결과를 대하는 태도</h2>
-        <p className="text-[15px] text-[#1A1A18] leading-[1.85]">
+        <p className="text-[16px] text-[#1A1A18] leading-[1.85]">
           사주는 정해진 운명을 통보하는 것이 아니라, 타고난 기질과 삶의 리듬을 이해하는
           지도에 가깝습니다. 같은 사주를 가진 사람이 또래 중에 수십 명씩 있지만 그들의 삶이
           모두 같지 않다는 사실이 이를 잘 보여 줍니다. 강한 기운은 잘 살리고 부족한 기운은

@@ -21,7 +21,7 @@ export default function AboutPage() {
         <h1 className="relative font-serif text-[28px] font-bold text-white leading-tight">서비스 소개</h1>
       </header>
 
-      <div className="px-5 py-7 flex flex-col gap-6 text-[15px] text-[#1A1A18] leading-[1.85]">
+      <div className="px-5 py-7 flex flex-col gap-6 text-[16px] text-[#1A1A18] leading-[1.85]">
         <section>
           <h2 className="font-serif text-lg font-bold text-[#1F3D34] mb-2">사주거리는 어떤 서비스인가요</h2>
           <p>
