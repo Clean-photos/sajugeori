@@ -72,7 +72,7 @@ export default function PremiumMenuPage() {
         {MENU_CARDS.map((card) => (
           <Link key={card.href} href={card.href}>
             <div className="relative overflow-hidden rounded-2xl p-5 min-h-[150px] flex flex-col justify-between active:scale-[0.96] transition-all duration-200 shadow-sm bg-[#1F3D34] text-white">
-              <div className="absolute -bottom-3 -right-2 font-serif text-[72px] leading-none select-none text-white/10">
+              <div aria-hidden="true" className="absolute -bottom-3 -right-2 font-serif text-[72px] leading-none select-none text-white/10">
                 {card.icon}
               </div>
               <span className="font-serif text-3xl font-bold leading-none text-white/90">

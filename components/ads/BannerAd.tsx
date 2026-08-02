@@ -11,7 +11,13 @@ declare global {
   }
 }
 
-/** 홈 화면 무료 콘텐츠 그리드와 사주거리 섹션 사이의 가로형 배너 광고. 슬롯 미설정 시 플레이스홀더. */
+/**
+ * 홈 화면 무료 콘텐츠 그리드와 사주거리 섹션 사이의 가로형 배너 광고.
+ *
+ * 슬롯이 없으면 아무것도 렌더하지 않는다. 이전에는 "광고 영역 (AdSense 승인 후 노출)"
+ * 이라는 안내가 담긴 점선 박스를 띄웠는데, 그 문구가 그대로 SSR HTML에 실려
+ * 심사 크롤러에게 미완성 사이트로 보였다. 자리 표시는 개발 편의일 뿐이라 제거.
+ */
 export function BannerAd() {
   const pushedRef = useRef(false);
 
@@ -25,13 +31,7 @@ export function BannerAd() {
     }
   }, []);
 
-  if (!ADSENSE_CLIENT || !HOME_BANNER_SLOT) {
-    return (
-      <div className="w-full h-[100px] rounded-xl bg-[#FBF8F2] border border-dashed border-[#E5DFD4] flex items-center justify-center">
-        <p className="text-[11px] text-[#6B6661]/60">광고 영역 (AdSense 승인 후 노출)</p>
-      </div>
-    );
-  }
+  if (!ADSENSE_CLIENT || !HOME_BANNER_SLOT) return null;
 
   return (
     <ins

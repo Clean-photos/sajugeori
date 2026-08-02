@@ -78,6 +78,59 @@ export default async function HomePage() {
         </p>
       </header>
 
+      {/*
+        서비스 소개 본문. 히어로 바로 아래·기능 카드 위에 둔다.
+        이 글이 카드 아래에 있을 때는 크롤러가 페이지 앞부분에서 버튼·카드 라벨만 읽어
+        사이트를 '입력 도구'로 인식하기 쉬웠다. 페이지를 여는 텍스트가 설명글이 되도록 올린다.
+      */}
+      <section className="px-5 mb-5 flex flex-col gap-3.5 animate-fade-up" style={{animationDelay:'0.06s'}}>
+        <p className="text-[15px] text-[#1A1A18] leading-[1.85]">
+          사주거리는 전통 명리학의 해석 방식과 AI를 결합한 사주·운세 서비스입니다.
+          생년월일과 태어난 시각을 입력하면 사주팔자 여덟 글자를 세우고, 오행의 균형과
+          십성의 배치를 계산해 타고난 기질과 삶의 흐름을 풀어 드립니다. 무료 사주와
+          궁합·택일·연운세를 광고 시청만으로 이용할 수 있고, 더 깊은 풀이가 필요하면
+          AI 역술가와 직접 대화하며 이어서 물어볼 수 있습니다.
+        </p>
+
+        <h2 className="font-serif text-lg font-bold text-[#1F3D34] mt-1">사주는 어떻게 계산되나요</h2>
+        <p className="text-[15px] text-[#1A1A18] leading-[1.85]">
+          사주는 태어난 연·월·일·시를 각각 하늘의 기운인 천간과 땅의 기운인 지지 한 쌍씩,
+          모두 여덟 글자로 옮긴 것입니다. 이때 달과 해의 경계는 달력의 1일이나 1월 1일이
+          아니라 입춘·경칩 같은 절기를 기준으로 나뉩니다. 사주거리는 이 절기 계산을 자동으로
+          처리하며, 여덟 글자에 담긴 목·화·토·금·수 다섯 기운의 균형과 일간의 강약,
+          그리고 10년 단위로 흐르는 대운까지 함께 산출합니다. 태어난 시각을 모르면 시주를
+          제외한 세 기둥으로도 볼 수 있습니다.
+        </p>
+
+        <h2 className="font-serif text-lg font-bold text-[#1F3D34] mt-1">AI는 무엇을 하나요</h2>
+        <p className="text-[15px] text-[#1A1A18] leading-[1.85]">
+          사주팔자를 세우고 오행과 십성을 계산하는 일은 정해진 규칙을 따르는 작업이라,
+          사주거리에서는 자체 계산 엔진이 맡습니다. AI는 그렇게 산출된 실제 데이터를 근거로
+          해석을 문장으로 풀어내는 역할을 합니다. 즉 AI가 사주를 지어내는 것이 아니라,
+          계산된 결과를 읽기 쉽게 설명해 주는 구조입니다. 그래서 같은 사주에 대해 일관된
+          기준으로 답하고, 궁금한 점은 몇 번이고 편하게 되물을 수 있습니다.
+        </p>
+
+        <h2 className="font-serif text-lg font-bold text-[#1F3D34] mt-1">읽을거리와 용어 백과</h2>
+        <p className="text-[15px] text-[#1A1A18] leading-[1.85]">
+          사주를 처음 접하면 낯선 한자 용어에 가로막히기 쉽습니다. 그래서 사주거리는
+          결과만 보여 주고 끝내지 않습니다. 사주란 무엇인지, 오행과 십성은 어떻게 읽는지부터
+          부족한 기운을 채우는 전통적인 방법, 같은 사주를 가진 사람이 왜 다른 삶을 사는지까지
+          {" "}{ARTICLES.length}편의 읽을거리로 정리해 두었습니다.
+          비견·상관·도화살·역마살·용신·대운처럼 결과에 자주 등장하는 용어는
+          용어 백과 {TERMS.length}항목에서 하나씩 찾아볼 수 있습니다.
+        </p>
+
+        <h2 className="font-serif text-lg font-bold text-[#1F3D34] mt-1">결과를 대하는 태도</h2>
+        <p className="text-[15px] text-[#1A1A18] leading-[1.85]">
+          사주는 정해진 운명을 통보하는 것이 아니라, 타고난 기질과 삶의 리듬을 이해하는
+          지도에 가깝습니다. 같은 사주를 가진 사람이 또래 중에 수십 명씩 있지만 그들의 삶이
+          모두 같지 않다는 사실이 이를 잘 보여 줍니다. 강한 기운은 잘 살리고 부족한 기운은
+          채워 가는 방향으로 활용할 때 의미가 있습니다. 사주거리가 제공하는 콘텐츠는 오락 및
+          참고 목적으로 제공되며, 법률·의료·재정 등 전문적 자문을 대체하지 않습니다.
+        </p>
+      </section>
+
       {/* 콘텐츠 3카드 — 애드센스 심사 대비, 정보성 콘텐츠를 상단에 노출 */}
       <section className="px-4 grid grid-cols-3 gap-2 mb-4 animate-fade-up" style={{animationDelay:'0.08s'}}>
         {[
@@ -108,13 +161,17 @@ export default async function HomePage() {
                   : "bg-[#FBF8F2] border border-[#E5DFD4] text-[#1A1A18]"
               }`}
             >
+              {/*
+                장식용 배경 글자. 텍스트 노드로 두면 크롤러가 아이콘을 두 번 읽어
+                "☯ ☯ 무료 일반사주"처럼 노이즈가 된다. CSS 생성 콘텐츠로 넣어 HTML 본문에서 제외.
+              */}
               <div
-                className={`absolute -bottom-3 -right-2 font-serif text-[72px] leading-none select-none ${
+                aria-hidden="true"
+                style={{ "--ico": `"${card.icon}"` } as React.CSSProperties}
+                className={`absolute -bottom-3 -right-2 font-serif text-[72px] leading-none select-none before:content-[var(--ico)] ${
                   card.accent ? "text-white/10" : "text-[#1F3D34]/6"
                 }`}
-              >
-                {card.icon}
-              </div>
+              />
               <span
                 className={`font-serif text-3xl font-bold leading-none ${
                   card.accent ? "text-white/90" : "text-[#1F3D34]"
@@ -254,38 +311,6 @@ export default async function HomePage() {
             </Link>
           ))}
         </div>
-      </section>
-
-      {/* 서비스 소개 본문 — 홈에 착지한 방문자(및 크롤러)에게 사이트의 성격을 텍스트로 설명 */}
-      <section className="px-5 mt-8 pt-7 border-t border-[#E5DFD4] flex flex-col gap-4">
-        <h2 className="font-serif text-lg font-bold text-[#1F3D34]">사주거리는 어떤 곳인가요</h2>
-        <p className="text-[15px] text-[#1A1A18] leading-[1.85]">
-          사주거리는 전통 명리학의 해석 방식과 AI를 결합한 사주·운세 서비스입니다.
-          생년월일과 태어난 시각을 입력하면 사주팔자 여덟 글자를 세우고, 오행의 균형과
-          십성의 배치를 계산해 타고난 기질과 삶의 흐름을 풀어 드립니다.
-          무료 사주와 궁합·택일·연운세를 광고 시청만으로 이용할 수 있고,
-          더 깊은 풀이가 필요하면 AI 역술가와 직접 대화하며 이어서 물어볼 수 있습니다.
-        </p>
-
-        <h2 className="font-serif text-lg font-bold text-[#1F3D34] mt-2">읽을거리와 용어 백과</h2>
-        <p className="text-[15px] text-[#1A1A18] leading-[1.85]">
-          사주를 처음 접하면 낯선 한자 용어에 가로막히기 쉽습니다. 그래서 사주거리는
-          결과만 보여 주고 끝내지 않습니다. 사주란 무엇인지, 오행과 십성은 어떻게 읽는지부터
-          부족한 기운을 채우는 전통적인 방법, 같은 사주를 가진 사람이 왜 다른 삶을 사는지까지
-          {" "}{ARTICLES.length}편의 읽을거리로 정리해 두었습니다.
-          비견·상관·도화살·역마살·용신·대운처럼 결과에 자주 등장하는 용어는
-          용어 백과 {TERMS.length}항목에서 하나씩 찾아볼 수 있습니다.
-        </p>
-
-        <h2 className="font-serif text-lg font-bold text-[#1F3D34] mt-2">결과를 대하는 태도</h2>
-        <p className="text-[15px] text-[#1A1A18] leading-[1.85]">
-          사주는 정해진 운명을 통보하는 것이 아니라, 타고난 기질과 삶의 리듬을 이해하는
-          지도에 가깝습니다. 같은 사주를 가진 사람이 또래 중에 수십 명씩 있지만 그들의 삶이
-          모두 같지 않다는 사실이 이를 잘 보여 줍니다. 강한 기운은 잘 살리고 부족한 기운은
-          채워 가는 방향으로 활용할 때 의미가 있습니다.
-          사주거리가 제공하는 콘텐츠는 오락 및 참고 목적으로 제공되며, 법률·의료·재정 등
-          전문적 자문을 대체하지 않습니다.
-        </p>
       </section>
 
       <SiteFooter />
