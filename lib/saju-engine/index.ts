@@ -13,6 +13,8 @@ export { scoreYear } from "./yearly";
 export type { MonthScore, YearlyResult } from "./yearly";
 export { checkSamjae } from "./samjae";
 export type { SamjaeResult, SamjaePhase } from "./samjae";
+export { petCompatibility, PET_DEFAULT_MONTH, PET_FLOW_HINT, PET_BRANCH_HINT, SPECIES_PSYCHOLOGY } from "./pet";
+export type { PetCompatInput, PetCompatFacts, PetFlow, PetBranchRelation, PetSpecies } from "./pet";
 export type { SajuChart, Pillar, Pillars, StrengthResult, YongsinResult, DaewoonResult, SalEntry } from "./engine";
 
 import { buildChart } from "./engine";

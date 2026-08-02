@@ -19,6 +19,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${BASE_URL}/free/yearly`, changeFrequency: "monthly", priority: 0.8, lastModified: now },
     { url: `${BASE_URL}/premium/menu`, changeFrequency: "monthly", priority: 0.5, lastModified: now },
     { url: `${BASE_URL}/premium/salpuri`, changeFrequency: "monthly", priority: 0.5, lastModified: now },
+    { url: `${BASE_URL}/premium/pet`, changeFrequency: "monthly", priority: 0.5, lastModified: now },
     { url: `${BASE_URL}/terms`, changeFrequency: "yearly", priority: 0.3, lastModified: now },
     { url: `${BASE_URL}/privacy`, changeFrequency: "yearly", priority: 0.3, lastModified: now },
   ];

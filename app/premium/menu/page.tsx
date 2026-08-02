@@ -46,6 +46,13 @@ const MENU_CARDS = [
     subtitle: "내 사주에 든 살을 하나씩",
     ready: false,
   },
+  {
+    href: "/premium/pet",
+    icon: "🐾",
+    title: "반려동물 궁합",
+    subtitle: "우리 아이와 나의 케미",
+    ready: false,
+  },
 ];
 
 export default function PremiumMenuPage() {
@@ -105,13 +112,15 @@ export default function PremiumMenuPage() {
           훨씬 개인화된 결과가 나옵니다.
         </p>
 
-        <h2 className="font-serif text-lg font-bold text-[#1F3D34] mt-2">다섯 가지 프리미엄 풀이</h2>
+        <h2 className="font-serif text-lg font-bold text-[#1F3D34] mt-2">여섯 가지 프리미엄 풀이</h2>
         <p className="text-[15px] text-[#1A1A18] leading-[1.85]">
           프리미엄 사주는 성격·재물·직업·관계 등 여덟 영역을 나누어 깊이 풀이합니다.
           프리미엄 궁합은 두 사람의 사주를 양방향으로 비교해 서로에게 어떤 영향을 주고받는지 살핍니다.
           프리미엄 택일은 원하는 기간의 날짜를 일진 기준으로 채점해 내 사주와 맞는 날을 추려 주고,
           프리미엄 연운세는 그해의 세운과 열두 달의 월운을 함께 계산합니다.
           프리미엄 살풀이는 사주에 든 신살을 검출해 자리별 작용까지 풀어 줍니다.
+          반려동물 궁합은 우리 아이의 띠·오행과 집사님의 사주를 함께 계산해, 둘의 케미와
+          아이의 속마음을 강아지·고양이 각각의 특성에 맞게 풀이합니다.
         </p>
 
         <h2 className="font-serif text-lg font-bold text-[#1F3D34] mt-2">구독과 1회 이용권</h2>
