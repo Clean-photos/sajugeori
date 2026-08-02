@@ -16,13 +16,6 @@ export async function POST(_req: NextRequest) {
   }
   const userId = session.user.id;
 
-  // 구독자 또는 990원 1회 이용권 보유자만 통과
-  const premium = await isPremiumUser(userId);
-  const passId = premium ? null : await findUnusedOneTimePass(userId, SALPURI_ONE.id);
-  if (!premium && !passId) {
-    return NextResponse.json({ error: "premium_required", redirect: "/premium/salpuri" }, { status: 402 });
-  }
-
   const { data: profile } = await supabaseAdmin
     .from("saju_profiles").select("id, birth_date, birth_time, gender")
     .eq("user_id", userId).eq("label", "본인")
@@ -49,6 +42,26 @@ export async function POST(_req: NextRequest) {
     const cur = grouped.get(s.name);
     if (cur) cur.where.push(s.where);
     else grouped.set(s.name, { where: [s.where], meaning: s.meaning });
+  }
+
+  const salList = [...grouped.entries()].map(([name, v]) => ({ name, where: v.where }));
+
+  // 캐시를 게이트보다 먼저 본다. 990원 이용권으로 이미 본 사용자는 이용권이 소진된 뒤라
+  // 게이트를 먼저 통과시키면 자기 결과를 다시 열지 못한다. 본인 것만 조회하므로 안전하다.
+  try {
+    const { data: cached } = await supabaseAdmin
+      .from("premium_salpuri_reports").select("content")
+      .eq("saju_profile_id", profile.id).limit(1).single();
+    if (cached?.content) {
+      return NextResponse.json({ report: cached.content, sal: salList, cached: true });
+    }
+  } catch { /* 테이블 없음 또는 미저장 → 생성 진행 */ }
+
+  // 구독자 또는 990원 1회 이용권 보유자만 신규 생성 가능
+  const premium = await isPremiumUser(userId);
+  const passId = premium ? null : await findUnusedOneTimePass(userId, SALPURI_ONE.id);
+  if (!premium && !passId) {
+    return NextResponse.json({ error: "premium_required", redirect: "/premium/salpuri" }, { status: 402 });
   }
 
   const salLines = [...grouped.entries()]
@@ -106,13 +119,18 @@ ${engineSummary}
       return NextResponse.json({ error: "생성에 실패했습니다. 다시 시도해주세요." }, { status: 500 });
     }
 
+    // 캐시 저장 (테이블 없으면 무시). 저장돼야 이용권 사용자가 재열람할 수 있다.
+    try {
+      await supabaseAdmin.from("premium_salpuri_reports").upsert(
+        { saju_profile_id: profile.id, user_id: userId, content: report },
+        { onConflict: "saju_profile_id" }
+      );
+    } catch { /* noop */ }
+
     // 이용권 사용자는 생성 성공 시점에 소진 (실패 시 이용권 보존)
     if (passId) await consumeOneTimePass(passId);
 
-    return NextResponse.json({
-      report,
-      sal: [...grouped.entries()].map(([name, v]) => ({ name, where: v.where })),
-    });
+    return NextResponse.json({ report, sal: salList, cached: false });
   } catch (e) {
     console.error("premium salpuri LLM error:", e);
     return NextResponse.json({ error: "분석 중 오류가 발생했습니다." }, { status: 500 });

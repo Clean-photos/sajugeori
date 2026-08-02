@@ -15,10 +15,6 @@ export async function POST(req: NextRequest) {
   }
   const userId = session.user.id;
 
-  if (!(await isPremiumUser(userId))) {
-    return NextResponse.json({ error: "premium_required", redirect: "/premium/subscribe" }, { status: 402 });
-  }
-
   const { data: profile } = await supabaseAdmin
     .from("saju_profiles").select("id, birth_date, birth_time, gender")
     .eq("user_id", userId).eq("label", "본인")
@@ -48,6 +44,29 @@ export async function POST(req: NextRequest) {
   } catch (e) {
     console.error("premium pet engine error:", e);
     return NextResponse.json({ error: "사주 계산 오류" }, { status: 500 });
+  }
+
+  // 같은 아이·같은 조건이면 재생성하지 않는다. 캐시 키의 pet_day는 0이 '모름'.
+  const cacheKey = {
+    saju_profile_id: profile.id,
+    species,
+    pet_name: petName,
+    pet_year: petYear,
+    pet_month: petMonth,
+    pet_day: petDay ?? 0,
+  };
+  try {
+    const { data: cached } = await supabaseAdmin
+      .from("premium_pet_reports").select("content")
+      .match(cacheKey).limit(1).single();
+    if (cached?.content) {
+      return NextResponse.json({ report: cached.content, pet: facts.pet, petName, cached: true });
+    }
+  } catch { /* 테이블 없음 또는 미저장 → 생성 진행 */ }
+
+  // 캐시가 없을 때만 구독 확인 (이미 본 결과는 재열람 허용)
+  if (!(await isPremiumUser(userId))) {
+    return NextResponse.json({ error: "premium_required", redirect: "/premium/subscribe" }, { status: 402 });
   }
 
   const sp = facts.speciesInfo;
@@ -146,7 +165,15 @@ ${facts.species === "cat"
     if (!report) {
       return NextResponse.json({ error: "생성에 실패했습니다. 다시 시도해주세요." }, { status: 500 });
     }
-    return NextResponse.json({ report, pet: facts.pet, petName });
+    // 캐시 저장 (테이블 없으면 무시)
+    try {
+      await supabaseAdmin.from("premium_pet_reports").upsert(
+        { ...cacheKey, user_id: userId, content: report },
+        { onConflict: "saju_profile_id,species,pet_name,pet_year,pet_month,pet_day" }
+      );
+    } catch { /* noop */ }
+
+    return NextResponse.json({ report, pet: facts.pet, petName, cached: false });
   } catch (e) {
     console.error("premium pet LLM error:", e);
     return NextResponse.json({ error: "분석 중 오류가 발생했습니다." }, { status: 500 });
