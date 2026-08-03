@@ -119,6 +119,10 @@ export default async function HomePage() {
           {" "}{ARTICLES.length}편의 읽을거리로 정리해 두었습니다.
           비견·상관·도화살·역마살·용신·대운처럼 결과에 자주 등장하는 용어는
           용어 백과 {TERMS.length}항목에서 하나씩 찾아볼 수 있습니다.
+          계산 엔진으로 직접 산출한{" "}
+          <Link href="/reference/samjae" className="underline decoration-[#C8743A]/40 underline-offset-2">띠별 삼재 연도표</Link>와{" "}
+          <Link href="/reference/ganji" className="underline decoration-[#C8743A]/40 underline-offset-2">출생 연도별 띠·간지 조견표</Link>도
+          함께 두었습니다.
         </p>
 
         <h2 className="font-serif text-lg font-bold text-[#1F3D34] mt-1">결과를 대하는 태도</h2>

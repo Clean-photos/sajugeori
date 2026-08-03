@@ -4,6 +4,8 @@ const LINKS = [
   { href: "/about", label: "서비스 소개" },
   { href: "/guide", label: "읽을거리" },
   { href: "/dictionary", label: "용어 백과" },
+  { href: "/reference/samjae", label: "삼재표" },
+  { href: "/reference/ganji", label: "띠·간지표" },
   { href: "/faq", label: "자주 묻는 질문" },
   { href: "/contact", label: "문의하기" },
   { href: "/terms", label: "이용약관" },
