@@ -11,6 +11,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: BASE_URL, changeFrequency: "weekly", priority: 1.0, lastModified: now },
     { url: `${BASE_URL}/about`, changeFrequency: "monthly", priority: 0.6, lastModified: now },
     { url: `${BASE_URL}/guide`, changeFrequency: "monthly", priority: 0.7, lastModified: now },
+    { url: `${BASE_URL}/guide/start`, changeFrequency: "monthly", priority: 0.8, lastModified: now },
     { url: `${BASE_URL}/dictionary`, changeFrequency: "monthly", priority: 0.7, lastModified: now },
     { url: `${BASE_URL}/faq`, changeFrequency: "monthly", priority: 0.6, lastModified: now },
     // 엔진으로 산출한 조견표. 해가 바뀌면 내용이 갱신되므로 yearly로 둔다.

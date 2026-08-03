@@ -24,13 +24,26 @@ export default function GuidePage() {
         <p className="relative text-sm text-white/60 mt-1">명리학의 기본 개념과 많은 분들이 궁금해할 사주 이야기가 준비되어있습니다</p>
       </header>
 
+      {/* 처음 온 사람이 순서를 잡을 수 있도록 입문 코스를 목록 맨 위에 둔다 */}
+      <div className="px-4 pt-6">
+        <Link href="/guide/start">
+          <div className="bg-[#1F3D34] rounded-2xl px-5 py-4 flex items-center justify-between active:scale-[0.98] transition-all">
+            <div>
+              <p className="text-sm font-semibold text-white">처음이신가요? 사주 입문 코스</p>
+              <p className="text-xs text-white/60 mt-0.5">무엇부터 읽으면 좋을지 5단계로 안내합니다</p>
+            </div>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#C8743A" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </div>
+        </Link>
+      </div>
+
       <section className="px-4 py-6 flex flex-col gap-3">
         {ARTICLES.map((a) => (
           <Link key={a.slug} href={`/guide/${a.slug}`}>
             <article className="bg-[#FBF8F2] border border-[#E5DFD4] rounded-2xl p-5 active:scale-[0.98] transition-all shadow-sm">
               <h2 className="font-semibold text-base text-[#1F3D34]">{a.title}</h2>
               <p className="text-sm text-[#6B6661] mt-1.5 leading-snug">{a.summary}</p>
-              <p className="text-[11px] text-[#6B6661]/60 mt-2">약 {a.readMinutes}분 읽기</p>
+              <p className="text-[11px] text-[#6B6661]/60 mt-2">{a.published} 발행</p>
             </article>
           </Link>
         ))}

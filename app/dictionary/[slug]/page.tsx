@@ -45,7 +45,7 @@ export default async function TermPage({ params }: { params: Promise<{ slug: str
           <h1 className="font-serif text-[28px] font-bold text-white leading-tight">{term.term}</h1>
           {term.hanja && <span className="text-lg text-white/50">{term.hanja}</span>}
         </div>
-        <p className="relative text-sm text-white/60 mt-2">약 {term.readMinutes}분 읽기</p>
+        <p className="relative text-sm text-white/60 mt-2">2026년 7월 발행 · 사주거리 편집팀</p>
       </header>
 
       <article className="px-5 py-7 flex flex-col gap-4">
