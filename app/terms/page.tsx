@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { CONTACT_EMAIL, CONTACT_PATH } from "@/lib/site";
+import { BUSINESS, CONTACT_EMAIL, CONTACT_PATH } from "@/lib/site";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 
 const EFFECTIVE_DATE = "2026년 1월 1일";
@@ -181,10 +181,19 @@ export default function TermsPage() {
 
           <section>
             <h2 className="font-semibold text-base text-[#1F3D34] mb-2">9. 사업자 정보</h2>
-            <p className="text-[#6B6661] leading-relaxed">
-              본 서비스는 개인 운영자가 제공하며, 현재 통신판매업 신고 전 단계입니다.
-              사업자등록번호 등 상세 사업자 정보는 등록 완료 후 본 페이지에 게시합니다.
-            </p>
+            <div className="bg-[#F6F1E7] rounded-xl p-4 text-[#6B6661] flex flex-col gap-1">
+              <p>상호: {BUSINESS.name}</p>
+              {BUSINESS.ceo && <p>대표자: {BUSINESS.ceo}</p>}
+              <p>사업자등록번호: {BUSINESS.registrationNo}</p>
+              <p>사업장 주소: {BUSINESS.address}</p>
+              {BUSINESS.mailOrderNo ? (
+                <p>통신판매업 신고번호: {BUSINESS.mailOrderNo}</p>
+              ) : (
+                <p className="text-xs mt-1">
+                  통신판매업 신고는 현재 접수되어 처리 중이며, 신고번호가 부여되는 대로 본 페이지에 게시합니다.
+                </p>
+              )}
+            </div>
           </section>
 
           <div className="h-px bg-[#E5DFD4]" />

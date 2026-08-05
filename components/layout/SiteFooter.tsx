@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BUSINESS, CONTACT_EMAIL } from "@/lib/site";
 
 const LINKS = [
   { href: "/about", label: "서비스 소개" },
@@ -29,13 +30,30 @@ export function SiteFooter() {
         ))}
       </nav>
 
-      <p className="text-[11px] text-[#6B6661]/70 leading-relaxed mt-5">
+      {/* 사업자 정보 — 전자상거래법에 따른 표시. 값은 lib/site.ts에서 관리한다. */}
+      <div className="text-[11px] text-[#6B6661]/70 leading-relaxed mt-5 flex flex-wrap gap-x-3 gap-y-1">
+        <span>상호: {BUSINESS.name}</span>
+        {BUSINESS.ceo && <span>대표자: {BUSINESS.ceo}</span>}
+        <span>사업자등록번호: {BUSINESS.registrationNo}</span>
+        {BUSINESS.mailOrderNo && <span>통신판매업 신고: {BUSINESS.mailOrderNo}</span>}
+        <span className="w-full">주소: {BUSINESS.address}</span>
+        {CONTACT_EMAIL && (
+          <span className="w-full">
+            문의:{" "}
+            <a href={`mailto:${CONTACT_EMAIL}`} className="underline underline-offset-2">
+              {CONTACT_EMAIL}
+            </a>
+          </span>
+        )}
+      </div>
+
+      <p className="text-[11px] text-[#6B6661]/70 leading-relaxed mt-4">
         본 서비스가 제공하는 사주·운세 콘텐츠는 오락 및 참고 목적으로만 제공되며,
         법률·의료·정신건강·재정·투자 등 어떠한 전문적 자문도 대체하지 않습니다.
         중요한 결정은 해당 분야 전문가와 상담하시기 바랍니다.
       </p>
       <p className="text-[11px] text-[#6B6661]/50 mt-3">
-        © {new Date().getFullYear()} 사주거리 (sajugeori.com)
+        © {new Date().getFullYear()} {BUSINESS.name} · 사주거리 (sajugeori.com)
       </p>
     </footer>
   );
