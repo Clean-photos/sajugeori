@@ -11,3 +11,20 @@
  */
 export const SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ?? "https://www.sajugeori.com";
+
+/**
+ * 연락처 단일 출처.
+ *
+ * 도메인 메일(support@·privacy@)은 현재 수신 설정이 되어 있지 않아 반송된다.
+ * 죽은 주소를 약관·개인정보처리방침에 적어 두면 연락이 닿지 않을 뿐 아니라,
+ * 심사에서 확인했을 때 신뢰를 잃는다. 그래서 지금은 문의 폼(/contact)을
+ * 주 연락 수단으로 안내한다. 폼 내용은 서버에 저장되므로 실제로 전달된다.
+ *
+ * 도메인 메일 포워딩을 설정한 뒤에는 아래 CONTACT_EMAIL만 채우면
+ * 약관·개인정보처리방침에 이메일이 함께 노출된다.
+ */
+export const CONTACT_EMAIL: string | null =
+  process.env.NEXT_PUBLIC_CONTACT_EMAIL ?? null;
+
+/** 문의 폼 경로 — 메일이 없을 때의 기본 연락 수단 */
+export const CONTACT_PATH = "/contact";

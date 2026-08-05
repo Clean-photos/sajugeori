@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { CONTACT_EMAIL, CONTACT_PATH } from "@/lib/site";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 
 const EFFECTIVE_DATE = "2026년 1월 1일";
 const SERVICE_NAME = "사주거리";
-const CONTACT_EMAIL = "privacy@sajugeori.com";
+
 
 export const metadata: Metadata = {
   title: "개인정보처리방침 | 사주거리",
@@ -127,7 +128,7 @@ export default function PrivacyPage() {
           <section>
             <h2 className="font-semibold text-base text-[#1F3D34] mb-2">6. 이용자의 권리</h2>
             <p className="text-[#6B6661] leading-relaxed">
-              이용자는 언제든지 자신의 개인정보를 조회하거나 수정, 삭제를 요청할 수 있습니다. 계정 설정 또는 아래 이메일로 요청하시면 5 영업일 이내에 처리합니다.
+              이용자는 언제든지 자신의 개인정보를 조회하거나 수정, 삭제를 요청할 수 있습니다. 계정 설정에서 직접 처리하시거나, 아래 &lsquo;개인정보 보호책임자&rsquo; 항목의 방법으로 요청하시면 5 영업일 이내에 처리합니다.
             </p>
           </section>
 
@@ -139,10 +140,19 @@ export default function PrivacyPage() {
               <p>서비스명: {SERVICE_NAME}</p>
               <p className="mt-1">
                 문의:{" "}
-                <a href={`mailto:${CONTACT_EMAIL}`} className="text-[#1F3D34] font-medium underline underline-offset-2">
-                  {CONTACT_EMAIL}
-                </a>
+                <Link href={CONTACT_PATH} className="text-[#1F3D34] font-medium underline underline-offset-2">
+                  문의하기 페이지
+                </Link>
+                를 통해 접수해 주시면 확인 후 답변드립니다.
               </p>
+              {CONTACT_EMAIL && (
+                <p className="mt-1">
+                  이메일:{" "}
+                  <a href={`mailto:${CONTACT_EMAIL}`} className="text-[#1F3D34] font-medium underline underline-offset-2">
+                    {CONTACT_EMAIL}
+                  </a>
+                </p>
+              )}
             </div>
           </section>
 

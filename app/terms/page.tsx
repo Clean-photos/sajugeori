@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { CONTACT_EMAIL, CONTACT_PATH } from "@/lib/site";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 
 const EFFECTIVE_DATE = "2026년 1월 1일";
 const SERVICE_NAME = "사주거리";
-const CONTACT_EMAIL = "support@sajugeori.com";
+
 
 export const metadata: Metadata = {
   title: "이용약관 | 사주거리",
@@ -140,7 +141,7 @@ export default function TermsPage() {
               유료 서비스는 결제 완료 시점부터 즉시 제공됩니다.
               디지털 콘텐츠 특성상 서비스 이용 개시 후에는 환불이 제한될 수 있으며,
               미사용 구독 기간에 대한 환불은 관계 법령(전자상거래법 제17조)에 따릅니다.
-              환불 문의는 아래 이메일로 연락해주세요.
+              환불 문의는 아래 &lsquo;문의&rsquo; 항목의 방법으로 연락해 주세요.
             </p>
           </section>
 
@@ -193,11 +194,20 @@ export default function TermsPage() {
             <div className="bg-[#F6F1E7] rounded-xl p-4 text-[#6B6661]">
               <p>서비스명: {SERVICE_NAME}</p>
               <p className="mt-1">
-                이메일:{" "}
-                <a href={`mailto:${CONTACT_EMAIL}`} className="text-[#1F3D34] font-medium underline underline-offset-2">
-                  {CONTACT_EMAIL}
-                </a>
+                문의:{" "}
+                <Link href={CONTACT_PATH} className="text-[#1F3D34] font-medium underline underline-offset-2">
+                  문의하기 페이지
+                </Link>
+                를 통해 접수해 주시면 확인 후 답변드립니다.
               </p>
+              {CONTACT_EMAIL && (
+                <p className="mt-1">
+                  이메일:{" "}
+                  <a href={`mailto:${CONTACT_EMAIL}`} className="text-[#1F3D34] font-medium underline underline-offset-2">
+                    {CONTACT_EMAIL}
+                  </a>
+                </p>
+              )}
             </div>
           </section>
 
