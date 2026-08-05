@@ -15,6 +15,7 @@ export default function PremiumPetPage() {
       title="프리미엄 반려동물 궁합"
       subtitle="우리 아이와 나는 어떤 인연일까"
       path="/premium/pet"
+      oneTime={{ productId: "pet_one", buyPath: "/premium/buy?product=pet_one", priceLabel: "990원" }}
       intro={
         <>
           <h2 className="font-serif text-lg font-bold text-[#1F3D34]">반려동물도 궁합을 볼 수 있나요</h2>

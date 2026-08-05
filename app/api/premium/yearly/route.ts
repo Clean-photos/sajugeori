@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/db/client";
-import { isPremiumUser } from "@/lib/billing/access";
+import { checkReportAccess, consumeOneTimePass } from "@/lib/billing/access";
 import { buildChart, scoreYear } from "@/lib/saju-engine";
 
 // 연운세 리포트 생성이 최대 ~40초 걸리므로 서버리스 타임아웃 상향
@@ -15,8 +15,10 @@ export async function POST(req: NextRequest) {
   }
   const userId = session.user.id;
 
-  if (!(await isPremiumUser(userId))) {
-    return NextResponse.json({ error: "premium_required", redirect: "/premium/subscribe" }, { status: 402 });
+  // 구독자 또는 990원 단건 이용권 보유자만 통과. 이용권은 생성 성공 후 소진한다.
+  const access = await checkReportAccess(userId, "yearly_one");
+  if (!access.allowed) {
+    return NextResponse.json({ error: "premium_required", redirect: "/premium/buy?product=yearly_one" }, { status: 402 });
   }
 
   const { data: profile } = await supabaseAdmin
@@ -115,6 +117,9 @@ ${engineSummary}
         { onConflict: "saju_profile_id,year" }
       );
     } catch { /* noop */ }
+
+    // 이용권 사용자는 생성 성공 시점에 소진 (실패 시 이용권 보존)
+    if (access.passId) await consumeOneTimePass(access.passId);
 
     return NextResponse.json({ report, year, cached: false });
   } catch (e) {

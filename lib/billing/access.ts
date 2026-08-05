@@ -23,23 +23,68 @@ export async function isPremiumUser(userId: string): Promise<boolean> {
   return new Date(data.expires_at).getTime() > Date.now();
 }
 
-/** 미사용 단건 이용권 id. 없으면 null. (테이블 미생성 시에도 null) */
+/**
+ * 묶음권으로 받은 이용권의 product_id.
+ * 특정 리포트에 묶이지 않고 아무 리포트에나 한 번 쓸 수 있다.
+ */
+export const ANY_REPORT_PASS = "any_report";
+
+/**
+ * 미사용 단건 이용권 id. 없으면 null. (테이블 미생성 시에도 null)
+ *
+ * 해당 리포트 전용 이용권을 먼저 찾고, 없으면 묶음권 이용권을 찾는다.
+ * 전용권을 먼저 쓰는 이유는 묶음권이 다른 리포트에도 쓸 수 있어 더 유연하기 때문이다.
+ */
 export async function findUnusedOneTimePass(userId: string, productId: string): Promise<string | null> {
-  try {
-    const { data } = await supabaseAdmin
-      .from("one_time_purchases")
-      .select("id")
-      .eq("user_id", userId)
-      .eq("product_id", productId)
-      .eq("status", "paid")
-      .is("used_at", null)
-      .order("created_at", { ascending: true })
-      .limit(1)
-      .maybeSingle();
-    return data?.id ?? null;
-  } catch {
-    return null;
+  for (const pid of [productId, ANY_REPORT_PASS]) {
+    try {
+      const { data } = await supabaseAdmin
+        .from("one_time_purchases")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("product_id", pid)
+        .eq("status", "paid")
+        .is("used_at", null)
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      if (data?.id) return data.id;
+    } catch {
+      return null;
+    }
   }
+  return null;
+}
+
+/** 사용자가 남긴 묶음권 이용권 장수 (결과 화면에 "N회 남음" 표시용) */
+export async function countRemainingPasses(userId: string): Promise<number> {
+  try {
+    const { count } = await supabaseAdmin
+      .from("one_time_purchases")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .eq("status", "paid")
+      .is("used_at", null);
+    return count ?? 0;
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * 리포트 열람 권한 확인.
+ *
+ * 구독자면 이용권을 쓰지 않고 통과시키고, 아니면 단건 이용권을 찾는다.
+ * 반환된 passId는 리포트 생성이 성공한 뒤 consumeOneTimePass로 소진해야 한다.
+ * 생성 전에 소진하면 실패했을 때 이용권만 날아간다.
+ */
+export async function checkReportAccess(
+  userId: string,
+  productId: string
+): Promise<{ allowed: boolean; passId: string | null }> {
+  if (await isPremiumUser(userId)) return { allowed: true, passId: null };
+  const passId = await findUnusedOneTimePass(userId, productId);
+  return { allowed: passId !== null, passId };
 }
 
 /** 단건 이용권 소진 처리. 리포트 생성이 성공한 뒤에만 호출할 것. */

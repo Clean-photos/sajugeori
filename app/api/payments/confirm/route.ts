@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/db/client";
-import { getPlan } from "@/lib/billing/plans";
+import { getPlan, BUNDLE_CREDITS } from "@/lib/billing/plans";
+import { ANY_REPORT_PASS } from "@/lib/billing/access";
 
 // POST /api/payments/confirm
 // Toss Payments 결제 승인 → 구독 활성화
@@ -54,15 +55,26 @@ export async function POST(req: NextRequest) {
 
   // 단건 이용권: 소진형 구매 기록만 남긴다 (구독 아님)
   if (plan.kind === "one_time") {
-    const { error } = await supabaseAdmin
-      .from("one_time_purchases")
-      .insert({ user_id: userId, product_id: plan.id, amount: plan.amount, order_id: orderId, payment_key: paymentKey });
+    // 묶음권은 아무 리포트에나 쓸 수 있는 이용권을 장수만큼 발급한다.
+    // 단품은 해당 리포트 전용 이용권 1장.
+    const credits = BUNDLE_CREDITS[plan.id] ?? 1;
+    const productId = credits > 1 ? ANY_REPORT_PASS : plan.id;
+    const rows = Array.from({ length: credits }, (_, i) => ({
+      user_id: userId,
+      product_id: productId,
+      amount: plan.amount,
+      // order_id에 unique 제약이 있어 묶음권은 장별로 접미사를 붙인다
+      order_id: credits > 1 ? `${orderId}-${i + 1}` : orderId,
+      payment_key: paymentKey,
+    }));
+
+    const { error } = await supabaseAdmin.from("one_time_purchases").insert(rows);
     if (error) {
       // 승인은 이미 완료된 상태 — 기록 실패는 로그로 남기고 실패 응답 (Toss 대시보드에서 수동 대사 가능)
       console.error("one_time purchase insert error:", error);
       return NextResponse.json({ error: "구매 기록 저장에 실패했습니다. 문의해주세요." }, { status: 500 });
     }
-    return NextResponse.json({ ok: true, plan: plan.id, kind: "one_time" });
+    return NextResponse.json({ ok: true, plan: plan.id, kind: "one_time", credits });
   }
 
   // 구독 활성화 (단건 → expires_at = now + plan.days)

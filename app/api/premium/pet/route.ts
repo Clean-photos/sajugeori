@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/db/client";
-import { isPremiumUser } from "@/lib/billing/access";
+import { checkReportAccess, consumeOneTimePass } from "@/lib/billing/access";
 import { buildChart, petCompatibility, PET_DEFAULT_MONTH, PET_FLOW_HINT, PET_BRANCH_HINT } from "@/lib/saju-engine";
 import type { PetSpecies } from "@/lib/saju-engine";
 
@@ -65,8 +65,10 @@ export async function POST(req: NextRequest) {
   } catch { /* 테이블 없음 또는 미저장 → 생성 진행 */ }
 
   // 캐시가 없을 때만 구독 확인 (이미 본 결과는 재열람 허용)
-  if (!(await isPremiumUser(userId))) {
-    return NextResponse.json({ error: "premium_required", redirect: "/premium/subscribe" }, { status: 402 });
+  // 구독자 또는 990원 단건 이용권 보유자만 통과. 이용권은 생성 성공 후 소진한다.
+  const access = await checkReportAccess(userId, "pet_one");
+  if (!access.allowed) {
+    return NextResponse.json({ error: "premium_required", redirect: "/premium/buy?product=pet_one" }, { status: 402 });
   }
 
   const sp = facts.speciesInfo;
@@ -172,6 +174,9 @@ ${facts.species === "cat"
         { onConflict: "saju_profile_id,species,pet_name,pet_year,pet_month,pet_day" }
       );
     } catch { /* noop */ }
+
+    // 이용권 사용자는 생성 성공 시점에 소진 (실패 시 이용권 보존)
+    if (access.passId) await consumeOneTimePass(access.passId);
 
     return NextResponse.json({ report, pet: facts.pet, petName, cached: false });
   } catch (e) {

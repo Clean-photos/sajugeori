@@ -2,56 +2,56 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { BottomTabBar } from "@/components/layout/BottomTabBar";
 import { SiteFooter } from "@/components/layout/SiteFooter";
+import { ONE_REPORT_PRICE, BUNDLE_3, BUNDLE_ALL } from "@/lib/billing/plans";
 
 export const metadata: Metadata = {
   title: "프리미엄 운세 — 사주·궁합·택일·연운세·살풀이 | 사주거리",
   description:
-    "사주 계산 엔진의 실제 데이터를 근거로 만드는 심층 풀이. 프리미엄 사주·궁합·택일·연운세·살풀이 다섯 가지를 소개합니다. 구독 5,900원(30일), 살풀이는 990원 1회 이용권도 있습니다.",
+    "사주 계산 엔진의 실제 데이터를 근거로 만드는 심층 풀이. 프리미엄 사주·궁합·택일·연운세·살풀이·반려동물 궁합 여섯 가지. 리포트 한 편 990원, 3종 선택권 2,900원, 전체 열람권 4,900원.",
   alternates: { canonical: "/premium/menu" },
 };
 
+/**
+ * 여섯 종 모두 판매 중이다. 순서는 '다시 볼 이유가 있는 것'을 앞에 둔다.
+ * 사주·살풀이는 내 사주가 바뀌지 않아 평생 한 번 보는 반면,
+ * 궁합·반려동물은 대상이 늘 때마다, 택일·연운세는 시기가 올 때마다 다시 본다.
+ */
 const MENU_CARDS = [
-  {
-    href: "/premium",
-    icon: "☯",
-    title: "프리미엄 사주",
-    subtitle: "8개 영역 심층 풀이",
-    ready: true,
-  },
   {
     href: "/premium/compatibility",
     icon: "∞",
     title: "프리미엄 궁합",
-    subtitle: "두 운명의 교차점, 심층 분석",
-    ready: false,
-  },
-  {
-    href: "/premium/taekil",
-    icon: "📅",
-    title: "프리미엄 택일",
-    subtitle: "좋은 날을 정밀하게",
-    ready: false,
-  },
-  {
-    href: "/premium/yearly",
-    icon: "運",
-    title: "프리미엄 연운세",
-    subtitle: "올해와 내년, 깊이 있게",
-    ready: false,
-  },
-  {
-    href: "/premium/salpuri",
-    icon: "殺",
-    title: "프리미엄 살풀이",
-    subtitle: "내 사주에 든 살을 하나씩",
-    ready: false,
+    subtitle: "두 사람의 사주를 양방향으로",
   },
   {
     href: "/premium/pet",
     icon: "🐾",
     title: "반려동물 궁합",
     subtitle: "우리 아이와 나의 케미",
-    ready: false,
+  },
+  {
+    href: "/premium/taekil",
+    icon: "📅",
+    title: "프리미엄 택일",
+    subtitle: "이사·개업·계약 좋은 날",
+  },
+  {
+    href: "/premium/yearly",
+    icon: "運",
+    title: "프리미엄 연운세",
+    subtitle: "올해와 내년, 월별 흐름",
+  },
+  {
+    href: "/premium",
+    icon: "☯",
+    title: "프리미엄 사주",
+    subtitle: "여덟 영역 심층 풀이",
+  },
+  {
+    href: "/premium/salpuri",
+    icon: "殺",
+    title: "프리미엄 살풀이",
+    subtitle: "내 사주에 든 살을 하나씩",
   },
 ];
 
@@ -81,24 +81,39 @@ export default function PremiumMenuPage() {
               <div className="relative">
                 <p className="font-semibold text-base leading-snug">{card.title}</p>
                 <p className="text-xs mt-0.5 text-white/65">{card.subtitle}</p>
-                {!card.ready && (
-                  <span className="inline-block mt-2 text-[10px] font-medium px-2 py-0.5 rounded-full bg-[#C8743A]/30 text-[#F0C9A8]">
-                    준비 중
-                  </span>
-                )}
+                <span className="inline-block mt-2 text-[10px] font-medium px-2 py-0.5 rounded-full bg-[#C8743A] text-white">
+                  {ONE_REPORT_PRICE.toLocaleString()}원
+                </span>
               </div>
             </div>
           </Link>
         ))}
       </section>
 
+      {/* 묶음권 — 단품 3개보다 저렴해 자연스럽게 상위 상품으로 유도한다 */}
       <section className="px-4 mt-4">
         <Link
-          href="/premium/subscribe"
-          className="block rounded-2xl bg-[#C8743A] text-white px-5 py-4 text-center"
+          href={`/premium/buy?product=${BUNDLE_3.id}`}
+          className="block rounded-2xl bg-[#C8743A] text-white px-5 py-4 active:scale-[0.98] transition-all"
         >
-          <p className="text-sm font-semibold">프리미엄 구독하기</p>
-          <p className="text-xs opacity-80 mt-0.5">5,900원 / 30일 · 역술가 대화 월 1,000회 포함</p>
+          <div className="flex items-baseline justify-between">
+            <p className="text-sm font-semibold">{BUNDLE_3.name}</p>
+            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-white/25">가장 인기</span>
+          </div>
+          <p className="text-xs opacity-85 mt-1">
+            원하는 리포트 3종을 골라 보세요 · {BUNDLE_3.amount.toLocaleString()}원
+            (개당 {Math.round(BUNDLE_3.amount / 3).toLocaleString()}원)
+          </p>
+        </Link>
+        <Link
+          href={`/premium/buy?product=${BUNDLE_ALL.id}`}
+          className="block rounded-2xl border border-[#E5DFD4] bg-[#FBF8F2] px-5 py-3.5 mt-2.5 active:scale-[0.98] transition-all"
+        >
+          <p className="text-sm font-semibold text-[#1F3D34]">{BUNDLE_ALL.name}</p>
+          <p className="text-xs text-[#6B6661] mt-0.5">
+            여섯 가지를 모두 · {BUNDLE_ALL.amount.toLocaleString()}원
+            (개당 {Math.round(BUNDLE_ALL.amount / 6).toLocaleString()}원)
+          </p>
         </Link>
       </section>
 
@@ -123,12 +138,17 @@ export default function PremiumMenuPage() {
           아이의 속마음을 강아지·고양이 각각의 특성에 맞게 풀이합니다.
         </p>
 
-        <h2 className="font-serif text-lg font-bold text-[#1F3D34] mt-2">구독과 1회 이용권</h2>
+        <h2 className="font-serif text-lg font-bold text-[#1F3D34] mt-2">필요한 것만 골라서</h2>
         <p className="text-[16px] text-[#1A1A18] leading-[1.85]">
-          프리미엄 구독은 30일 동안 위 다섯 가지 풀이를 모두 이용할 수 있고,
-          AI 역술가와의 대화도 월 1,000회까지 포함됩니다.
-          한 가지만 가볍게 보고 싶다면 살풀이는 990원 1회 이용권으로도 확인할 수 있습니다.
-          두 가지 이상 보실 계획이라면 구독이 더 유리합니다.
+          사주는 매달 새로 볼 만한 것이 아니라, 궁금할 때 한 번 제대로 보는 편이 맞습니다.
+          그래서 사주거리는 정기 구독을 요구하지 않고 리포트 한 편에 {ONE_REPORT_PRICE.toLocaleString()}원으로,
+          필요한 것만 골라 보실 수 있게 했습니다. 한 번 결제한 리포트는 저장되어 언제든 다시 열람할 수 있습니다.
+        </p>
+        <p className="text-[16px] text-[#1A1A18] leading-[1.85]">
+          여러 편을 보실 계획이라면 묶음권이 낫습니다. 3종 선택권은 {BUNDLE_3.amount.toLocaleString()}원으로
+          단품 세 편({(ONE_REPORT_PRICE * 3).toLocaleString()}원)보다 저렴하고, 전체 열람권은
+          {" "}{BUNDLE_ALL.amount.toLocaleString()}원에 여섯 가지를 모두 볼 수 있습니다.
+          묶음권으로 받은 이용권은 원하는 리포트에 자유롭게 쓰실 수 있습니다.
         </p>
 
         <p className="text-[13px] text-[#6B6661] leading-relaxed">
