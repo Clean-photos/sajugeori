@@ -86,7 +86,7 @@ export default async function HomePage() {
       */}
       <section className="px-5 mb-5 flex flex-col gap-3.5 animate-fade-up" style={{animationDelay:'0.06s'}}>
         <p className="text-[16px] text-[#1A1A18] leading-[1.85]">
-          사주거리는 전통 명리학의 해석 방식과 AI를 결합한 사주·운세 서비스입니다.
+          사주거리는 정통 명리학의 해석 방식을 그대로 따르는 사주·운세 서비스입니다.
           생년월일과 태어난 시각을 입력하면 사주팔자 여덟 글자를 세우고, 오행의 균형과
           십성의 배치를 계산해 타고난 기질과 삶의 흐름을 풀어 드립니다. 무료 사주와
           궁합·택일·연운세를 광고 시청만으로 이용할 수 있고, 더 깊은 풀이가 필요하면
@@ -103,13 +103,13 @@ export default async function HomePage() {
           제외한 세 기둥으로도 볼 수 있습니다.
         </p>
 
-        <h2 className="font-serif text-lg font-bold text-[#1F3D34] mt-1">AI는 무엇을 하나요</h2>
+        <h2 className="font-serif text-lg font-bold text-[#1F3D34] mt-1">해석은 어떤 기준을 따르나요</h2>
         <p className="text-[16px] text-[#1A1A18] leading-[1.85]">
           사주팔자를 세우고 오행과 십성을 계산하는 일은 정해진 규칙을 따르는 작업이라,
-          사주거리에서는 자체 계산 엔진이 맡습니다. AI는 그렇게 산출된 실제 데이터를 근거로
-          해석을 문장으로 풀어내는 역할을 합니다. 즉 AI가 사주를 지어내는 것이 아니라,
-          계산된 결과를 읽기 쉽게 설명해 주는 구조입니다. 그래서 같은 사주에 대해 일관된
-          기준으로 답하고, 궁금한 점은 몇 번이고 편하게 되물을 수 있습니다.
+          사주거리에서는 자체 계산 엔진이 맡습니다. 해석 역시 임의로 지어내지 않고,
+          이렇게 산출된 실제 데이터를 근거로 억부·조후 용신, 십성, 대운 같은 정통 명리학
+          이론에 따라 문장으로 풀어냅니다. 그래서 같은 사주라면 언제 보아도 일관된
+          기준으로 풀이됩니다.
         </p>
 
         <h2 className="font-serif text-lg font-bold text-[#1F3D34] mt-1">읽을거리와 용어 백과</h2>
@@ -245,12 +245,12 @@ export default async function HomePage() {
             {isLoggedIn ? (
               <>
                 <p className="text-xs text-[#6B6661] mb-0.5">사주를 등록하면</p>
-                <p className="text-sm font-medium text-[#1A1A18]">맞춤 운세와 AI 상담을 받을 수 있어요</p>
+                <p className="text-sm font-medium text-[#1A1A18]">맞춤 풀이와 프리미엄 리포트를 받을 수 있어요</p>
               </>
             ) : (
               <>
                 <p className="text-xs text-[#6B6661] mb-0.5">회원가입하면</p>
-                <p className="text-sm font-medium text-[#1A1A18]">AI 역술가와 대화·사주 저장이 가능해요</p>
+                <p className="text-sm font-medium text-[#1A1A18]">사주를 저장하고 프리미엄 리포트를 받을 수 있어요</p>
               </>
             )}
           </div>

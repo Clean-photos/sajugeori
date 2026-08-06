@@ -9,7 +9,7 @@ const GA4_ID = process.env.NEXT_PUBLIC_GA4_ID;
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: "사주거리",
-  description: "AI 역술가들이 모인 사주 거리",
+  description: "정통 명리학을 따르는 사주·궁합·택일·연운세",
   manifest: "/manifest.json",
   // 주의: alternates.canonical을 여기 두면 모든 하위 페이지가 이 값을 상속받아
   // 자기 자신이 아니라 홈을 정본으로 선언하게 된다(= 전 페이지가 홈의 중복으로 취급됨).

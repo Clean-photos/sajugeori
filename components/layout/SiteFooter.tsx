@@ -19,7 +19,7 @@ export function SiteFooter() {
     <footer className="mt-10 px-6 pt-7 pb-8 border-t border-[#E5DFD4] bg-[#F1EADC]">
       <p className="font-serif text-base font-bold text-[#1F3D34]">사주거리</p>
       <p className="text-xs text-[#6B6661] mt-1 leading-relaxed">
-        AI 기술과 전통 명리학 해석을 결합한 사주·운세 서비스
+        정통 명리학 해석 방식을 따르는 사주·운세 서비스
       </p>
 
       <nav className="flex flex-wrap gap-x-4 gap-y-2 mt-4">
