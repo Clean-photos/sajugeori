@@ -198,9 +198,11 @@ export default function FreeTaekilPage() {
         <div className="relative overflow-hidden rounded-2xl bg-[#1F3D34] p-5 text-white shadow-lg">
           <div className="absolute inset-0 opacity-30" style={{ backgroundImage: "radial-gradient(circle at 90% 10%, #C8743A 0%, transparent 60%)" }} />
           <p className="relative font-bold text-base mb-1">더 정확한 택일이 필요하다면?</p>
-          <p className="relative text-xs text-white/60 mb-4 leading-relaxed">AI 역술가와 대화하며 시간까지 맞춘 정밀 택일을 받아보세요</p>
-          <Link href="/street" className="relative block bg-[#C8743A] rounded-xl py-3 text-center text-sm font-semibold text-white active:scale-[0.97] transition-all">
-            AI 역술가와 대화하기 →
+          <p className="relative text-xs text-white/60 mb-4 leading-relaxed">
+            원하는 기간의 날짜를 일진 기준으로 채점해<br/>내 사주에 맞는 날을 정밀하게 추립니다
+          </p>
+          <Link href="/premium/taekil" className="relative block bg-[#C8743A] rounded-xl py-3 text-center text-sm font-semibold text-white active:scale-[0.97] transition-all">
+            프리미엄 택일 보기 (990원) →
           </Link>
         </div>
         <button onClick={() => { setStep("form"); setResult(""); }} className="text-sm text-[#6B6661] text-center py-2 active:opacity-60">

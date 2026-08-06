@@ -187,9 +187,11 @@ export default function FreeCompatibilityPage() {
         <div className="relative overflow-hidden rounded-2xl bg-[#1F3D34] p-5 text-white shadow-lg">
           <div className="absolute inset-0 opacity-30" style={{ backgroundImage: "radial-gradient(circle at 90% 10%, #C8743A 0%, transparent 60%)" }} />
           <p className="relative font-bold text-base mb-1">더 깊은 궁합 분석이 필요하다면?</p>
-          <p className="relative text-xs text-white/60 mb-4 leading-relaxed">AI 역술가와 직접 대화하며 궁합의 세부 흐름을 확인하세요</p>
-          <Link href="/street" className="relative block bg-[#C8743A] rounded-xl py-3 text-center text-sm font-semibold text-white active:scale-[0.97] transition-all">
-            AI 역술가와 대화하기 →
+          <p className="relative text-xs text-white/60 mb-4 leading-relaxed">
+            두 사람의 사주를 양방향으로 비교해<br/>서로에게 주는 영향까지 깊이 풀이합니다
+          </p>
+          <Link href="/premium/compatibility" className="relative block bg-[#C8743A] rounded-xl py-3 text-center text-sm font-semibold text-white active:scale-[0.97] transition-all">
+            프리미엄 궁합 보기 (990원) →
           </Link>
         </div>
         <button onClick={() => { setStep("form"); setResult(""); }} className="text-sm text-[#6B6661] text-center py-2 active:opacity-60">

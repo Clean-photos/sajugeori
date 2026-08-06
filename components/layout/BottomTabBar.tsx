@@ -35,11 +35,16 @@ const TABS = [
     ),
   },
   {
-    href: "/street",
-    label: "대화방",
+    // AI 역술가 대화(/street)는 품질이 기대에 못 미쳐 진입점을 내렸다.
+    // 코드와 라우트는 그대로 두어 나중에 되살릴 수 있게 한다.
+    // 그 자리에는 읽을거리를 둔다. 콘텐츠를 읽다 궁금해져 리포트로 넘어가는
+    // 흐름이 단건 판매와 잘 맞는다.
+    href: "/guide",
+    label: "읽을거리",
     icon: (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+        <path d="M4 19.5A2.5 2.5 0 016.5 17H20"/>
+        <path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/>
       </svg>
     ),
   },

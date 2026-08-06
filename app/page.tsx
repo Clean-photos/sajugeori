@@ -6,6 +6,7 @@ import { BannerAd } from "@/components/ads/BannerAd";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { ARTICLES } from "./guide/articles";
 import { pickDaily } from "@/lib/daily-pick";
+import { ONE_REPORT_PRICE } from "@/lib/billing/plans";
 import { TERMS } from "./dictionary/terms";
 import { HeaderAuth } from "./HeaderAuth";
 
@@ -47,7 +48,7 @@ const MENU_CARDS = [
 export const metadata: Metadata = {
   title: "사주거리 — AI 사주·궁합·택일·연운세 무료 풀이",
   description:
-    "전통 명리학과 AI를 결합한 사주 서비스. 생년월일로 무료 사주·궁합·택일·연운세를 확인하고, AI 역술가와 대화하며 깊이 있게 물어보세요. 사주 읽을거리와 용어 백과도 무료로 제공합니다.",
+    "전통 명리학과 AI를 결합한 사주 서비스. 생년월일로 무료 사주·궁합·택일·연운세를 확인하고, 더 깊은 풀이는 프리미엄 리포트를 한 편씩 골라 보세요. 사주 읽을거리와 용어 백과, 삼재·간지 조견표도 무료로 제공합니다.",
   alternates: { canonical: "/" },
 };
 
@@ -89,7 +90,7 @@ export default async function HomePage() {
           생년월일과 태어난 시각을 입력하면 사주팔자 여덟 글자를 세우고, 오행의 균형과
           십성의 배치를 계산해 타고난 기질과 삶의 흐름을 풀어 드립니다. 무료 사주와
           궁합·택일·연운세를 광고 시청만으로 이용할 수 있고, 더 깊은 풀이가 필요하면
-          AI 역술가와 직접 대화하며 이어서 물어볼 수 있습니다.
+          프리미엄 리포트를 한 편씩 골라 보실 수 있습니다. 정기 구독을 요구하지 않습니다.
         </p>
 
         <h2 className="font-serif text-lg font-bold text-[#1F3D34] mt-1">사주는 어떻게 계산되나요</h2>
@@ -202,65 +203,28 @@ export default async function HomePage() {
       {/* Divider */}
       <div className="px-4 flex items-center gap-3 mb-4">
         <div className="flex-1 h-px bg-[#E5DFD4]" />
-        <span className="text-xs text-[#6B6661] tracking-widest">사주 거리</span>
+        <span className="text-xs text-[#6B6661] tracking-widest">더 깊은 풀이</span>
         <div className="flex-1 h-px bg-[#E5DFD4]" />
       </div>
 
-      {/* Street Banner */}
-      <section className="px-4 animate-fade-up" style={{animationDelay:'0.36s'}}>
-        {isLoggedIn ? (
-          <Link href="/street">
-            <div className="relative overflow-hidden rounded-2xl bg-[#1F3D34] p-5 flex items-center gap-4 active:scale-[0.98] transition-all duration-200 shadow-lg">
-              <div className="absolute inset-0 opacity-20"
-                style={{backgroundImage: "radial-gradient(circle at 80% 50%, #C8743A 0%, transparent 60%)"}}
-              />
-              <div className="relative w-14 h-14 rounded-xl bg-white/10 flex items-center justify-center text-3xl flex-shrink-0 border border-white/20">
-                🏮
-              </div>
-              <div className="relative flex-1">
-                <p className="font-bold text-lg text-white leading-snug">사주 거리 입장</p>
-                <p className="text-sm text-white/65 mt-0.5">AI 역술가와 직접 대화하세요</p>
-              </div>
-              <div className="relative w-8 h-8 rounded-full bg-[#C8743A] flex items-center justify-center flex-shrink-0">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M5 12h14M12 5l7 7-7 7"/>
-                </svg>
-              </div>
-            </div>
-          </Link>
-        ) : (
-          <Link href="/login?redirect=/street">
-            <div className="relative overflow-hidden rounded-2xl bg-[#1F3D34] p-5 flex items-center gap-4 active:scale-[0.98] transition-all duration-200 shadow-lg">
-              <div className="absolute inset-0 opacity-20"
-                style={{backgroundImage: "radial-gradient(circle at 80% 50%, #C8743A 0%, transparent 60%)"}}
-              />
-              <div className="relative w-14 h-14 rounded-xl bg-white/10 flex items-center justify-center text-3xl flex-shrink-0 border border-white/20">
-                🔒
-              </div>
-              <div className="relative flex-1">
-                <p className="font-bold text-lg text-white leading-snug">사주 거리 입장</p>
-                <p className="text-sm text-white/65 mt-0.5">로그인 후 이용할 수 있습니다</p>
-              </div>
-              <div className="relative w-8 h-8 rounded-full bg-[#C8743A]/60 flex items-center justify-center flex-shrink-0">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M5 12h14M12 5l7 7-7 7"/>
-                </svg>
-              </div>
-            </div>
-          </Link>
-        )}
-      </section>
-
+      {/*
+        AI 역술가 대화(/street) 배너는 내렸다. 대화 품질이 기대에 못 미쳐
+        진입점만 숨기고 라우트와 코드는 남겨 둔다.
+        그 자리에 단건 리포트를 전면에 세운다.
+      */}
       {/* Premium Banner */}
-      <section className="px-4 mt-3 animate-fade-up" style={{animationDelay:'0.4s'}}>
+      <section className="px-4 animate-fade-up" style={{animationDelay:'0.36s'}}>
         <Link href="/premium/menu">
-          <div className="relative overflow-hidden rounded-2xl bg-[#FBF8F2] border border-[#C8743A]/40 p-5 flex items-center gap-4 active:scale-[0.98] transition-all duration-200 shadow-sm">
-            <div className="relative w-14 h-14 rounded-xl bg-[#C8743A]/10 flex items-center justify-center text-3xl flex-shrink-0">
+          <div className="relative overflow-hidden rounded-2xl bg-[#1F3D34] p-5 flex items-center gap-4 active:scale-[0.98] transition-all duration-200 shadow-lg">
+            <div className="absolute inset-0 opacity-20"
+              style={{backgroundImage: "radial-gradient(circle at 80% 50%, #C8743A 0%, transparent 60%)"}}
+            />
+            <div className="relative w-14 h-14 rounded-xl bg-white/10 flex items-center justify-center text-3xl flex-shrink-0 border border-white/20">
               🔮
             </div>
             <div className="relative flex-1">
-              <p className="font-bold text-lg text-[#1A1A18] leading-snug">프리미엄 운세보기</p>
-              <p className="text-sm text-[#6B6661] mt-0.5">사주·궁합·택일·연운세·살풀이 심층 풀이</p>
+              <p className="font-bold text-lg text-white leading-snug">프리미엄 운세보기</p>
+              <p className="text-sm text-white/65 mt-0.5">리포트 한 편 {ONE_REPORT_PRICE.toLocaleString()}원 · 구독 없이 필요한 것만</p>
             </div>
             <div className="relative w-8 h-8 rounded-full bg-[#C8743A] flex items-center justify-center flex-shrink-0">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">

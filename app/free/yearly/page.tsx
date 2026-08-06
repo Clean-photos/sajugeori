@@ -156,9 +156,11 @@ export default function FreeYearlyPage() {
         <div className="relative overflow-hidden rounded-2xl bg-[#1F3D34] p-5 text-white shadow-lg">
           <div className="absolute inset-0 opacity-30" style={{ backgroundImage: "radial-gradient(circle at 90% 10%, #C8743A 0%, transparent 60%)" }} />
           <p className="relative font-bold text-base mb-1">월별 운세까지 보고 싶다면?</p>
-          <p className="relative text-xs text-white/60 mb-4 leading-relaxed">AI 역술가와 대화하며 월별 흐름과 주의 시기를 상세히 확인하세요</p>
-          <Link href="/street" className="relative block bg-[#C8743A] rounded-xl py-3 text-center text-sm font-semibold text-white active:scale-[0.97] transition-all">
-            AI 역술가와 대화하기 →
+          <p className="relative text-xs text-white/60 mb-4 leading-relaxed">
+            그해 세운과 열두 달 월운을 함께 계산해<br/>재물·직업·관계별 흐름까지 짚어 드립니다
+          </p>
+          <Link href="/premium/yearly" className="relative block bg-[#C8743A] rounded-xl py-3 text-center text-sm font-semibold text-white active:scale-[0.97] transition-all">
+            프리미엄 연운세 보기 (990원) →
           </Link>
         </div>
         <button onClick={() => { setStep("form"); setResult(""); }} className="text-sm text-[#6B6661] text-center py-2 active:opacity-60">

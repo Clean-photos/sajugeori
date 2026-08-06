@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/db/client";
-import { isPremiumUser } from "@/lib/billing/access";
+import { checkReportAccess, consumeOneTimePass } from "@/lib/billing/access";
 
 // 프리미엄 사주 풀이 8개 섹션 키 (프리미엄 페이지 SECTIONS와 일치)
 const SECTION_KEYS = [
@@ -27,11 +27,6 @@ export async function GET(req: NextRequest) {
   }
   const userId = session.user.id;
 
-  const premium = await isPremiumUser(userId);
-  if (!premium) {
-    return NextResponse.json({ error: "premium_required", redirect: "/premium/subscribe" }, { status: 402 });
-  }
-
   const { data: profile } = await supabaseAdmin
     .from("saju_profiles").select("id, saju_json")
     .eq("user_id", userId).eq("label", "본인")
@@ -48,7 +43,8 @@ export async function GET(req: NextRequest) {
   // 강제 재생성 여부
   const regenerate = req.nextUrl.searchParams.get("regenerate") === "1";
 
-  // 캐시 조회 (premium_reports 테이블 — 없으면 조용히 무시)
+  // 캐시를 게이트보다 먼저 본다. 990원 이용권으로 이미 본 사용자는 이용권이 소진된 뒤라
+  // 게이트를 먼저 통과시키면 자기 결과를 다시 열지 못한다. 본인 것만 조회하므로 안전하다.
   if (!regenerate) {
     try {
       const { data: cached } = await supabaseAdmin
@@ -60,10 +56,17 @@ export async function GET(req: NextRequest) {
     } catch { /* 테이블 없음 → 생성으로 진행 */ }
   }
 
+  // 구독자 또는 990원 1회 이용권 보유자만 신규 생성 가능
+  const { allowed, passId } = await checkReportAccess(userId, "saju_one");
+  if (!allowed) {
+    return NextResponse.json({ error: "premium_required", redirect: "/premium/buy?product=saju_one" }, { status: 402 });
+  }
+
   const report = await generateReport(j);
   if (!report) {
     return NextResponse.json({ error: "생성에 실패했습니다. 잠시 후 다시 시도해주세요." }, { status: 500 });
   }
+  if (passId) await consumeOneTimePass(passId);
 
   // 캐시 저장 (테이블 없으면 무시)
   try {

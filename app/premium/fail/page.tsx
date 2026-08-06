@@ -14,7 +14,7 @@ function FailInner() {
       <h1 className="font-serif text-lg font-bold text-[#1F3D34]">결제가 완료되지 않았어요</h1>
       <p className="text-sm text-[#6B6661]">{message}</p>
       <button
-        onClick={() => router.push("/premium/subscribe")}
+        onClick={() => router.push("/premium/menu")}
         className="mt-2 bg-[#C8743A] text-white rounded-xl px-6 py-3 text-sm font-semibold"
       >
         다시 시도

@@ -81,16 +81,23 @@ export async function PremiumGate({
           )}
           {gate.kind === "subscribe" && (
             <>
-              <p className="text-sm font-medium text-[#1A1A18]">프리미엄 전용 기능이에요</p>
-              <p className="text-xs text-[#6B6661] max-w-[240px] leading-relaxed">5,900원 / 30일로 프리미엄 전체 분석과 역술가 대화(월 1,000회)를 이용하세요.</p>
-              <Link href="/premium/subscribe" className="rounded-xl bg-[#C8743A] text-white px-6 py-3 text-sm font-semibold">프리미엄 구독하기</Link>
-              {oneTime && (
+              <p className="text-sm font-medium text-[#1A1A18]">프리미엄 리포트예요</p>
+              <p className="text-xs text-[#6B6661] max-w-[250px] leading-relaxed">
+                정기 구독 없이 리포트 한 편만 결제해서 보실 수 있어요. 결제 후에는 언제든 다시 열어볼 수 있습니다.
+              </p>
+              {oneTime ? (
                 <>
-                  <p className="text-xs text-[#6B6661] mt-1">구독 없이 이번 한 번만 보고 싶다면</p>
-                  <Link href={oneTime.buyPath} className="rounded-xl border border-[#C8743A] text-[#C8743A] px-6 py-3 text-sm font-semibold">
-                    {oneTime.priceLabel}로 1회 이용하기
+                  <Link href={oneTime.buyPath} className="rounded-xl bg-[#C8743A] text-white px-6 py-3 text-sm font-semibold">
+                    {oneTime.priceLabel}로 보기
+                  </Link>
+                  <Link href="/premium/menu" className="text-xs text-[#6B6661] underline underline-offset-4 mt-1">
+                    다른 리포트도 함께 보는 묶음권 보기
                   </Link>
                 </>
+              ) : (
+                <Link href="/premium/menu" className="rounded-xl bg-[#C8743A] text-white px-6 py-3 text-sm font-semibold">
+                  리포트 고르기
+                </Link>
               )}
             </>
           )}

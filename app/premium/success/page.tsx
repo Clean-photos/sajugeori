@@ -2,13 +2,42 @@
 
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import { REPORT_PRODUCTS, BUNDLE_CREDITS } from "@/lib/billing/plans";
+
+/** 결제한 상품에 맞는 완료 화면 문구와 이동 경로. 구독은 더 이상 판매하지 않지만
+ *  기존 구독자의 갱신 결제가 들어올 수 있어 fallback을 남긴다. */
+function outcomeFor(planId: string | null) {
+  const report = REPORT_PRODUCTS.find((p) => p.productId === planId);
+  if (report) {
+    return {
+      title: `${report.label} 이용권이 준비됐어요`,
+      body: "지금 바로 리포트를 확인해 보세요.",
+      cta: `${report.label} 보러 가기`,
+      href: report.path,
+    };
+  }
+  if (planId && BUNDLE_CREDITS[planId]) {
+    return {
+      title: "이용권이 준비됐어요",
+      body: `리포트 ${BUNDLE_CREDITS[planId]}종을 원하는 것으로 골라 보실 수 있어요.`,
+      cta: "리포트 고르러 가기",
+      href: "/premium/menu",
+    };
+  }
+  return {
+    title: "프리미엄이 활성화됐어요",
+    body: "이제 모든 프리미엄 리포트를 이용할 수 있어요.",
+    cta: "리포트 보러 가기",
+    href: "/premium/menu",
+  };
+}
 
 function SuccessInner() {
   const params = useSearchParams();
   const router = useRouter();
   const [state, setState] = useState<"confirming" | "done" | "error">("confirming");
   const [message, setMessage] = useState("");
-  const isSalpuriOne = params.get("planId") === "salpuri_one";
+  const outcome = outcomeFor(params.get("planId"));
 
   useEffect(() => {
     const paymentKey = params.get("paymentKey");
@@ -54,17 +83,13 @@ function SuccessInner() {
       {state === "done" && (
         <>
           <div className="text-5xl">🎉</div>
-          <h1 className="font-serif text-xl font-bold text-[#1F3D34]">
-            {isSalpuriOne ? "살풀이 이용권이 준비됐어요" : "프리미엄이 활성화됐어요"}
-          </h1>
-          <p className="text-sm text-[#6B6661]">
-            {isSalpuriOne ? "지금 바로 내 사주의 살을 확인해보세요." : "이제 역술가와 마음껏 대화할 수 있어요."}
-          </p>
+          <h1 className="font-serif text-xl font-bold text-[#1F3D34]">{outcome.title}</h1>
+          <p className="text-sm text-[#6B6661]">{outcome.body}</p>
           <button
-            onClick={() => router.push(isSalpuriOne ? "/premium/salpuri" : "/street")}
+            onClick={() => router.push(outcome.href)}
             className="mt-2 bg-[#1F3D34] text-white rounded-xl px-6 py-3 text-sm font-semibold"
           >
-            {isSalpuriOne ? "살풀이 보러 가기" : "대화하러 가기"}
+            {outcome.cta}
           </button>
         </>
       )}
@@ -74,10 +99,10 @@ function SuccessInner() {
           <h1 className="font-serif text-lg font-bold text-[#C0392B]">결제 확인 실패</h1>
           <p className="text-sm text-[#6B6661]">{message}</p>
           <button
-            onClick={() => router.push("/premium/subscribe")}
+            onClick={() => router.push("/premium/menu")}
             className="mt-2 border border-[#E5DFD4] text-[#1F3D34] rounded-xl px-6 py-3 text-sm font-semibold"
           >
-            다시 시도
+            프리미엄으로 돌아가기
           </button>
         </>
       )}

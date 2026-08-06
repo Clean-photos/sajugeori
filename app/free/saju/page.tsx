@@ -229,13 +229,13 @@ export default function FreeSajuPage() {
           />
           <p className="relative font-bold text-base mb-1">더 자세히 알고 싶다면?</p>
           <p className="relative text-xs text-white/60 mb-4 leading-relaxed">
-            직업운 · 연애운 · 건강 · 대운 전체 흐름을<br/>AI 역술가와 직접 대화하며 확인해보세요
+            성격·재물·직업·관계 등 여덟 영역을<br/>훨씬 길고 구체적인 리포트로 확인하세요
           </p>
           <Link
-            href="/street"
+            href="/premium"
             className="relative block bg-[#C8743A] rounded-xl py-3 text-center text-sm font-semibold text-white active:scale-[0.97] transition-all"
           >
-            AI 역술가와 대화하기 →
+            프리미엄 사주 보기 (990원) →
           </Link>
         </div>
 

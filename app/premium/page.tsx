@@ -2,7 +2,8 @@ import Link from "next/link";
 import { BottomTabBar } from "@/components/layout/BottomTabBar";
 import { auth } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/db/client";
-import { isPremiumUser } from "@/lib/billing/access";
+import { isPremiumUser, findUnusedOneTimePass } from "@/lib/billing/access";
+import { ONE_REPORT_PRICE } from "@/lib/billing/plans";
 import { PremiumReport } from "./PremiumReport";
 
 // 비구독자에게 보여줄 잠긴 섹션 미리보기
@@ -26,11 +27,20 @@ export default async function PremiumPage() {
   // 헤더에 실제 일주·강약 표시
   let subtitle = "내 사주 풀이";
   let hasProfile = false;
+  let hasReport = false;   // 이미 생성해 둔 풀이(이용권 소진 후 재열람용)
   if (userId) {
     const { data: p } = await supabaseAdmin
-      .from("saju_profiles").select("saju_json")
+      .from("saju_profiles").select("id, saju_json")
       .eq("user_id", userId).eq("label", "본인")
       .order("created_at", { ascending: false }).limit(1).single();
+    if (p?.id) {
+      try {
+        const { count } = await supabaseAdmin
+          .from("premium_reports").select("saju_profile_id", { count: "exact", head: true })
+          .eq("saju_profile_id", p.id);
+        hasReport = (count ?? 0) > 0;
+      } catch { /* 테이블 없음 → 미보유로 간주 */ }
+    }
     if (p?.saju_json?.identity) {
       hasProfile = true;
       const dm = p.saju_json.identity.day_master ?? "";
@@ -38,6 +48,11 @@ export default async function PremiumPage() {
       subtitle = [dm && `${dm}일간`, st].filter(Boolean).join(" · ") || subtitle;
     }
   }
+
+  // 구독자 · 미사용 이용권 보유자 · 이미 리포트를 받은 사람은 바로 열람.
+  // 최종 권한 판정과 이용권 소진은 API(/api/premium/report)가 하고, 여기서는 화면 분기만 한다.
+  const hasPass = !premium && userId ? (await findUnusedOneTimePass(userId, "saju_one")) !== null : false;
+  const canView = premium || hasPass || hasReport;
 
   return (
     <div className="flex flex-col min-h-screen pb-20 bg-[#F6F1E7]">
@@ -47,7 +62,7 @@ export default async function PremiumPage() {
         <p className="text-xs opacity-60 mt-1">{subtitle}</p>
       </header>
 
-      {premium ? (
+      {canView ? (
         hasProfile ? (
           <PremiumReport />
         ) : (
@@ -61,11 +76,13 @@ export default async function PremiumPage() {
         <>
           <div className="px-4 pt-4">
             <Link
-              href={loggedIn ? "/premium/subscribe" : "/login?redirect=/premium/subscribe"}
+              href={loggedIn ? "/premium/buy?product=saju_one" : "/login?redirect=/premium"}
               className="block rounded-2xl bg-[#C8743A] text-white px-5 py-4 text-center"
             >
-              <p className="text-sm font-semibold">프리미엄으로 전체 풀이 열람하기</p>
-              <p className="text-xs opacity-80 mt-0.5">5,900원 / 30일 · 역술가 대화 월 1,000회 포함</p>
+              <p className="text-sm font-semibold">전체 풀이 열람하기</p>
+              <p className="text-xs opacity-80 mt-0.5">
+                {ONE_REPORT_PRICE.toLocaleString()}원 · 1회 결제 · 구독 아님
+              </p>
             </Link>
           </div>
 

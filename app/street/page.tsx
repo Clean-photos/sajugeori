@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
 import { auth } from "@/lib/auth";
@@ -41,6 +42,10 @@ const CHARACTERS = [
     tone: "공감",
   },
 ];
+
+// 역술가 대화는 진입점을 내린 상태(품질 미달)라 색인 대상에서도 제외한다.
+// 링크 없이 색인만 남으면 검색 유입이 막다른 화면으로 떨어진다.
+export const metadata: Metadata = { robots: { index: false, follow: false } };
 
 export default async function StreetPage() {
   const session = await auth();
