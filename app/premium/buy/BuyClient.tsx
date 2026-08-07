@@ -29,6 +29,7 @@ export function BuyClient({ planId, returnTo }: { planId: string; returnTo: stri
   const [ready, setReady] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState<string | null>(null);
+  const [agreed, setAgreed] = useState(false);
   const paymentRef = useRef<TossPayment | null>(null);
 
   const plan = getPlan(planId);
@@ -107,7 +108,7 @@ export function BuyClient({ planId, returnTo }: { planId: string; returnTo: stri
         </p>
         <button
           onClick={() => pay(plan.id)}
-          disabled={!ready || loading !== null}
+          disabled={!ready || loading !== null || !agreed}
           className="mt-3 w-full bg-[#C8743A] text-white rounded-xl py-3.5 font-semibold text-sm disabled:opacity-40 active:scale-[0.97] transition-all shadow-md"
         >
           {loading === plan.id ? "결제창 여는 중..." : ready ? `${plan.amount.toLocaleString()}원 결제하고 보기` : "준비 중..."}
@@ -132,7 +133,7 @@ export function BuyClient({ planId, returnTo }: { planId: string; returnTo: stri
         </p>
         <button
           onClick={() => pay(BUNDLE_3.id)}
-          disabled={!ready || loading !== null}
+          disabled={!ready || loading !== null || !agreed}
           className="mt-3 w-full bg-[#C8743A] text-white rounded-xl py-3.5 font-semibold text-sm disabled:opacity-40 active:scale-[0.97] transition-all"
         >
           {loading === BUNDLE_3.id ? "결제창 여는 중..." : "3종 선택권 구매"}
@@ -147,7 +148,7 @@ export function BuyClient({ planId, returnTo }: { planId: string; returnTo: stri
         <p className="mt-3 text-xl font-bold text-[#1F3D34]">{BUNDLE_ALL.amount.toLocaleString()}원</p>
         <button
           onClick={() => pay(BUNDLE_ALL.id)}
-          disabled={!ready || loading !== null}
+          disabled={!ready || loading !== null || !agreed}
           className="mt-3 w-full border border-[#1F3D34] text-[#1F3D34] rounded-xl py-3 font-semibold text-sm disabled:opacity-40 active:scale-[0.97] transition-all"
         >
           {loading === BUNDLE_ALL.id ? "결제창 여는 중..." : "전체 열람권 구매"}
@@ -155,6 +156,23 @@ export function BuyClient({ planId, returnTo }: { planId: string; returnTo: stri
       </div>
 
       {error && <p className="text-xs text-[#C0392B] px-1">{error}</p>}
+
+      {/* 전자상거래법 제17조 제2항 제5호 — 즉시 제공되는 디지털 콘텐츠는
+          결제 전 고지와 동의를 받아야 청약철회를 제한할 수 있다. 체크 전에는
+          결제 버튼을 비활성화해 실제 동의를 받는 절차로 만든다. */}
+      <label className="flex items-start gap-2.5 px-1 text-xs text-[#6B6661] leading-relaxed cursor-pointer select-none">
+        <input
+          type="checkbox"
+          checked={agreed}
+          onChange={(e) => setAgreed(e.target.checked)}
+          className="mt-0.5 w-4 h-4 accent-[#C8743A] flex-shrink-0"
+        />
+        <span>
+          결제 즉시 리포트가 생성·제공되며, 이 경우{" "}
+          <Link href="/terms" className="underline">이용약관</Link> 5조에 따라 청약철회(환불)가
+          제한됨을 확인했습니다.
+        </span>
+      </label>
 
       <p className="text-center text-[11px] text-[#6B6661] leading-relaxed mt-1">
         결제 시 <Link href="/terms" className="underline">이용약관</Link> 및{" "}

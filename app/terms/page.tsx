@@ -136,12 +136,30 @@ export default function TermsPage() {
           <div className="h-px bg-[#E5DFD4]" />
 
           <section>
-            <h2 className="font-semibold text-base text-[#1F3D34] mb-2">5. 유료 서비스 및 환불</h2>
-            <p className="text-[#6B6661] leading-relaxed">
-              유료 서비스는 결제 완료 시점부터 즉시 제공됩니다.
-              디지털 콘텐츠 특성상 서비스 이용 개시 후에는 환불이 제한될 수 있으며,
-              미사용 구독 기간에 대한 환불은 관계 법령(전자상거래법 제17조)에 따릅니다.
-              환불 문의는 아래 &lsquo;문의&rsquo; 항목의 방법으로 연락해 주세요.
+            <h2 className="font-semibold text-base text-[#1F3D34] mb-2">5. 유료 서비스 및 청약철회</h2>
+            <p className="text-[#6B6661] leading-relaxed font-semibold">
+              5-1. 즉시 제공되는 디지털 콘텐츠(1회성 리포트)
+            </p>
+            <p className="text-[#6B6661] leading-relaxed mt-1">
+              프리미엄 사주·궁합·택일·연운세·살풀이·반려동물 궁합 등 1회성 리포트는 결제
+              완료 즉시 생성되어 열람 가능한 형태로 제공되는 디지털 콘텐츠입니다.
+              「전자상거래 등에서의 소비자보호에 관한 법률」 제17조 제2항 제5호에 따라,
+              이처럼 즉시 제공이 개시되는 디지털 콘텐츠는 결제 전 고지와 이용자의 동의를 거쳐
+              청약철회를 제한할 수 있습니다. 서비스는 결제 화면에서 이 사실을 미리 고지하고
+              동의를 받으며, 이용자가 동의 후 결제를 완료하면 청약철회(환불)가 제한됩니다.
+              다만 콘텐츠가 정상적으로 생성·제공되지 않았거나 서비스 오류로 이용 자체가
+              불가능했던 경우에는 환불해 드립니다.
+            </p>
+            <p className="text-[#6B6661] leading-relaxed mt-3 font-semibold">
+              5-2. 정기 구독
+            </p>
+            <p className="text-[#6B6661] leading-relaxed mt-1">
+              구독형 상품은 결제일로부터 7일 이내이면서 서비스를 이용하지 않은 경우
+              전자상거래법에 따라 청약철회를 요청할 수 있습니다. 이미 이용한 기간이 있다면
+              그 기간을 제외하고 일할 계산하여 환불합니다.
+            </p>
+            <p className="text-[#6B6661] leading-relaxed mt-3">
+              환불 문의는 아래 &lsquo;문의&rsquo; 항목의 방법으로 접수해 주시면 확인 후 안내드립니다.
             </p>
           </section>
 
