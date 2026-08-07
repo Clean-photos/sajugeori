@@ -35,15 +35,8 @@ export async function POST(req: NextRequest) {
   }
   const input = started.input;
 
-  // 구독자 또는 990원 단건 이용권 보유자만 통과. 이용권은 생성 성공 후 소진한다.
-  const access = await checkReportAccess(userId, PRODUCT_ID);
-  if (!access.allowed) {
-    await discardAttempt(started.attemptId);
-    return NextResponse.json({ error: "premium_required", redirect: "/premium/buy?product=taekil_one" }, { status: 402 });
-  }
-
   const { data: profile } = await supabaseAdmin
-    .from("saju_profiles").select("birth_date, birth_time, gender")
+    .from("saju_profiles").select("id, birth_date, birth_time, gender")
     .eq("user_id", userId).eq("label", "본인")
     .order("created_at", { ascending: false }).limit(1).single();
 
@@ -58,6 +51,25 @@ export async function POST(req: NextRequest) {
   if (!from || !to) {
     await discardAttempt(started.attemptId);
     return NextResponse.json({ error: "range_from, range_to are required" }, { status: 400 });
+  }
+
+  // 같은 목적·같은 기간 조회면 재생성하지 않는다 (재열람 무료).
+  const cacheKey = { saju_profile_id: profile.id, purpose, range_from: from, range_to: to };
+  try {
+    const { data: cached } = await supabaseAdmin
+      .from("premium_taekil_reports").select("content, best")
+      .match(cacheKey).limit(1).single();
+    if (cached?.content) {
+      await discardAttempt(started.attemptId);
+      return NextResponse.json({ report: cached.content, best: cached.best ?? [], purpose, range: { from, to }, cached: true });
+    }
+  } catch { /* 테이블 없음 또는 미저장 → 생성 진행 */ }
+
+  // 구독자 또는 990원 단건 이용권 보유자만 통과. 이용권은 생성 성공 후 소진한다.
+  const access = await checkReportAccess(userId, PRODUCT_ID);
+  if (!access.allowed) {
+    await discardAttempt(started.attemptId);
+    return NextResponse.json({ error: "premium_required", redirect: "/premium/buy?product=taekil_one" }, { status: 402 });
   }
 
   // 등록된 생일로 차트 재구성 후 일진 스코어링
@@ -131,15 +143,25 @@ ${engineSummary}
       await finishAttemptFailed(started.attemptId, "빈 응답");
       return NextResponse.json({ error: "생성에 실패했습니다. 같은 정보로 다시 시도해주세요.", attemptId: started.attemptId }, { status: 500 });
     }
+    const bestForClient = ranked.best.map((d) => ({ date: d.date, weekday: d.weekday, ganji: d.ganji }));
+
+    // 캐시 저장 (테이블 없으면 무시)
+    try {
+      await supabaseAdmin.from("premium_taekil_reports").insert({
+        ...cacheKey, user_id: userId, content: report, best: bestForClient,
+      });
+    } catch { /* noop */ }
+
     // 이용권 사용자는 생성 성공 시점에 소진 (실패 시 이용권 보존)
     if (access.passId) await consumeOneTimePass(access.passId);
     await finishAttemptDone(started.attemptId);
 
     return NextResponse.json({
       report,
-      best: ranked.best.map((d) => ({ date: d.date, weekday: d.weekday, ganji: d.ganji })),
+      best: bestForClient,
       purpose,
       range: ranked.range,
+      cached: false,
     });
   } catch (e) {
     console.error("premium taekil LLM error:", e);

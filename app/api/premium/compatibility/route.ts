@@ -35,15 +35,8 @@ export async function POST(req: NextRequest) {
   }
   const input = started.input;
 
-  // 구독자 또는 990원 단건 이용권 보유자만 통과. 이용권은 생성 성공 후 소진한다.
-  const access = await checkReportAccess(userId, PRODUCT_ID);
-  if (!access.allowed) {
-    await discardAttempt(started.attemptId);
-    return NextResponse.json({ error: "premium_required", redirect: "/premium/buy?product=compatibility_one" }, { status: 402 });
-  }
-
   const { data: profile } = await supabaseAdmin
-    .from("saju_profiles").select("birth_date, birth_time, gender")
+    .from("saju_profiles").select("id, birth_date, birth_time, gender")
     .eq("user_id", userId).eq("label", "본인")
     .order("created_at", { ascending: false }).limit(1).single();
 
@@ -58,6 +51,25 @@ export async function POST(req: NextRequest) {
   if (!partnerBirth) {
     await discardAttempt(started.attemptId);
     return NextResponse.json({ error: "partner_birth is required" }, { status: 400 });
+  }
+
+  // 같은 상대·같은 관계유형 조합이면 재생성하지 않는다 (재열람 무료).
+  const cacheKey = { saju_profile_id: profile.id, partner_birth: partnerBirth, partner_gender: partnerGender, context };
+  try {
+    const { data: cached } = await supabaseAdmin
+      .from("premium_compatibility_reports").select("content, score")
+      .match(cacheKey).limit(1).single();
+    if (cached?.content) {
+      await discardAttempt(started.attemptId);
+      return NextResponse.json({ report: cached.content, score: cached.score, context, cached: true });
+    }
+  } catch { /* 테이블 없음 또는 미저장 → 생성 진행 */ }
+
+  // 구독자 또는 990원 단건 이용권 보유자만 통과. 이용권은 생성 성공 후 소진한다.
+  const access = await checkReportAccess(userId, PRODUCT_ID);
+  if (!access.allowed) {
+    await discardAttempt(started.attemptId);
+    return NextResponse.json({ error: "premium_required", redirect: "/premium/buy?product=compatibility_one" }, { status: 402 });
   }
 
   // 내 사주(등록된 생일) + 상대 사주 재구성 후 양방향 분석
@@ -135,11 +147,18 @@ ${engineSummary}
       return NextResponse.json({ error: "생성에 실패했습니다. 같은 정보로 다시 시도해주세요.", attemptId: started.attemptId }, { status: 500 });
     }
 
+    // 캐시 저장 (테이블 없으면 무시)
+    try {
+      await supabaseAdmin.from("premium_compatibility_reports").insert({
+        ...cacheKey, user_id: userId, content: report, score: normalizedScore,
+      });
+    } catch { /* noop */ }
+
     // 이용권 사용자는 생성 성공 시점에 소진 (실패 시 이용권 보존)
     if (access.passId) await consumeOneTimePass(access.passId);
     await finishAttemptDone(started.attemptId);
 
-    return NextResponse.json({ report, score: normalizedScore, context });
+    return NextResponse.json({ report, score: normalizedScore, context, cached: false });
   } catch (e) {
     console.error("premium compatibility LLM error:", e);
     await finishAttemptFailed(started.attemptId, "LLM 호출 오류");
