@@ -2,7 +2,7 @@
 
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { REPORT_PRODUCTS, BUNDLE_CREDITS } from "@/lib/billing/plans";
+import { REPORT_PRODUCTS, BUNDLE_CREDITS, DESTINY_PRODUCT_IDS } from "@/lib/billing/plans";
 
 /** 결제한 상품에 맞는 완료 화면 문구와 이동 경로. 구독은 더 이상 판매하지 않지만
  *  기존 구독자의 갱신 결제가 들어올 수 있어 fallback을 남긴다. */
@@ -14,6 +14,14 @@ function outcomeFor(planId: string | null) {
       body: "지금 바로 리포트를 확인해 보세요.",
       cta: `${report.label} 보러 가기`,
       href: report.path,
+    };
+  }
+  if (planId && DESTINY_PRODUCT_IDS.includes(planId)) {
+    return {
+      title: "운명 설계도가 준비됐어요",
+      body: "지금 바로 확장된 풀이를 확인해 보세요.",
+      cta: "운명 설계도 보러 가기",
+      href: "/premium/destiny",
     };
   }
   if (planId && BUNDLE_CREDITS[planId]) {

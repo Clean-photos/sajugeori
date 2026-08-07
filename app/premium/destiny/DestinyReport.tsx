@@ -1,10 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { cleanReportText } from "@/lib/report-format";
 import { PrintButton, PrintReportFooter } from "@/components/premium/PrintReport";
-import { DESTINY_UPGRADE } from "@/lib/billing/plans";
 
 const SECTIONS: { id: string; label: string; icon: string }[] = [
   { id: "personality", label: "타고난 성격·기질", icon: "🧠" },
@@ -15,11 +13,15 @@ const SECTIONS: { id: string; label: string; icon: string }[] = [
   { id: "life_pattern", label: "인생 패턴", icon: "🔄" },
   { id: "current_phase", label: "현재 대운", icon: "🌊" },
   { id: "yearly", label: "연도별 운세", icon: "📆" },
+  { id: "lifetime_daewoon", label: "평생 대운 로드맵", icon: "🗺️" },
+  { id: "life_turning_points", label: "인생 전환점", icon: "🔑" },
+  { id: "action_strategy", label: "핵심 실행 전략", icon: "🎯" },
+  { id: "final_summary", label: "총평", icon: "✦" },
 ];
 
 type Report = Record<string, string>;
 
-export function PremiumReport() {
+export function DestinyReport() {
   const [report, setReport] = useState<Report | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -29,7 +31,7 @@ export function PremiumReport() {
     setError("");
     if (regenerate) setRegenerating(true); else setLoading(true);
     try {
-      const res = await fetch(`/api/premium/report${regenerate ? "?regenerate=1" : ""}`);
+      const res = await fetch(`/api/premium/destiny${regenerate ? "?regenerate=1" : ""}`);
       const data = await res.json();
       if (!res.ok) {
         setError(data?.error === "profile_required" ? "먼저 사주를 등록해 주세요." : (data?.error ?? "불러오지 못했습니다."));
@@ -52,8 +54,8 @@ export function PremiumReport() {
     return (
       <div className="px-4 py-10 flex flex-col items-center gap-3">
         <div className="text-3xl animate-pulse">🔮</div>
-        <p className="text-sm text-[#6B6661]">사주를 깊이 있게 풀이하고 있어요...</p>
-        <p className="text-xs text-[#9B968F]">처음 생성은 1분 정도 걸릴 수 있어요</p>
+        <p className="text-sm text-[#6B6661]">운명 설계도를 그리고 있어요...</p>
+        <p className="text-xs text-[#9B968F]">처음 생성은 1~2분 정도 걸릴 수 있어요</p>
       </div>
     );
   }
@@ -62,7 +64,7 @@ export function PremiumReport() {
     return (
       <div className="px-4 py-8 flex flex-col items-center gap-3">
         <p className="text-sm text-[#C0392B]">{error}</p>
-        <button onClick={() => load(false)} className="text-sm text-[#1B3A4B] underline underline-offset-2">
+        <button onClick={() => load(false)} className="text-sm text-[#1F3D34] underline underline-offset-2">
           다시 시도
         </button>
       </div>
@@ -76,7 +78,7 @@ export function PremiumReport() {
           <div key={sec.id} className="print-card bg-[#FBF8F2] border border-[#E5DFD4] rounded-2xl p-4">
             <div className="flex items-center gap-2 mb-2">
               <span>{sec.icon}</span>
-              <span className="text-sm font-semibold text-[#1B3A4B]">{sec.label}</span>
+              <span className="text-sm font-semibold text-[#1F3D34]">{sec.label}</span>
             </div>
             <p className="text-sm text-[#1A1A18] leading-relaxed whitespace-pre-wrap">
               {report?.[sec.id] ?? "준비 중입니다."}
@@ -85,25 +87,6 @@ export function PremiumReport() {
         ))}
         <PrintReportFooter />
       </div>
-
-      {/* 이 컴포넌트는 리포트 생성에 성공했을 때만 렌더되므로, 렌더되는 시점에는
-          이미 premium_reports에 행이 있다 — 곧 업그레이드 자격이 있다는 뜻이라
-          별도 자격 조회 없이 배너를 보여준다(lib/billing/access.ts hasSajuReport
-          와 같은 조건). */}
-      <Link
-        href="/premium/buy?product=destiny_upgrade"
-        className="no-print relative overflow-hidden rounded-2xl bg-[#1F3D34] p-5 text-white shadow-lg active:scale-[0.98] transition-all"
-      >
-        <div className="absolute inset-0 opacity-25" style={{ backgroundImage: "radial-gradient(circle at 85% 20%, #C8743A 0%, transparent 60%)" }} />
-        <p className="relative text-[10px] font-medium tracking-[0.15em] text-[#C8743A] uppercase mb-1">Upgrade</p>
-        <p className="relative font-bold text-base leading-snug">
-          {DESTINY_UPGRADE.amount.toLocaleString()}원 추가로 운명 설계도 업그레이드
-        </p>
-        <p className="relative text-xs text-white/65 mt-1.5 leading-relaxed">
-          지금 보신 여덟 영역에 평생 대운 로드맵·인생 전환점·실행 전략까지 더합니다.
-          이미 본 사주 리포트에 이어서 보는 거라 지금이 가장 저렴하게 보는 방법이에요.
-        </p>
-      </Link>
 
       <PrintButton />
       <button

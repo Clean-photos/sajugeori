@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { BottomTabBar } from "@/components/layout/BottomTabBar";
 import { SiteFooter } from "@/components/layout/SiteFooter";
-import { ONE_REPORT_PRICE } from "@/lib/billing/plans";
+import { ONE_REPORT_PRICE, DESTINY_BLUEPRINT_ONE } from "@/lib/billing/plans";
 
 export const metadata: Metadata = {
   title: "프리미엄 운세 — 사주·궁합·택일·연운세·살풀이 | 사주거리",
@@ -88,6 +88,25 @@ export default function PremiumMenuPage() {
             </div>
           </Link>
         ))}
+      </section>
+
+      {/* 운명 설계도 — 990원 사주보다 상위 등급. 이미 사주를 본 사람은 결과 화면
+          배너(PremiumReport.tsx)에서 차액(6,900원) 업그레이드로 더 싸게 온다.
+          여기는 곧바로 정가(7,900원)로 사고 싶은 사람을 위한 진입점. */}
+      <section className="px-4 mt-4">
+        <Link
+          href="/premium/destiny"
+          className="block rounded-2xl bg-[#1F3D34] text-white px-5 py-4 active:scale-[0.98] transition-all"
+        >
+          <div className="flex items-baseline justify-between">
+            <p className="text-sm font-semibold">운명 설계도</p>
+            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-[#C8743A]">확장판</span>
+          </div>
+          <p className="text-xs text-white/65 mt-1 leading-relaxed">
+            프리미엄 사주 여덟 영역에 평생 대운 로드맵·인생 전환점·실행 전략까지 ·{" "}
+            {DESTINY_BLUEPRINT_ONE.amount.toLocaleString()}원
+          </p>
+        </Link>
       </section>
 
       {/* 기능 설명 — 결제 전 방문자와 크롤러가 읽을 실제 내용 */}

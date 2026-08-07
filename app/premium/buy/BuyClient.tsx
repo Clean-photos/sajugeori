@@ -23,6 +23,8 @@ const BENEFITS: Record<string, string[]> = {
   taekil_one: ["원하는 기간의 날짜를 일진 기준으로 채점", "내 사주와 맞는 날을 추려 안내"],
   yearly_one: ["그해 세운과 열두 달 월운을 함께 계산", "재물·직업·관계별 흐름"],
   salpuri_one: ["내 사주의 신살을 실제 계산해 검출", "자리별(연·월·일·시) 작용과 활용법"],
+  destiny_blueprint_one: ["프리미엄 사주 여덟 영역을 모두 포함", "평생 대운 로드맵과 인생 전환점까지 확장"],
+  destiny_upgrade: ["이미 보신 프리미엄 사주에 이어서", "평생 대운 로드맵과 인생 전환점을 추가로"],
 };
 
 export function BuyClient({ planId, returnTo }: { planId: string; returnTo: string }) {

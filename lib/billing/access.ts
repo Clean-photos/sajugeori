@@ -56,6 +56,53 @@ export async function findUnusedOneTimePass(userId: string, productId: string): 
   return null;
 }
 
+/**
+ * 운명 설계도 미사용 이용권 id. destiny_blueprint_one(직구매)과 destiny_upgrade(업그레이드)
+ * 둘 다 인정하지만, ANY_REPORT_PASS(옛 묶음권) 폴백은 쓰지 않는다 — 묶음권은 990원짜리
+ * 6종 리포트용이었고 운명 설계도(7,900원)는 별도 상품이라 섞이면 안 된다.
+ */
+export async function findUnusedDestinyPass(userId: string): Promise<string | null> {
+  try {
+    const { data } = await supabaseAdmin
+      .from("one_time_purchases")
+      .select("id")
+      .eq("user_id", userId)
+      .in("product_id", ["destiny_blueprint_one", "destiny_upgrade"])
+      .eq("status", "paid")
+      .is("used_at", null)
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    return data?.id ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** 운명 설계도 열람 권한 확인. 구독자는 무료, 아니면 미사용 이용권(직구매 또는 업그레이드)이 있어야 한다. */
+export async function checkDestinyAccess(userId: string): Promise<{ allowed: boolean; passId: string | null }> {
+  if (await isPremiumUser(userId)) return { allowed: true, passId: null };
+  const passId = await findUnusedDestinyPass(userId);
+  return { allowed: passId !== null, passId };
+}
+
+/**
+ * 운명 설계도 "업그레이드가(6,900원)" 자격 여부. premium_reports에 이 사용자의
+ * 프리미엄 사주 리포트가 남아 있으면 유효 — 별도 만료 타이머 없이 리포트
+ * 수명(1년)에 자연히 묶인다. 리포트가 배치로 삭제되면 이 자격도 함께 사라진다.
+ */
+export async function hasSajuReport(userId: string): Promise<boolean> {
+  try {
+    const { count } = await supabaseAdmin
+      .from("premium_reports")
+      .select("saju_profile_id", { count: "exact", head: true })
+      .eq("user_id", userId);
+    return (count ?? 0) > 0;
+  } catch {
+    return false;
+  }
+}
+
 /** 사용자가 남긴 묶음권 이용권 장수 (결과 화면에 "N회 남음" 표시용) */
 export async function countRemainingPasses(userId: string): Promise<number> {
   try {

@@ -1,6 +1,9 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import type { Metadata } from "next";
-import { REPORT_PRODUCTS } from "@/lib/billing/plans";
+import { auth } from "@/lib/auth";
+import { hasSajuReport } from "@/lib/billing/access";
+import { REPORT_PRODUCTS, getPlan } from "@/lib/billing/plans";
 import { BuyClient } from "./BuyClient";
 
 export const metadata: Metadata = {
@@ -15,9 +18,21 @@ export default async function BuyPage({
   searchParams: Promise<{ product?: string }>;
 }) {
   const { product } = await searchParams;
-  const planId = product ?? "saju_one";
+  let planId = product ?? "saju_one";
+
+  // 운명 설계도 업그레이드가(6,900원)는 프리미엄 사주를 이미 본 사람만 결제할 수
+  // 있다. 이 화면은 눈에 띄지 않는 링크로만 안내하지만, URL을 직접 입력해도
+  // 자격 없이는 할인가로 결제할 수 없도록 서버에서 한 번 더 막는다 — 자격이
+  // 없으면 정가(7,900원) 상품으로 조용히 바꿔서 보여준다.
+  if (planId === "destiny_upgrade") {
+    const session = await auth();
+    const eligible = session?.user?.id ? await hasSajuReport(session.user.id) : false;
+    if (!eligible) redirect("/premium/buy?product=destiny_blueprint_one");
+  }
+
   const item = REPORT_PRODUCTS.find((r) => r.productId === planId);
   const returnTo = item?.path ?? "/premium/menu";
+  const title = item?.label ?? getPlan(planId)?.name ?? "프리미엄 리포트";
 
   return (
     <div className="min-h-screen bg-[#F6F1E7] flex flex-col">
@@ -27,7 +42,7 @@ export default async function BuyPage({
           돌아가기
         </Link>
         <p className="text-xs opacity-70 mb-1">1회 이용권</p>
-        <h1 className="font-serif text-2xl font-bold">{item?.label ?? "프리미엄 리포트"}</h1>
+        <h1 className="font-serif text-2xl font-bold">{title}</h1>
       </header>
 
       <BuyClient planId={planId} returnTo={returnTo} />
