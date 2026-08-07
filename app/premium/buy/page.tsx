@@ -5,7 +5,7 @@ import { BuyClient } from "./BuyClient";
 
 export const metadata: Metadata = {
   title: "리포트 구매 | 사주거리",
-  description: "프리미엄 리포트 1회 이용권과 묶음권을 구매합니다.",
+  description: "프리미엄 리포트 1회 이용권을 구매합니다.",
   robots: { index: false }, // 결제 화면은 색인 대상이 아니다
 };
 

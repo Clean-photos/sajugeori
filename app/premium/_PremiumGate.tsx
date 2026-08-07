@@ -91,7 +91,7 @@ export async function PremiumGate({
                     {oneTime.priceLabel}로 보기
                   </Link>
                   <Link href="/premium/menu" className="text-xs text-[#6B6661] underline underline-offset-4 mt-1">
-                    다른 리포트도 함께 보는 묶음권 보기
+                    다른 리포트도 보기
                   </Link>
                 </>
               ) : (

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { getPlan, BUNDLE_3, BUNDLE_ALL, REPORT_PRODUCTS, ONE_REPORT_PRICE } from "@/lib/billing/plans";
+import { getPlan, REPORT_PRODUCTS } from "@/lib/billing/plans";
 
 // Toss v2 표준 결제 SDK 타입 (최소)
 type TossPayment = { requestPayment: (opts: Record<string, unknown>) => Promise<void> };
@@ -112,46 +112,6 @@ export function BuyClient({ planId, returnTo }: { planId: string; returnTo: stri
           className="mt-3 w-full bg-[#C8743A] text-white rounded-xl py-3.5 font-semibold text-sm disabled:opacity-40 active:scale-[0.97] transition-all shadow-md"
         >
           {loading === plan.id ? "결제창 여는 중..." : ready ? `${plan.amount.toLocaleString()}원 결제하고 보기` : "준비 중..."}
-        </button>
-      </div>
-
-      {/* 묶음권 — 개당 단가가 낮아 자연스럽게 상위 상품으로 유도 */}
-      <p className="text-xs font-medium text-[#6B6661] mt-1 px-1">여러 개 보실 거라면</p>
-
-      <div className="bg-[#1F3D34] rounded-2xl p-5 text-white">
-        <div className="flex items-baseline justify-between">
-          <p className="text-sm font-semibold">{BUNDLE_3.name}</p>
-          <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-[#C8743A] text-white">가장 인기</span>
-        </div>
-        <p className="text-xs text-white/60 mt-1.5 leading-relaxed">
-          6종 리포트 중 원하는 것을 골라 3번 열람할 수 있어요.
-          단품 3개({(ONE_REPORT_PRICE * 3).toLocaleString()}원)보다 저렴합니다.
-        </p>
-        <p className="mt-3 text-2xl font-bold">
-          {BUNDLE_3.amount.toLocaleString()}원
-          <span className="text-sm font-normal text-white/60"> · 개당 {Math.round(BUNDLE_3.amount / 3).toLocaleString()}원</span>
-        </p>
-        <button
-          onClick={() => pay(BUNDLE_3.id)}
-          disabled={!ready || loading !== null || !agreed}
-          className="mt-3 w-full bg-[#C8743A] text-white rounded-xl py-3.5 font-semibold text-sm disabled:opacity-40 active:scale-[0.97] transition-all"
-        >
-          {loading === BUNDLE_3.id ? "결제창 여는 중..." : "3종 선택권 구매"}
-        </button>
-      </div>
-
-      <div className="bg-[#FBF8F2] border border-[#E5DFD4] rounded-2xl p-5">
-        <p className="text-sm font-semibold text-[#1A1A18]">{BUNDLE_ALL.name}</p>
-        <p className="text-xs text-[#6B6661] mt-1.5 leading-relaxed">
-          여섯 가지 리포트를 모두 열람할 수 있어요. 개당 {Math.round(BUNDLE_ALL.amount / 6).toLocaleString()}원입니다.
-        </p>
-        <p className="mt-3 text-xl font-bold text-[#1F3D34]">{BUNDLE_ALL.amount.toLocaleString()}원</p>
-        <button
-          onClick={() => pay(BUNDLE_ALL.id)}
-          disabled={!ready || loading !== null || !agreed}
-          className="mt-3 w-full border border-[#1F3D34] text-[#1F3D34] rounded-xl py-3 font-semibold text-sm disabled:opacity-40 active:scale-[0.97] transition-all"
-        >
-          {loading === BUNDLE_ALL.id ? "결제창 여는 중..." : "전체 열람권 구매"}
         </button>
       </div>
 
