@@ -87,8 +87,8 @@ function LoginInner() {
         <div className="relative w-16 h-16 mx-auto rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center text-3xl mb-4">
           🏮
         </div>
-        <h1 className="relative font-serif text-2xl font-bold text-white">사주거리 입장</h1>
-        <p className="relative text-sm text-white/55 mt-1">AI 역술가와 대화를 시작하세요</p>
+        <h1 className="relative font-serif text-2xl font-bold text-white">로그인</h1>
+        <p className="relative text-sm text-white/55 mt-1">사주를 저장하고 프리미엄 리포트를 받아보세요</p>
       </div>
 
       <div className="flex-1 px-5 py-7 flex flex-col gap-4 max-w-sm mx-auto w-full">

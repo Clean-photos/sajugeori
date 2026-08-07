@@ -71,7 +71,7 @@ function OnboardingInner() {
         </Link>
         <p className="relative text-xs font-medium tracking-[0.2em] text-[#C8743A] uppercase mb-1">My Saju</p>
         <h1 className="relative font-serif text-[26px] font-bold text-white">내 사주 등록</h1>
-        <p className="relative text-sm text-white/55 mt-1">한 번만 입력하면 AI 역술가들이 기억합니다</p>
+        <p className="relative text-sm text-white/55 mt-1">한 번만 입력하면 다시 입력할 필요 없이 저장됩니다</p>
 
         {/* Progress */}
         <div className="relative flex gap-1.5 mt-5">
