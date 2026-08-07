@@ -82,6 +82,7 @@ export function CompatForm() {
           className="text-sm text-[#6B6661] text-center py-2 active:opacity-60">
           다른 상대와 보기
         </button>
+        <p className="text-center text-[11px] text-[#9B968F] -mt-2">생성된 결과는 1년간 다시 볼 수 있습니다</p>
       </div>
     );
   }

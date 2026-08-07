@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/db/client";
 import { checkReportAccess, consumeOneTimePass } from "@/lib/billing/access";
 import { startAttempt, finishAttemptDone, finishAttemptFailed } from "@/lib/billing/attempts";
+import { reportExpiresAtIso, notExpiredFilter } from "@/lib/billing/report-ttl";
 import { buildChart, scoreYear } from "@/lib/saju-engine";
 
 // 연운세 리포트 생성이 최대 ~40초 걸리므로 서버리스 타임아웃 상향
@@ -40,7 +41,7 @@ export async function POST(req: NextRequest) {
   try {
     const { data: cached } = await supabaseAdmin
       .from("premium_yearly_reports").select("content")
-      .eq("saju_profile_id", profile.id).eq("year", year).limit(1).single();
+      .eq("saju_profile_id", profile.id).eq("year", year).or(notExpiredFilter()).limit(1).single();
     if (cached?.content) {
       return NextResponse.json({ report: cached.content, year, cached: true });
     }
@@ -124,7 +125,7 @@ ${engineSummary}
     // 캐시 저장 (테이블 없으면 무시)
     try {
       await supabaseAdmin.from("premium_yearly_reports").upsert(
-        { saju_profile_id: profile.id, user_id: userId, year, content: report },
+        { saju_profile_id: profile.id, user_id: userId, year, content: report, expires_at: reportExpiresAtIso() },
         { onConflict: "saju_profile_id,year" }
       );
     } catch { /* noop */ }

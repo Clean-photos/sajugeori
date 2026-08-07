@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/db/client";
 import { checkReportAccess, consumeOneTimePass } from "@/lib/billing/access";
 import { startAttempt, finishAttemptDone, finishAttemptFailed, discardAttempt } from "@/lib/billing/attempts";
+import { reportExpiresAtIso, notExpiredFilter } from "@/lib/billing/report-ttl";
 import { buildChart, mutualAnalysis } from "@/lib/saju-engine";
 
 // 궁합 리포트 생성이 최대 ~40초 걸리므로 서버리스 타임아웃 상향
@@ -58,7 +59,7 @@ export async function POST(req: NextRequest) {
   try {
     const { data: cached } = await supabaseAdmin
       .from("premium_compatibility_reports").select("content, score")
-      .match(cacheKey).limit(1).single();
+      .match(cacheKey).or(notExpiredFilter()).limit(1).single();
     if (cached?.content) {
       await discardAttempt(started.attemptId);
       return NextResponse.json({ report: cached.content, score: cached.score, context, cached: true });
@@ -150,7 +151,7 @@ ${engineSummary}
     // 캐시 저장 (테이블 없으면 무시)
     try {
       await supabaseAdmin.from("premium_compatibility_reports").insert({
-        ...cacheKey, user_id: userId, content: report, score: normalizedScore,
+        ...cacheKey, user_id: userId, content: report, score: normalizedScore, expires_at: reportExpiresAtIso(),
       });
     } catch { /* noop */ }
 

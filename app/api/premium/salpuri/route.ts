@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/db/client";
 import { isPremiumUser, findUnusedOneTimePass, consumeOneTimePass } from "@/lib/billing/access";
 import { startAttempt, finishAttemptDone, finishAttemptFailed } from "@/lib/billing/attempts";
+import { reportExpiresAtIso, notExpiredFilter } from "@/lib/billing/report-ttl";
 import { SALPURI_ONE } from "@/lib/billing/plans";
 import { buildChart, stemBranchKr } from "@/lib/saju-engine";
 
@@ -54,7 +55,7 @@ export async function POST(_req: NextRequest) {
   try {
     const { data: cached } = await supabaseAdmin
       .from("premium_salpuri_reports").select("content")
-      .eq("saju_profile_id", profile.id).limit(1).single();
+      .eq("saju_profile_id", profile.id).or(notExpiredFilter()).limit(1).single();
     if (cached?.content) {
       return NextResponse.json({ report: cached.content, sal: salList, cached: true });
     }
@@ -132,7 +133,7 @@ ${engineSummary}
     // 캐시 저장 (테이블 없으면 무시). 저장돼야 이용권 사용자가 재열람할 수 있다.
     try {
       await supabaseAdmin.from("premium_salpuri_reports").upsert(
-        { saju_profile_id: profile.id, user_id: userId, content: report },
+        { saju_profile_id: profile.id, user_id: userId, content: report, expires_at: reportExpiresAtIso() },
         { onConflict: "saju_profile_id" }
       );
     } catch { /* noop */ }

@@ -96,6 +96,7 @@ export function PetForm() {
         >
           다른 아이 보기
         </button>
+        <p className="text-center text-[11px] text-[#9B968F] -mt-2">생성된 결과는 1년간 다시 볼 수 있습니다</p>
       </div>
     );
   }

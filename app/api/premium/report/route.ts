@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/db/client";
 import { checkReportAccess, consumeOneTimePass } from "@/lib/billing/access";
 import { startAttempt, finishAttemptDone, finishAttemptFailed, discardAttempt } from "@/lib/billing/attempts";
+import { reportExpiresAtIso, notExpiredFilter } from "@/lib/billing/report-ttl";
 
 const PRODUCT_ID = "saju_one";
 
@@ -52,7 +53,7 @@ export async function GET(req: NextRequest) {
     try {
       const { data: cached } = await supabaseAdmin
         .from("premium_reports").select("content")
-        .eq("saju_profile_id", profile.id).limit(1).single();
+        .eq("saju_profile_id", profile.id).or(notExpiredFilter()).limit(1).single();
       if (cached?.content) {
         return NextResponse.json({ report: cached.content, day_master: dayMaster, strength, cached: true });
       }
@@ -83,7 +84,7 @@ export async function GET(req: NextRequest) {
   // 캐시 저장 (테이블 없으면 무시)
   try {
     await supabaseAdmin.from("premium_reports").upsert(
-      { saju_profile_id: profile.id, user_id: userId, content: report },
+      { saju_profile_id: profile.id, user_id: userId, content: report, expires_at: reportExpiresAtIso() },
       { onConflict: "saju_profile_id" }
     );
   } catch { /* noop */ }

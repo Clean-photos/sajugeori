@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/db/client";
 import { checkReportAccess, consumeOneTimePass } from "@/lib/billing/access";
 import { startAttempt, finishAttemptDone, finishAttemptFailed, discardAttempt } from "@/lib/billing/attempts";
+import { reportExpiresAtIso, notExpiredFilter } from "@/lib/billing/report-ttl";
 import { buildChart, petCompatibility, PET_DEFAULT_MONTH, PET_FLOW_HINT, PET_BRANCH_HINT } from "@/lib/saju-engine";
 import type { PetSpecies } from "@/lib/saju-engine";
 
@@ -74,7 +75,7 @@ export async function POST(req: NextRequest) {
   try {
     const { data: cached } = await supabaseAdmin
       .from("premium_pet_reports").select("content")
-      .match(cacheKey).limit(1).single();
+      .match(cacheKey).or(notExpiredFilter()).limit(1).single();
     if (cached?.content) {
       await discardAttempt(started.attemptId);
       return NextResponse.json({ report: cached.content, pet: facts.pet, petName, cached: true });
@@ -189,7 +190,7 @@ ${facts.species === "cat"
     // 캐시 저장 (테이블 없으면 무시)
     try {
       await supabaseAdmin.from("premium_pet_reports").upsert(
-        { ...cacheKey, user_id: userId, content: report },
+        { ...cacheKey, user_id: userId, content: report, expires_at: reportExpiresAtIso() },
         { onConflict: "saju_profile_id,species,pet_name,pet_year,pet_month,pet_day" }
       );
     } catch { /* noop */ }

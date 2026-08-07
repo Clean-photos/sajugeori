@@ -87,6 +87,7 @@ export function PremiumReport() {
       >
         {regenerating ? "다시 생성 중..." : "풀이 다시 생성하기"}
       </button>
+      <p className="text-center text-[11px] text-[#9B968F]">생성된 결과는 1년간 다시 볼 수 있습니다</p>
     </div>
   );
 }

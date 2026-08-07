@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/db/client";
 import { checkReportAccess, consumeOneTimePass } from "@/lib/billing/access";
 import { startAttempt, finishAttemptDone, finishAttemptFailed, discardAttempt } from "@/lib/billing/attempts";
+import { reportExpiresAtIso, notExpiredFilter } from "@/lib/billing/report-ttl";
 import { buildChart, rankDates } from "@/lib/saju-engine";
 import type { TaekilPurpose } from "@/lib/saju-engine";
 
@@ -58,7 +59,7 @@ export async function POST(req: NextRequest) {
   try {
     const { data: cached } = await supabaseAdmin
       .from("premium_taekil_reports").select("content, best")
-      .match(cacheKey).limit(1).single();
+      .match(cacheKey).or(notExpiredFilter()).limit(1).single();
     if (cached?.content) {
       await discardAttempt(started.attemptId);
       return NextResponse.json({ report: cached.content, best: cached.best ?? [], purpose, range: { from, to }, cached: true });
@@ -148,7 +149,7 @@ ${engineSummary}
     // 캐시 저장 (테이블 없으면 무시)
     try {
       await supabaseAdmin.from("premium_taekil_reports").insert({
-        ...cacheKey, user_id: userId, content: report, best: bestForClient,
+        ...cacheKey, user_id: userId, content: report, best: bestForClient, expires_at: reportExpiresAtIso(),
       });
     } catch { /* noop */ }
 
