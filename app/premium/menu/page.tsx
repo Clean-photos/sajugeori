@@ -7,7 +7,7 @@ import { ONE_REPORT_PRICE, BUNDLE_3, BUNDLE_ALL } from "@/lib/billing/plans";
 export const metadata: Metadata = {
   title: "프리미엄 운세 — 사주·궁합·택일·연운세·살풀이 | 사주거리",
   description:
-    "사주 계산 엔진의 실제 데이터를 근거로 만드는 심층 풀이. 프리미엄 사주·궁합·택일·연운세·살풀이·반려동물 궁합 여섯 가지. 리포트 한 편 990원, 3종 선택권 2,900원, 전체 열람권 4,900원.",
+    "사주 계산 엔진의 실제 데이터를 근거로 만드는 심층 풀이. 프리미엄 사주·궁합·택일·연운세·살풀이·반려동물 궁합 여섯 가지. 리포트 한 편 990원, 3종 선택권 2,700원, 전체 열람권 4,900원.",
   alternates: { canonical: "/premium/menu" },
 };
 
