@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { cleanReportText } from "@/lib/report-format";
+import { PrintButton, PrintReportFooter } from "@/components/premium/PrintReport";
 
 const SECTIONS: { id: string; label: string; icon: string }[] = [
   { id: "personality", label: "타고난 성격·기질", icon: "🧠" },
@@ -68,26 +69,30 @@ export function PremiumReport() {
 
   return (
     <div className="px-4 py-4 flex flex-col gap-3">
-      {SECTIONS.map((sec) => (
-        <div key={sec.id} className="bg-[#FBF8F2] border border-[#E5DFD4] rounded-2xl p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <span>{sec.icon}</span>
-            <span className="text-sm font-semibold text-[#1B3A4B]">{sec.label}</span>
+      <div className="print-area flex flex-col gap-3">
+        {SECTIONS.map((sec) => (
+          <div key={sec.id} className="print-card bg-[#FBF8F2] border border-[#E5DFD4] rounded-2xl p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <span>{sec.icon}</span>
+              <span className="text-sm font-semibold text-[#1B3A4B]">{sec.label}</span>
+            </div>
+            <p className="text-sm text-[#1A1A18] leading-relaxed whitespace-pre-wrap">
+              {report?.[sec.id] ?? "준비 중입니다."}
+            </p>
           </div>
-          <p className="text-sm text-[#1A1A18] leading-relaxed whitespace-pre-wrap">
-            {report?.[sec.id] ?? "준비 중입니다."}
-          </p>
-        </div>
-      ))}
+        ))}
+        <PrintReportFooter />
+      </div>
 
+      <PrintButton />
       <button
         onClick={() => load(true)}
         disabled={regenerating}
-        className="mt-1 text-center text-xs text-[#6B6661] py-2 disabled:opacity-50"
+        className="no-print mt-1 text-center text-xs text-[#6B6661] py-2 disabled:opacity-50"
       >
         {regenerating ? "다시 생성 중..." : "풀이 다시 생성하기"}
       </button>
-      <p className="text-center text-[11px] text-[#9B968F]">생성된 결과는 1년간 다시 볼 수 있습니다</p>
+      <p className="no-print text-center text-[11px] text-[#9B968F]">생성된 결과는 1년간 다시 볼 수 있습니다</p>
     </div>
   );
 }

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { cleanReportText } from "@/lib/report-format";
+import { PrintButton, PrintReportFooter } from "@/components/premium/PrintReport";
 
 type Step = "form" | "loading" | "result";
 
@@ -38,18 +39,22 @@ export function YearlyForm() {
   if (step === "result") {
     return (
       <div className="px-5 py-6 flex flex-col gap-4">
-        <div className="bg-[#FBF8F2] border border-[#E5DFD4] rounded-2xl p-5 shadow-sm">
-          <div className="flex items-center gap-2 mb-4 pb-3 border-b border-[#E5DFD4]">
-            <span className="text-base">運</span>
-            <span className="text-xs font-medium text-[#6B6661] tracking-wide">{year}년 프리미엄 연운세</span>
+        <div className="print-area flex flex-col gap-4">
+          <div className="print-card bg-[#FBF8F2] border border-[#E5DFD4] rounded-2xl p-5 shadow-sm">
+            <div className="flex items-center gap-2 mb-4 pb-3 border-b border-[#E5DFD4]">
+              <span className="text-base">運</span>
+              <span className="text-xs font-medium text-[#6B6661] tracking-wide">{year}년 프리미엄 연운세</span>
+            </div>
+            <div className="text-sm text-[#1A1A18] leading-relaxed whitespace-pre-wrap">{report}</div>
           </div>
-          <div className="text-sm text-[#1A1A18] leading-relaxed whitespace-pre-wrap">{report}</div>
+          <PrintReportFooter />
         </div>
+        <PrintButton />
         <button onClick={() => { setStep("form"); setReport(""); }}
-          className="text-sm text-[#6B6661] text-center py-2 active:opacity-60">
+          className="no-print text-sm text-[#6B6661] text-center py-2 active:opacity-60">
           다른 해 보기
         </button>
-        <p className="text-center text-[11px] text-[#9B968F] -mt-2">생성된 결과는 1년간 다시 볼 수 있습니다</p>
+        <p className="no-print text-center text-[11px] text-[#9B968F] -mt-2">생성된 결과는 1년간 다시 볼 수 있습니다</p>
       </div>
     );
   }

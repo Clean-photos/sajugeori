@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { cleanReportText } from "@/lib/report-format";
+import { PrintButton, PrintReportFooter } from "@/components/premium/PrintReport";
 
 type Step = "form" | "loading" | "result";
 
@@ -65,24 +66,28 @@ export function CompatForm() {
   if (step === "result") {
     return (
       <div className="px-5 py-6 flex flex-col gap-4">
-        {score !== null && (
-          <div className="bg-[#1F3D34] rounded-2xl px-5 py-6 text-center">
-            <p className="text-xs text-white/60 mb-1">종합 궁합</p>
-            <p className="text-4xl font-bold text-[#C8743A]">{score}<span className="text-lg text-white/50">점</span></p>
+        <div className="print-area flex flex-col gap-4">
+          {score !== null && (
+            <div className="print-card bg-[#1F3D34] rounded-2xl px-5 py-6 text-center">
+              <p className="text-xs text-white/60 mb-1">종합 궁합</p>
+              <p className="text-4xl font-bold text-[#C8743A]">{score}<span className="text-lg text-white/50">점</span></p>
+            </div>
+          )}
+          <div className="print-card bg-[#FBF8F2] border border-[#E5DFD4] rounded-2xl p-5 shadow-sm">
+            <div className="flex items-center gap-2 mb-4 pb-3 border-b border-[#E5DFD4]">
+              <span className="text-base">∞</span>
+              <span className="text-xs font-medium text-[#6B6661] tracking-wide">프리미엄 궁합 분석</span>
+            </div>
+            <div className="text-sm text-[#1A1A18] leading-relaxed whitespace-pre-wrap">{report}</div>
           </div>
-        )}
-        <div className="bg-[#FBF8F2] border border-[#E5DFD4] rounded-2xl p-5 shadow-sm">
-          <div className="flex items-center gap-2 mb-4 pb-3 border-b border-[#E5DFD4]">
-            <span className="text-base">∞</span>
-            <span className="text-xs font-medium text-[#6B6661] tracking-wide">프리미엄 궁합 분석</span>
-          </div>
-          <div className="text-sm text-[#1A1A18] leading-relaxed whitespace-pre-wrap">{report}</div>
+          <PrintReportFooter />
         </div>
+        <PrintButton />
         <button onClick={() => { setStep("form"); setReport(""); setScore(null); }}
-          className="text-sm text-[#6B6661] text-center py-2 active:opacity-60">
+          className="no-print text-sm text-[#6B6661] text-center py-2 active:opacity-60">
           다른 상대와 보기
         </button>
-        <p className="text-center text-[11px] text-[#9B968F] -mt-2">생성된 결과는 1년간 다시 볼 수 있습니다</p>
+        <p className="no-print text-center text-[11px] text-[#9B968F] -mt-2">생성된 결과는 1년간 다시 볼 수 있습니다</p>
       </div>
     );
   }
