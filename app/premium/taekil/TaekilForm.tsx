@@ -35,22 +35,26 @@ export function TaekilForm() {
   const [report, setReport] = useState("");
   const [best, setBest] = useState<{ date: string; weekday: string; ganji: string }[]>([]);
   const [error, setError] = useState("");
+  // 실패한 시도의 id. 있으면 "같은 정보로 재생성" — 서버에 저장된 입력값을 그대로 재사용한다.
+  const [attemptId, setAttemptId] = useState<string | null>(null);
 
-  async function submit() {
+  async function submit(regenerate = false) {
     setStep("loading");
     setError("");
     try {
       const res = await fetch("/api/premium/taekil", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify(regenerate && attemptId ? { attemptId } : form),
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error === "profile_required" ? "먼저 사주를 등록해주세요." : "분석에 실패했습니다. 다시 시도해주세요.");
+        setAttemptId(typeof data.attemptId === "string" ? data.attemptId : null);
+        setError(data.error === "profile_required" ? "먼저 사주를 등록해주세요." : "분석에 실패했습니다. 입력하신 정보는 그대로 남아 있어요.");
         setStep("form");
         return;
       }
+      setAttemptId(null);
       setReport(cleanReportText(data.report));
       setBest(data.best ?? []);
       setStep("result");
@@ -61,6 +65,13 @@ export function TaekilForm() {
   }
 
   const canSubmit = form.range_from.length === 10 && form.range_to.length === 10;
+
+  // 입력을 바꾸면 이전 실패 시도(attemptId)는 더 이상 유효하지 않다 — 새 시도로 취급.
+  function updateForm(patch: Partial<typeof form>) {
+    setForm({ ...form, ...patch });
+    setAttemptId(null);
+    setError("");
+  }
 
   if (step === "result") {
     return (
@@ -106,7 +117,7 @@ export function TaekilForm() {
         <label className="block text-xs font-medium text-[#6B6661] uppercase tracking-wider mb-2">목적</label>
         <div className="grid grid-cols-3 gap-2">
           {PURPOSE_OPTIONS.map((o) => (
-            <button key={o.value} onClick={() => setForm({ ...form, purpose: o.value })}
+            <button key={o.value} onClick={() => updateForm({ purpose: o.value })}
               className={`py-2.5 rounded-xl border text-xs font-medium transition-all ${form.purpose === o.value ? "bg-[#1F3D34] text-white border-[#1F3D34]" : "bg-[#FBF8F2] text-[#6B6661] border-[#E5DFD4]"}`}>
               {o.label}
             </button>
@@ -118,11 +129,11 @@ export function TaekilForm() {
         <label className="block text-xs font-medium text-[#6B6661] uppercase tracking-wider mb-2">조회 기간</label>
         <div className="flex gap-2 items-center">
           <input type="text" inputMode="numeric" placeholder="YYYY-MM-DD" value={form.range_from} maxLength={10}
-            onChange={(e) => setForm({ ...form, range_from: formatDateInput(e.target.value) })}
+            onChange={(e) => updateForm({ range_from: formatDateInput(e.target.value) })}
             className="flex-1 border border-[#E5DFD4] rounded-xl px-3 py-2.5 text-xs bg-[#FBF8F2] focus:outline-none focus:border-[#1F3D34] tracking-wider" />
           <span className="text-[#6B6661] text-xs">~</span>
           <input type="text" inputMode="numeric" placeholder="YYYY-MM-DD" value={form.range_to} maxLength={10}
-            onChange={(e) => setForm({ ...form, range_to: formatDateInput(e.target.value) })}
+            onChange={(e) => updateForm({ range_to: formatDateInput(e.target.value) })}
             className="flex-1 border border-[#E5DFD4] rounded-xl px-3 py-2.5 text-xs bg-[#FBF8F2] focus:outline-none focus:border-[#1F3D34] tracking-wider" />
         </div>
         <p className="text-[11px] text-[#6B6661]/70 mt-2">최대 120일까지 조회할 수 있어요</p>
@@ -131,10 +142,17 @@ export function TaekilForm() {
       {error && <p className="text-xs text-[#C0392B] px-1">{error}</p>}
 
       <div className="mt-auto pt-2">
-        <button onClick={submit} disabled={!canSubmit}
-          className="w-full bg-[#C8743A] text-white rounded-xl py-4 font-semibold text-base disabled:opacity-40 active:scale-[0.97] transition-all shadow-lg shadow-[#C8743A]/25">
-          내 사주로 길일 찾기
-        </button>
+        {attemptId ? (
+          <button onClick={() => submit(true)}
+            className="w-full bg-[#C8743A] text-white rounded-xl py-4 font-semibold text-base active:scale-[0.97] transition-all shadow-lg shadow-[#C8743A]/25">
+            같은 정보로 재생성하기
+          </button>
+        ) : (
+          <button onClick={() => submit(false)} disabled={!canSubmit}
+            className="w-full bg-[#C8743A] text-white rounded-xl py-4 font-semibold text-base disabled:opacity-40 active:scale-[0.97] transition-all shadow-lg shadow-[#C8743A]/25">
+            내 사주로 길일 찾기
+          </button>
+        )}
         <p className="text-center text-xs text-[#6B6661] mt-3">등록된 내 사주를 기준으로 분석합니다</p>
       </div>
     </div>

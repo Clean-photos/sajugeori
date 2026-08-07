@@ -2,11 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/db/client";
 import { isPremiumUser, findUnusedOneTimePass, consumeOneTimePass } from "@/lib/billing/access";
+import { startAttempt, finishAttemptDone, finishAttemptFailed } from "@/lib/billing/attempts";
 import { SALPURI_ONE } from "@/lib/billing/plans";
 import { buildChart, stemBranchKr } from "@/lib/saju-engine";
 
 // 살풀이 리포트 생성이 최대 ~40초 걸리므로 서버리스 타임아웃 상향
 export const maxDuration = 60;
+
+const PRODUCT_ID = "salpuri_one";
 
 // POST /api/premium/salpuri — 로그인+프리미엄 필수. 등록된 내 사주의 신살을 실계산해 풀이.
 export async function POST(_req: NextRequest) {
@@ -64,6 +67,12 @@ export async function POST(_req: NextRequest) {
     return NextResponse.json({ error: "premium_required", redirect: "/premium/salpuri" }, { status: 402 });
   }
 
+  // 동시 중복 생성(더블클릭 레이스) 차단
+  const started = await startAttempt(userId, PRODUCT_ID, undefined, { saju_profile_id: profile.id });
+  if (!started.ok) {
+    return NextResponse.json({ error: started.error }, { status: started.status });
+  }
+
   const salLines = [...grouped.entries()]
     .map(([name, v]) => `- ${name} (${v.where.join(", ")}): ${v.meaning}`)
     .join("\n");
@@ -116,7 +125,8 @@ ${engineSummary}
     const textBlock = res.content.find((b) => b.type === "text");
     const report = textBlock && textBlock.type === "text" ? textBlock.text.trim() : "";
     if (!report) {
-      return NextResponse.json({ error: "생성에 실패했습니다. 다시 시도해주세요." }, { status: 500 });
+      await finishAttemptFailed(started.attemptId, "빈 응답");
+      return NextResponse.json({ error: "생성에 실패했습니다. 다시 시도해주세요.", attemptId: started.attemptId }, { status: 500 });
     }
 
     // 캐시 저장 (테이블 없으면 무시). 저장돼야 이용권 사용자가 재열람할 수 있다.
@@ -129,10 +139,12 @@ ${engineSummary}
 
     // 이용권 사용자는 생성 성공 시점에 소진 (실패 시 이용권 보존)
     if (passId) await consumeOneTimePass(passId);
+    await finishAttemptDone(started.attemptId);
 
     return NextResponse.json({ report, sal: salList, cached: false });
   } catch (e) {
     console.error("premium salpuri LLM error:", e);
-    return NextResponse.json({ error: "분석 중 오류가 발생했습니다." }, { status: 500 });
+    await finishAttemptFailed(started.attemptId, "LLM 호출 오류");
+    return NextResponse.json({ error: "분석 중 오류가 발생했습니다. 같은 정보로 다시 시도해주세요.", attemptId: started.attemptId }, { status: 500 });
   }
 }

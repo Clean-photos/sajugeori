@@ -2,10 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/db/client";
 import { checkReportAccess, consumeOneTimePass } from "@/lib/billing/access";
+import { startAttempt, finishAttemptDone, finishAttemptFailed } from "@/lib/billing/attempts";
 import { buildChart, scoreYear } from "@/lib/saju-engine";
 
 // 연운세 리포트 생성이 최대 ~40초 걸리므로 서버리스 타임아웃 상향
 export const maxDuration = 60;
+
+const PRODUCT_ID = "yearly_one";
 
 // POST /api/premium/yearly — 로그인+프리미엄 필수. 등록된 내 사주로 세운·월운 실계산.
 export async function POST(req: NextRequest) {
@@ -43,6 +46,12 @@ export async function POST(req: NextRequest) {
     }
   } catch { /* 테이블 없음 → 생성 진행 */ }
 
+  // 동시 중복 생성(더블클릭 레이스) 차단
+  const started = await startAttempt(userId, PRODUCT_ID, undefined, { saju_profile_id: profile.id, year });
+  if (!started.ok) {
+    return NextResponse.json({ error: started.error }, { status: started.status });
+  }
+
   let yr;
   try {
     const iso = profile.birth_time
@@ -52,7 +61,8 @@ export async function POST(req: NextRequest) {
     yr = scoreYear(chart, year);
   } catch (e) {
     console.error("premium yearly engine error:", e);
-    return NextResponse.json({ error: "사주 계산 오류" }, { status: 500 });
+    await finishAttemptFailed(started.attemptId, "사주 계산 오류");
+    return NextResponse.json({ error: "사주 계산 오류", attemptId: started.attemptId }, { status: 500 });
   }
 
   const monthLines = yr.months
@@ -107,7 +117,8 @@ ${engineSummary}
     const textBlock = res.content.find((b) => b.type === "text");
     const report = textBlock && textBlock.type === "text" ? textBlock.text.trim() : "";
     if (!report) {
-      return NextResponse.json({ error: "생성에 실패했습니다. 다시 시도해주세요." }, { status: 500 });
+      await finishAttemptFailed(started.attemptId, "빈 응답");
+      return NextResponse.json({ error: "생성에 실패했습니다. 다시 시도해주세요.", attemptId: started.attemptId }, { status: 500 });
     }
 
     // 캐시 저장 (테이블 없으면 무시)
@@ -120,10 +131,12 @@ ${engineSummary}
 
     // 이용권 사용자는 생성 성공 시점에 소진 (실패 시 이용권 보존)
     if (access.passId) await consumeOneTimePass(access.passId);
+    await finishAttemptDone(started.attemptId);
 
     return NextResponse.json({ report, year, cached: false });
   } catch (e) {
     console.error("premium yearly LLM error:", e);
-    return NextResponse.json({ error: "분석 중 오류가 발생했습니다." }, { status: 500 });
+    await finishAttemptFailed(started.attemptId, "LLM 호출 오류");
+    return NextResponse.json({ error: "분석 중 오류가 발생했습니다. 같은 정보로 다시 시도해주세요.", attemptId: started.attemptId }, { status: 500 });
   }
 }

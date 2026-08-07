@@ -2,12 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/db/client";
 import { checkReportAccess, consumeOneTimePass } from "@/lib/billing/access";
+import { startAttempt, finishAttemptDone, finishAttemptFailed, discardAttempt } from "@/lib/billing/attempts";
 import { buildChart, petCompatibility, PET_DEFAULT_MONTH, PET_FLOW_HINT, PET_BRANCH_HINT } from "@/lib/saju-engine";
 import type { PetSpecies } from "@/lib/saju-engine";
 
 export const maxDuration = 60;
 
+const PRODUCT_ID = "pet_one";
+
 // POST /api/premium/pet — 로그인+프리미엄 필수. 등록된 주인 사주 × 반려동물 궁합.
+// body에 attemptId가 있으면 "같은 정보로 재생성" 요청으로 보고, 최초 시도 때 저장해 둔
+// 입력값을 그대로 재사용한다.
 export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.id) {
@@ -15,22 +20,32 @@ export async function POST(req: NextRequest) {
   }
   const userId = session.user.id;
 
+  const body = await req.json();
+  const attemptId = typeof body.attemptId === "string" ? body.attemptId : undefined;
+
+  const started = await startAttempt(userId, PRODUCT_ID, attemptId, body);
+  if (!started.ok) {
+    return NextResponse.json({ error: started.error }, { status: started.status });
+  }
+  const input = started.input;
+
   const { data: profile } = await supabaseAdmin
     .from("saju_profiles").select("id, birth_date, birth_time, gender")
     .eq("user_id", userId).eq("label", "본인")
     .order("created_at", { ascending: false }).limit(1).single();
 
   if (!profile?.birth_date) {
+    await discardAttempt(started.attemptId);
     return NextResponse.json({ error: "profile_required", redirect: "/onboarding" }, { status: 403 });
   }
 
-  const body = await req.json();
-  const species: PetSpecies = body.species === "cat" ? "cat" : "dog";
-  const petYear = parseInt(body.petYear);
-  const petMonth = parseInt(body.petMonth) || PET_DEFAULT_MONTH;
-  const petDay = body.petDay ? parseInt(body.petDay) : null;
-  const petName = (body.petName ?? "").toString().slice(0, 20).trim() || "아이";
+  const species: PetSpecies = input.species === "cat" ? "cat" : "dog";
+  const petYear = parseInt(String(input.petYear));
+  const petMonth = parseInt(String(input.petMonth)) || PET_DEFAULT_MONTH;
+  const petDay = input.petDay ? parseInt(String(input.petDay)) : null;
+  const petName = String(input.petName ?? "").slice(0, 20).trim() || "아이";
   if (!petYear || petYear < 1980 || petYear > new Date().getFullYear()) {
+    await discardAttempt(started.attemptId);
     return NextResponse.json({ error: "반려동물 출생 연도를 확인해주세요." }, { status: 400 });
   }
 
@@ -43,7 +58,8 @@ export async function POST(req: NextRequest) {
     facts = petCompatibility(owner, { species, petYear, petMonth, petDay, petName });
   } catch (e) {
     console.error("premium pet engine error:", e);
-    return NextResponse.json({ error: "사주 계산 오류" }, { status: 500 });
+    await finishAttemptFailed(started.attemptId, "사주 계산 오류");
+    return NextResponse.json({ error: "사주 계산 오류", attemptId: started.attemptId }, { status: 500 });
   }
 
   // 같은 아이·같은 조건이면 재생성하지 않는다. 캐시 키의 pet_day는 0이 '모름'.
@@ -60,14 +76,16 @@ export async function POST(req: NextRequest) {
       .from("premium_pet_reports").select("content")
       .match(cacheKey).limit(1).single();
     if (cached?.content) {
+      await discardAttempt(started.attemptId);
       return NextResponse.json({ report: cached.content, pet: facts.pet, petName, cached: true });
     }
   } catch { /* 테이블 없음 또는 미저장 → 생성 진행 */ }
 
   // 캐시가 없을 때만 구독 확인 (이미 본 결과는 재열람 허용)
   // 구독자 또는 990원 단건 이용권 보유자만 통과. 이용권은 생성 성공 후 소진한다.
-  const access = await checkReportAccess(userId, "pet_one");
+  const access = await checkReportAccess(userId, PRODUCT_ID);
   if (!access.allowed) {
+    await discardAttempt(started.attemptId);
     return NextResponse.json({ error: "premium_required", redirect: "/premium/buy?product=pet_one" }, { status: 402 });
   }
 
@@ -165,7 +183,8 @@ ${facts.species === "cat"
     const textBlock = res.content.find((b) => b.type === "text");
     const report = textBlock && textBlock.type === "text" ? textBlock.text.trim() : "";
     if (!report) {
-      return NextResponse.json({ error: "생성에 실패했습니다. 다시 시도해주세요." }, { status: 500 });
+      await finishAttemptFailed(started.attemptId, "빈 응답");
+      return NextResponse.json({ error: "생성에 실패했습니다. 같은 정보로 다시 시도해주세요.", attemptId: started.attemptId }, { status: 500 });
     }
     // 캐시 저장 (테이블 없으면 무시)
     try {
@@ -177,10 +196,12 @@ ${facts.species === "cat"
 
     // 이용권 사용자는 생성 성공 시점에 소진 (실패 시 이용권 보존)
     if (access.passId) await consumeOneTimePass(access.passId);
+    await finishAttemptDone(started.attemptId);
 
     return NextResponse.json({ report, pet: facts.pet, petName, cached: false });
   } catch (e) {
     console.error("premium pet LLM error:", e);
-    return NextResponse.json({ error: "분석 중 오류가 발생했습니다." }, { status: 500 });
+    await finishAttemptFailed(started.attemptId, "LLM 호출 오류");
+    return NextResponse.json({ error: "분석 중 오류가 발생했습니다. 같은 정보로 다시 시도해주세요.", attemptId: started.attemptId }, { status: 500 });
   }
 }

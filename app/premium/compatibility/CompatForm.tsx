@@ -24,22 +24,26 @@ export function CompatForm() {
   const [report, setReport] = useState("");
   const [score, setScore] = useState<number | null>(null);
   const [error, setError] = useState("");
+  // 실패한 시도의 id. 있으면 "같은 정보로 재생성" — 서버에 저장된 입력값을 그대로 재사용한다.
+  const [attemptId, setAttemptId] = useState<string | null>(null);
 
-  async function submit() {
+  async function submit(regenerate = false) {
     setStep("loading");
     setError("");
     try {
       const res = await fetch("/api/premium/compatibility", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify(regenerate && attemptId ? { attemptId } : form),
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error === "profile_required" ? "먼저 내 사주를 등록해주세요." : "분석에 실패했습니다. 다시 시도해주세요.");
+        setAttemptId(typeof data.attemptId === "string" ? data.attemptId : null);
+        setError(data.error === "profile_required" ? "먼저 내 사주를 등록해주세요." : "분석에 실패했습니다. 입력하신 정보는 그대로 남아 있어요.");
         setStep("form");
         return;
       }
+      setAttemptId(null);
       setReport(cleanReportText(data.report));
       setScore(data.score ?? null);
       setStep("result");
@@ -50,6 +54,13 @@ export function CompatForm() {
   }
 
   const canSubmit = form.partner_birth.length === 10 && form.partner_gender;
+
+  // 입력을 바꾸면 이전 실패 시도(attemptId)는 더 이상 유효하지 않다 — 새 시도로 취급.
+  function updateForm(patch: Partial<typeof form>) {
+    setForm({ ...form, ...patch });
+    setAttemptId(null);
+    setError("");
+  }
 
   if (step === "result") {
     return (
@@ -91,7 +102,7 @@ export function CompatForm() {
         <label className="block text-xs font-medium text-[#6B6661] uppercase tracking-wider mb-2">관계 유형</label>
         <div className="grid grid-cols-3 gap-2">
           {CONTEXT_OPTIONS.map((o) => (
-            <button key={o.value} onClick={() => setForm({ ...form, context: o.value })}
+            <button key={o.value} onClick={() => updateForm({ context: o.value })}
               className={`py-2.5 rounded-xl border text-xs font-medium transition-all ${form.context === o.value ? "bg-[#1F3D34] text-white border-[#1F3D34]" : "bg-[#FBF8F2] text-[#6B6661] border-[#E5DFD4]"}`}>
               {o.label}
             </button>
@@ -102,7 +113,7 @@ export function CompatForm() {
       <div>
         <label className="block text-xs font-medium text-[#6B6661] uppercase tracking-wider mb-2">상대방 생년월일</label>
         <input type="text" inputMode="numeric" placeholder="YYYY-MM-DD" value={form.partner_birth} maxLength={10}
-          onChange={(e) => setForm({ ...form, partner_birth: formatDateInput(e.target.value) })}
+          onChange={(e) => updateForm({ partner_birth: formatDateInput(e.target.value) })}
           className="w-full border border-[#E5DFD4] rounded-xl px-4 py-3.5 text-sm bg-[#FBF8F2] focus:outline-none focus:border-[#1F3D34] tracking-widest" />
       </div>
 
@@ -110,7 +121,7 @@ export function CompatForm() {
         <label className="block text-xs font-medium text-[#6B6661] uppercase tracking-wider mb-2">상대방 성별</label>
         <div className="flex gap-2">
           {[["M", "남성 ♂"], ["F", "여성 ♀"]].map(([v, l]) => (
-            <button key={v} onClick={() => setForm({ ...form, partner_gender: v })}
+            <button key={v} onClick={() => updateForm({ partner_gender: v })}
               className={`flex-1 py-3 rounded-xl border text-sm font-medium transition-all ${form.partner_gender === v ? "bg-[#1F3D34] text-white border-[#1F3D34]" : "bg-[#FBF8F2] text-[#6B6661] border-[#E5DFD4]"}`}>
               {l}
             </button>
@@ -121,10 +132,17 @@ export function CompatForm() {
       {error && <p className="text-xs text-[#C0392B] px-1">{error}</p>}
 
       <div className="mt-auto pt-2">
-        <button onClick={submit} disabled={!canSubmit}
-          className="w-full bg-[#C8743A] text-white rounded-xl py-4 font-semibold text-base disabled:opacity-40 active:scale-[0.97] transition-all shadow-lg shadow-[#C8743A]/25">
-          내 사주와 궁합 보기
-        </button>
+        {attemptId ? (
+          <button onClick={() => submit(true)}
+            className="w-full bg-[#C8743A] text-white rounded-xl py-4 font-semibold text-base active:scale-[0.97] transition-all shadow-lg shadow-[#C8743A]/25">
+            같은 정보로 재생성하기
+          </button>
+        ) : (
+          <button onClick={() => submit(false)} disabled={!canSubmit}
+            className="w-full bg-[#C8743A] text-white rounded-xl py-4 font-semibold text-base disabled:opacity-40 active:scale-[0.97] transition-all shadow-lg shadow-[#C8743A]/25">
+            내 사주와 궁합 보기
+          </button>
+        )}
         <p className="text-center text-xs text-[#6B6661] mt-3">등록된 내 사주와 상대를 양방향으로 분석합니다</p>
       </div>
     </div>

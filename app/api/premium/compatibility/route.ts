@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/db/client";
 import { checkReportAccess, consumeOneTimePass } from "@/lib/billing/access";
+import { startAttempt, finishAttemptDone, finishAttemptFailed, discardAttempt } from "@/lib/billing/attempts";
 import { buildChart, mutualAnalysis } from "@/lib/saju-engine";
 
 // 궁합 리포트 생성이 최대 ~40초 걸리므로 서버리스 타임아웃 상향
@@ -13,7 +14,11 @@ const CONTEXT_LABEL: Record<string, string> = {
 
 type Ctx = "romance" | "work" | "friend";
 
+const PRODUCT_ID = "compatibility_one";
+
 // POST /api/premium/compatibility — 로그인+프리미엄 필수. 등록된 내 사주 + 상대 정보로 양방향 궁합.
+// body에 attemptId가 있으면 "같은 정보로 재생성" 요청으로 보고, 새로 보낸 입력값 대신
+// 최초 시도 때 저장해 둔 입력값을 그대로 재사용한다.
 export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.id) {
@@ -21,9 +26,19 @@ export async function POST(req: NextRequest) {
   }
   const userId = session.user.id;
 
+  const body = await req.json();
+  const attemptId = typeof body.attemptId === "string" ? body.attemptId : undefined;
+
+  const started = await startAttempt(userId, PRODUCT_ID, attemptId, body);
+  if (!started.ok) {
+    return NextResponse.json({ error: started.error }, { status: started.status });
+  }
+  const input = started.input;
+
   // 구독자 또는 990원 단건 이용권 보유자만 통과. 이용권은 생성 성공 후 소진한다.
-  const access = await checkReportAccess(userId, "compatibility_one");
+  const access = await checkReportAccess(userId, PRODUCT_ID);
   if (!access.allowed) {
+    await discardAttempt(started.attemptId);
     return NextResponse.json({ error: "premium_required", redirect: "/premium/buy?product=compatibility_one" }, { status: 402 });
   }
 
@@ -33,14 +48,15 @@ export async function POST(req: NextRequest) {
     .order("created_at", { ascending: false }).limit(1).single();
 
   if (!profile?.birth_date) {
+    await discardAttempt(started.attemptId);
     return NextResponse.json({ error: "profile_required", redirect: "/onboarding" }, { status: 403 });
   }
 
-  const body = await req.json();
-  const partnerBirth = body.partner_birth as string;
-  const partnerGender = (body.partner_gender ?? "F") as "M" | "F";
-  const context = (body.context ?? "romance") as Ctx;
+  const partnerBirth = input.partner_birth as string;
+  const partnerGender = (input.partner_gender ?? "F") as "M" | "F";
+  const context = (input.context ?? "romance") as Ctx;
   if (!partnerBirth) {
+    await discardAttempt(started.attemptId);
     return NextResponse.json({ error: "partner_birth is required" }, { status: 400 });
   }
 
@@ -57,7 +73,8 @@ export async function POST(req: NextRequest) {
     normalizedScore = Math.min(100, Math.max(0, Math.round(38 + mutual.combinedScore * 6)));
   } catch (e) {
     console.error("premium compatibility engine error:", e);
-    return NextResponse.json({ error: "사주 계산 오류" }, { status: 500 });
+    await finishAttemptFailed(started.attemptId, "사주 계산 오류");
+    return NextResponse.json({ error: "사주 계산 오류", attemptId: started.attemptId }, { status: 500 });
   }
 
   const engineSummary = `
@@ -114,14 +131,18 @@ ${engineSummary}
     const textBlock = res.content.find((b) => b.type === "text");
     const report = textBlock && textBlock.type === "text" ? textBlock.text.trim() : "";
     if (!report) {
-      return NextResponse.json({ error: "생성에 실패했습니다. 다시 시도해주세요." }, { status: 500 });
+      await finishAttemptFailed(started.attemptId, "빈 응답");
+      return NextResponse.json({ error: "생성에 실패했습니다. 같은 정보로 다시 시도해주세요.", attemptId: started.attemptId }, { status: 500 });
     }
+
     // 이용권 사용자는 생성 성공 시점에 소진 (실패 시 이용권 보존)
     if (access.passId) await consumeOneTimePass(access.passId);
+    await finishAttemptDone(started.attemptId);
 
     return NextResponse.json({ report, score: normalizedScore, context });
   } catch (e) {
     console.error("premium compatibility LLM error:", e);
-    return NextResponse.json({ error: "분석 중 오류가 발생했습니다." }, { status: 500 });
+    await finishAttemptFailed(started.attemptId, "LLM 호출 오류");
+    return NextResponse.json({ error: "분석 중 오류가 발생했습니다. 같은 정보로 다시 시도해주세요.", attemptId: started.attemptId }, { status: 500 });
   }
 }
