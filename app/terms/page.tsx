@@ -151,6 +151,16 @@ export default function TermsPage() {
               불가능했던 경우에는 환불해 드립니다.
             </p>
             <p className="text-[#6B6661] leading-relaxed mt-3 font-semibold">
+              5-1-1. 리포트 열람기간
+            </p>
+            <p className="text-[#6B6661] leading-relaxed mt-1">
+              프리미엄 리포트(사주·궁합·택일·연운세·살풀이·반려동물 궁합·운명 설계도)는
+              결제일로부터 1년간 다시 열람하실 수 있으며, 이 기간이 지나면 서버에서
+              자동으로 삭제됩니다. 리포트가 삭제된 후 다시 보고 싶다고 해서 환불되지는
+              않습니다. 열람기간이 끝나기 전 내용을 보관하고 싶다면 화면 하단의
+              인쇄·저장 기능을 이용해 주세요.
+            </p>
+            <p className="text-[#6B6661] leading-relaxed mt-3 font-semibold">
               5-2. 정기 구독
             </p>
             <p className="text-[#6B6661] leading-relaxed mt-1">

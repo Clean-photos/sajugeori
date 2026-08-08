@@ -94,7 +94,17 @@ export default function PrivacyPage() {
                 <span>접속 로그</span>
                 <span className="font-medium text-[#1A1A18]">3개월 (통신비밀보호법)</span>
               </div>
+              <div className="flex justify-between">
+                <span>유료 리포트 생성 결과</span>
+                <span className="font-medium text-[#1A1A18]">1년 (서비스 정책) — 자동 삭제</span>
+              </div>
             </div>
+            <p className="text-[#6B6661] leading-relaxed mt-3">
+              위 리포트 보관기간은 사주거리(sajugeori.com) 서비스에 적용됩니다.
+              같은 도메인에서 함께 제공되는 환장의 케미(/chemi)는 별도 서비스로, 대화
+              데이터를 12시간만 보관한 뒤 삭제하는 등 사주거리와 다른 보유기간
+              정책을 따릅니다. 자세한 내용은 해당 서비스 화면의 안내를 참고해 주세요.
+            </p>
           </section>
 
           <div className="h-px bg-[#E5DFD4]" />
