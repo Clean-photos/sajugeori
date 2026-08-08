@@ -36,7 +36,7 @@ export default function AboutPage() {
           <h2 className="font-serif text-lg font-bold text-[#1F3D34] mb-2">무엇을 제공하나요</h2>
           <p>
             무료로 이용할 수 있는 일반 사주, 궁합, 택일, 연운세 콘텐츠와, 더 깊이 있는 분석을 원하는 분을 위한
-            프리미엄 심층 리포트(사주·궁합·택일·연운세·살풀이)를 제공합니다. 정기 구독 없이
+            프리미엄 심층 리포트(사주·궁합·택일·연운세·살풀이)를 제공합니다.
             필요한 리포트만 990원에 한 편씩 결제해 볼 수 있습니다.
             사주를 처음 접하는 분을 위한 <Link href="/guide" className="text-[#C8743A] underline underline-offset-2">읽을거리</Link>도 함께 준비했습니다.
           </p>

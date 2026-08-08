@@ -81,7 +81,7 @@ export default async function PremiumPage() {
             >
               <p className="text-sm font-semibold">전체 풀이 열람하기</p>
               <p className="text-xs opacity-80 mt-0.5">
-                {ONE_REPORT_PRICE.toLocaleString()}원 · 1회 결제 · 구독 아님
+                {ONE_REPORT_PRICE.toLocaleString()}원 · 1회 결제
               </p>
             </Link>
           </div>

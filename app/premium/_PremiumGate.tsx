@@ -83,7 +83,7 @@ export async function PremiumGate({
             <>
               <p className="text-sm font-medium text-[#1A1A18]">프리미엄 리포트예요</p>
               <p className="text-xs text-[#6B6661] max-w-[250px] leading-relaxed">
-                정기 구독 없이 리포트 한 편만 결제해서 보실 수 있어요. 결제 후에는 언제든 다시 열어볼 수 있습니다.
+                리포트 한 편만 결제해서 보실 수 있어요. 결제 후에는 언제든 다시 열어볼 수 있습니다.
               </p>
               {oneTime ? (
                 <>

@@ -87,7 +87,7 @@ export default async function DestinyPage() {
           >
             <p className="text-sm font-semibold">운명 설계도 전체 열람하기</p>
             <p className="text-xs opacity-80 mt-0.5">
-              {DESTINY_BLUEPRINT_ONE.amount.toLocaleString()}원 · 1회 결제 · 구독 아님
+              {DESTINY_BLUEPRINT_ONE.amount.toLocaleString()}원 · 1회 결제
             </p>
           </Link>
           <p className="text-xs text-[#6B6661] px-1 leading-relaxed">

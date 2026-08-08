@@ -7,7 +7,7 @@ import { ONE_REPORT_PRICE, DESTINY_BLUEPRINT_ONE } from "@/lib/billing/plans";
 export const metadata: Metadata = {
   title: "프리미엄 운세 — 사주·궁합·택일·연운세·살풀이 | 사주거리",
   description:
-    "사주 계산 엔진의 실제 데이터를 근거로 만드는 심층 풀이. 프리미엄 사주·궁합·택일·연운세·살풀이·반려동물 궁합 여섯 가지. 리포트 한 편 990원, 정기 구독 없이 필요한 것만.",
+    "사주 계산 엔진의 실제 데이터를 근거로 만드는 심층 풀이. 프리미엄 사주·궁합·택일·연운세·살풀이·반려동물 궁합 여섯 가지. 리포트 한 편 990원.",
   alternates: { canonical: "/premium/menu" },
 };
 
@@ -145,7 +145,7 @@ export default function PremiumMenuPage() {
         <h2 className="font-serif text-lg font-bold text-[#1F3D34] mt-2">필요한 것만 골라서</h2>
         <p className="text-[16px] text-[#1A1A18] leading-[1.85]">
           사주는 매달 새로 볼 만한 것이 아니라, 궁금할 때 한 번 제대로 보는 편이 맞습니다.
-          그래서 사주거리는 정기 구독을 요구하지 않고 리포트 한 편에 {ONE_REPORT_PRICE.toLocaleString()}원으로,
+          그래서 사주거리는 리포트 한 편에 {ONE_REPORT_PRICE.toLocaleString()}원으로,
           필요한 것만 골라 보실 수 있게 했습니다. 한 번 결제한 리포트는 저장되어 언제든 다시 열람할 수 있습니다.
         </p>
         <p className="text-[13px] text-[#6B6661] leading-relaxed">
