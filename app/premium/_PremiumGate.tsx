@@ -4,6 +4,8 @@ import { SiteFooter } from "@/components/layout/SiteFooter";
 import { auth } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/db/client";
 import { isPremiumUser, findUnusedOneTimePass } from "@/lib/billing/access";
+import { SAMPLE_REPORTS } from "@/lib/sample-reports";
+import { SamplePreview } from "@/components/premium/SamplePreview";
 
 /** 구독 없이 단건 이용권으로도 통과할 수 있는 기능의 이용권 옵션 */
 export interface OneTimeOption {
@@ -41,7 +43,7 @@ async function checkGate(oneTime?: OneTimeOption): Promise<GateState> {
  * 통과 시 children(폼)을 렌더. 궁합·연운세·택일이 공유한다.
  */
 export async function PremiumGate({
-  title, subtitle, path, children, oneTime, intro,
+  title, subtitle, path, children, oneTime, intro, sampleKey,
 }: {
   title: string; subtitle: string; path: string; children: React.ReactNode;
   oneTime?: OneTimeOption;
@@ -50,8 +52,11 @@ export async function PremiumGate({
    * 크롤러가 읽을 실제 텍스트를 확보해 준다(게이트만 있으면 빈 페이지로 인식됨).
    */
   intro?: React.ReactNode;
+  /** lib/sample-reports.ts의 키. 있으면 게이트 화면에 샘플 결과 발췌를 보여준다. */
+  sampleKey?: keyof typeof SAMPLE_REPORTS;
 }) {
   const gate = await checkGate(oneTime);
+  const sample = sampleKey ? SAMPLE_REPORTS[sampleKey] : undefined;
 
   return (
     <div className="flex flex-col min-h-screen pb-24 bg-[#F6F1E7]">
@@ -106,6 +111,12 @@ export async function PremiumGate({
               <p className="text-sm font-medium text-[#1A1A18]">먼저 사주를 등록해주세요</p>
               <Link href="/onboarding" className="rounded-xl bg-[#C8743A] text-white px-6 py-3 text-sm font-semibold">사주 등록하기</Link>
             </>
+          )}
+
+          {sample && (
+            <div className="w-full max-w-sm text-left mt-2">
+              <SamplePreview sample={sample} />
+            </div>
           )}
         </div>
       )}

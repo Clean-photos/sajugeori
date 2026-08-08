@@ -16,6 +16,7 @@ export default function PremiumSalpuriPage() {
       subtitle="내 사주에 든 살을 찾아 하나씩 풀이"
       path="/premium/salpuri"
       oneTime={{ productId: "salpuri_one", buyPath: "/premium/buy?product=salpuri_one", priceLabel: "990원" }}
+      sampleKey="salpuri"
       intro={
         <>
           <h2 className="font-serif text-lg font-bold text-[#1F3D34]">살풀이란 무엇인가요</h2>

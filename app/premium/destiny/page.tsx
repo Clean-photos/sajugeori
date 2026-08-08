@@ -5,6 +5,8 @@ import { auth } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/db/client";
 import { isPremiumUser, findUnusedDestinyPass, hasSajuReport } from "@/lib/billing/access";
 import { DESTINY_BLUEPRINT_ONE, DESTINY_UPGRADE } from "@/lib/billing/plans";
+import { SAMPLE_REPORTS } from "@/lib/sample-reports";
+import { SamplePreview } from "@/components/premium/SamplePreview";
 import { DestinyReport } from "./DestinyReport";
 
 export const metadata: Metadata = {
@@ -94,6 +96,8 @@ export default async function DestinyPage() {
             프리미엄 사주의 여덟 영역에 평생 대운 로드맵, 인생 전환점, 실행 전략까지 더한
             확장판입니다.
           </p>
+
+          <SamplePreview sample={SAMPLE_REPORTS.destiny} />
         </div>
       )}
 

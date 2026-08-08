@@ -4,6 +4,8 @@ import { auth } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/db/client";
 import { isPremiumUser, findUnusedOneTimePass } from "@/lib/billing/access";
 import { ONE_REPORT_PRICE } from "@/lib/billing/plans";
+import { SAMPLE_REPORTS } from "@/lib/sample-reports";
+import { SamplePreview } from "@/components/premium/SamplePreview";
 import { PremiumReport } from "./PremiumReport";
 
 // 비구독자에게 보여줄 잠긴 섹션 미리보기
@@ -84,6 +86,10 @@ export default async function PremiumPage() {
                 {ONE_REPORT_PRICE.toLocaleString()}원 · 1회 결제
               </p>
             </Link>
+          </div>
+
+          <div className="px-4 pt-3">
+            <SamplePreview sample={SAMPLE_REPORTS.saju} />
           </div>
 
           <div className="px-4 py-4 flex flex-col gap-3">
