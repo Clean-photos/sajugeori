@@ -12,28 +12,22 @@ export const metadata: Metadata = {
 };
 
 /**
- * 여섯 종 모두 판매 중이다. 순서는 '다시 볼 이유가 있는 것'을 앞에 둔다.
- * 사주·살풀이는 내 사주가 바뀌지 않아 평생 한 번 보는 반면,
- * 궁합·반려동물은 대상이 늘 때마다, 택일·연운세는 시기가 올 때마다 다시 본다.
+ * 여섯 종 모두 판매 중이다. 지정된 화면 순서: (사주,궁합) → (연운세,살풀이) →
+ * (택일,반려동물). 반려동물 궁합 아이콘은 어두운 카드 배경에 묻히던 발자국
+ * 대신 색이 뚜렷한 강아지 이모지로 바꿨다.
  */
 const MENU_CARDS = [
+  {
+    href: "/premium",
+    icon: "☯",
+    title: "프리미엄 사주",
+    subtitle: "여덟 영역 심층 풀이",
+  },
   {
     href: "/premium/compatibility",
     icon: "∞",
     title: "프리미엄 궁합",
     subtitle: "두 사람의 사주를 양방향으로",
-  },
-  {
-    href: "/premium/pet",
-    icon: "🐾",
-    title: "반려동물 궁합",
-    subtitle: "우리 아이와 나의 케미",
-  },
-  {
-    href: "/premium/taekil",
-    icon: "📅",
-    title: "프리미엄 택일",
-    subtitle: "이사·개업·계약 좋은 날",
   },
   {
     href: "/premium/yearly",
@@ -42,16 +36,22 @@ const MENU_CARDS = [
     subtitle: "올해와 내년, 월별 흐름",
   },
   {
-    href: "/premium",
-    icon: "☯",
-    title: "프리미엄 사주",
-    subtitle: "여덟 영역 심층 풀이",
-  },
-  {
     href: "/premium/salpuri",
     icon: "殺",
     title: "프리미엄 살풀이",
     subtitle: "내 사주에 든 살을 하나씩",
+  },
+  {
+    href: "/premium/taekil",
+    icon: "📅",
+    title: "프리미엄 택일",
+    subtitle: "이사·개업·계약 좋은 날",
+  },
+  {
+    href: "/premium/pet",
+    icon: "🐶",
+    title: "반려동물 궁합",
+    subtitle: "우리 아이와 나의 케미",
   },
 ];
 
@@ -67,6 +67,37 @@ export default function PremiumMenuPage() {
         </h1>
         <p className="text-sm text-[#6B6661] mt-1">무료보다 더 깊은 풀이를 만나보세요</p>
       </header>
+
+      {/* 운명 설계도 — 990원 사주보다 상위 등급. 이미 사주를 본 사람은 결과 화면
+          배너(PremiumReport.tsx)에서 차액(6,900원) 업그레이드로 더 싸게 온다.
+          여기는 곧바로 정가(7,900원)로 사고 싶은 사람을 위한 진입점. 최상단에
+          두고 다른 카드보다 키를 살짝 키워 상위 상품임을 형태로도 드러낸다. */}
+      <section className="px-4 mb-3">
+        <Link href="/premium/destiny">
+          <div className="relative overflow-hidden rounded-2xl p-5 min-h-[168px] flex flex-col justify-between active:scale-[0.98] transition-all duration-200 shadow-sm bg-[#1F3D34] text-white">
+            <div aria-hidden="true" className="absolute -bottom-3 -right-2 font-serif text-[72px] leading-none select-none text-white/10">
+              🧭
+            </div>
+            {/* "확장판"은 가격 배지와 같은 자리에 두면 다른 카드와 구분이 안 된다.
+                모서리 리본 형태로 따로 빼 상위 상품임을 형태로 구분한다. */}
+            <span className="absolute top-0 right-0 text-[10px] font-semibold px-3 py-1 rounded-bl-xl bg-[#C8743A] text-white tracking-wide">
+              확장판
+            </span>
+            <span className="font-serif text-3xl font-bold leading-none text-white/90">
+              🧭
+            </span>
+            <div className="relative">
+              <p className="font-semibold text-base leading-snug">운명 설계도</p>
+              <p className="text-xs mt-0.5 text-white/65">
+                여덟 영역 심층 풀이에 평생 대운 로드맵·인생 전환점·실행 전략까지
+              </p>
+              <span className="inline-block mt-2 text-[10px] font-medium px-2 py-0.5 rounded-full bg-[#C8743A] text-white">
+                {DESTINY_BLUEPRINT_ONE.amount.toLocaleString()}원
+              </span>
+            </div>
+          </div>
+        </Link>
+      </section>
 
       <section className="px-4 grid grid-cols-2 gap-3">
         {MENU_CARDS.map((card) => (
@@ -88,25 +119,6 @@ export default function PremiumMenuPage() {
             </div>
           </Link>
         ))}
-      </section>
-
-      {/* 운명 설계도 — 990원 사주보다 상위 등급. 이미 사주를 본 사람은 결과 화면
-          배너(PremiumReport.tsx)에서 차액(6,900원) 업그레이드로 더 싸게 온다.
-          여기는 곧바로 정가(7,900원)로 사고 싶은 사람을 위한 진입점. */}
-      <section className="px-4 mt-4">
-        <Link
-          href="/premium/destiny"
-          className="block rounded-2xl bg-[#1F3D34] text-white px-5 py-4 active:scale-[0.98] transition-all"
-        >
-          <div className="flex items-baseline justify-between">
-            <p className="text-sm font-semibold">운명 설계도</p>
-            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-[#C8743A]">확장판</span>
-          </div>
-          <p className="text-xs text-white/65 mt-1 leading-relaxed">
-            프리미엄 사주 여덟 영역에 평생 대운 로드맵·인생 전환점·실행 전략까지 ·{" "}
-            {DESTINY_BLUEPRINT_ONE.amount.toLocaleString()}원
-          </p>
-        </Link>
       </section>
 
       {/* 기능 설명 — 결제 전 방문자와 크롤러가 읽을 실제 내용 */}
