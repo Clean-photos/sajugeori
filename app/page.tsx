@@ -6,7 +6,7 @@ import { BannerAd } from "@/components/ads/BannerAd";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { ARTICLES } from "./guide/articles";
 import { pickDaily } from "@/lib/daily-pick";
-import { ONE_REPORT_PRICE } from "@/lib/billing/plans";
+import { ONE_REPORT_PRICE, DESTINY_BLUEPRINT_ONE } from "@/lib/billing/plans";
 import { TERMS } from "./dictionary/terms";
 import { HeaderAuth } from "./HeaderAuth";
 
@@ -228,7 +228,9 @@ export default async function HomePage() {
             </div>
             <div className="relative flex-1">
               <p className="font-bold text-lg text-white leading-snug">프리미엄 운세보기</p>
-              <p className="text-sm text-white/65 mt-0.5">리포트 한 편 {ONE_REPORT_PRICE.toLocaleString()}원 · 구독 없이 필요한 것만</p>
+              <p className="text-sm text-white/65 mt-0.5">
+                프리미엄 항목 한 편 {ONE_REPORT_PRICE.toLocaleString()}원, 당신의 운명 설계도 {DESTINY_BLUEPRINT_ONE.amount.toLocaleString()}원
+              </p>
             </div>
             <div className="relative w-8 h-8 rounded-full bg-[#C8743A] flex items-center justify-center flex-shrink-0">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
