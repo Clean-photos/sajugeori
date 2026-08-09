@@ -50,26 +50,74 @@ async function callJSON<T>(prompt: string, maxTokens: number, usage: UsageAccumu
   }
 }
 
-export async function generateBlueprintReport(birthIso: string, gender: string, hasHour = true): Promise<BlueprintReport> {
-  const chart = buildPreciseChart(birthIso, gender, hasHour);
-  const facts = computeAnchorFacts(chart);
+/** 점진 저장을 위해 완료 즉시 넘겨주는 조각. axes는 완료된 축 하나만 담긴 배열(호출부가 id로 머지). */
+export interface BlueprintPartial {
+  chart?: BlueprintChart;
+  facts?: AnchorFacts;
+  narrative?: AnchorNarrative;
+  overview?: { headline: string; body: string };
+  axes?: { id: string; title: string; subtitle: string; questions: QABlock[] }[];
+  closing?: BlueprintReport["closing"];
+  meta?: BlueprintReport["meta"];
+}
+
+export type BlueprintPartKey = "chart" | "narrative" | "overview" | `axis_${string}` | "closing";
+
+/** 이미 완료된 파트는 다시 부르지 않고, 남은 파트만 재실행하기 위한 이어하기 입력. */
+export interface BlueprintResumeState {
+  chart?: BlueprintChart;
+  facts?: AnchorFacts;
+  narrative?: AnchorNarrative;
+  overview?: { headline: string; body: string };
+  axes?: { id: string; title: string; subtitle: string; questions: QABlock[] }[];
+}
+
+/**
+ * 축 단위 분할 생성. 각 파트(총론 1콜 + 축 4콜)가 끝나는 즉시 onPart를 호출해
+ * 호출부(API 라우트)가 DB에 부분 저장하도록 한다 — 전체 완료를 기다리지 않고
+ * 화면에 순차 노출하기 위함. resume을 주면 이미 끝난 파트는 건너뛰고 남은
+ * 파트만(주로 실패했던 축만) 재실행한다.
+ */
+export async function generateBlueprintReportSteps(
+  birthIso: string,
+  gender: string,
+  hasHour: boolean,
+  onPart: (part: BlueprintPartKey, partial: BlueprintPartial) => void | Promise<void>,
+  resume?: BlueprintResumeState
+): Promise<BlueprintReport> {
+  const chart = resume?.chart ?? buildPreciseChart(birthIso, gender, hasHour);
+  const facts = resume?.facts ?? computeAnchorFacts(chart);
+  if (!resume?.chart) await onPart("chart", { chart, facts });
+
   const usage: UsageAccumulator = { input: 0, output: 0, calls: 0 };
 
-  // 1) 앵커 — 제약 2 / 지렛대 2
-  const narrative = await callJSON<AnchorNarrative>(buildAnchorNarrativePrompt(facts), 2000, usage);
+  // 1) 앵커 — 제약 2 / 지렛대 2 (이후 모든 호출의 공통 입력이라 재개해도 항상 필요)
+  const narrative = resume?.narrative ?? await callJSON<AnchorNarrative>(buildAnchorNarrativePrompt(facts), 2000, usage);
+  if (!resume?.narrative) await onPart("narrative", { narrative });
 
-  // 2) 총론 + 축 4개 — 병렬
-  const [overview, ...axisResults] = await Promise.all([
-    callJSON<{ headline: string; body: string }>(buildOverviewPrompt(facts, narrative), 2000, usage),
-    ...AXES.map((axis) => callJSON<{ questions: QABlock[] }>(buildAxisPrompt(axis, facts, narrative), 8500, usage)),
-  ]);
+  // 2) 총론 + 축 4개 — 병렬 호출하되, 하나씩 끝나는 대로 즉시 onPart로 저장.
+  //    총론이 축보다 토큰이 훨씬 적어 먼저 끝나는 편이라 자연히 "총론 먼저 노출"이 된다.
+  const overviewPromise: Promise<{ headline: string; body: string }> = resume?.overview
+    ? Promise.resolve(resume.overview)
+    : callJSON<{ headline: string; body: string }>(buildOverviewPrompt(facts, narrative), 2000, usage)
+        .then(async (overview) => { await onPart("overview", { overview }); return overview; });
 
-  const axes = AXES.map((axis, i) => ({
-    id: axis.id, title: axis.title, subtitle: axis.subtitle,
-    questions: axisResults[i].questions.map((q) => ({
-      ...q, question: axis.questions.find((defQ) => defQ.id === q.id)?.q ?? "",
-    })),
-  }));
+  const resumedAxisIds = new Set((resume?.axes ?? []).map((a) => a.id));
+  const axisPromises = AXES.map((axis) => {
+    const already = resume?.axes?.find((a) => a.id === axis.id);
+    if (already) return Promise.resolve(already);
+    return callJSON<{ questions: QABlock[] }>(buildAxisPrompt(axis, facts, narrative), 8500, usage).then(async (res) => {
+      const built = {
+        id: axis.id, title: axis.title, subtitle: axis.subtitle,
+        questions: res.questions.map((q) => ({ ...q, question: axis.questions.find((defQ) => defQ.id === q.id)?.q ?? "" })),
+      };
+      await onPart(`axis_${axis.id}`, { axes: [built] });
+      return built;
+    });
+  });
+
+  const [overview, ...axes] = await Promise.all([overviewPromise, ...axisPromises]);
+  void resumedAxisIds;
 
   // 3) 실행설계 + 조언5 — 축 판정 요약을 재인용해야 하므로 마지막에 순차 호출
   const axisSummaries = axes.map((a) => ({ title: a.title, verdicts: a.questions.map((q) => q.verdict) }));
@@ -87,11 +135,15 @@ export async function generateBlueprintReport(birthIso: string, gender: string, 
       s + q.verdict.length + q.metrics.length + q.why.length + q.scenes.join("").length + q.counterEvidence.length + q.actions.join("").length, 0), 0) +
     closing.advice.join("").length + closing.keep.join("").length + closing.stop.join("").length + closing.start.join("").length;
 
-  return {
-    chart, facts, narrative, overview, axes, closing,
-    meta: {
-      generatedAt: new Date().toISOString(), totalChars, gradeACounts, gradeTotalCounts: allGrades.length,
-      inputTokens: usage.input, outputTokens: usage.output, callCount: usage.calls,
-    },
+  const meta = {
+    generatedAt: new Date().toISOString(), totalChars, gradeACounts, gradeTotalCounts: allGrades.length,
+    inputTokens: usage.input, outputTokens: usage.output, callCount: usage.calls,
   };
+  await onPart("closing", { closing, meta });
+
+  return { chart, facts, narrative, overview, axes, closing, meta };
+}
+
+export async function generateBlueprintReport(birthIso: string, gender: string, hasHour = true): Promise<BlueprintReport> {
+  return generateBlueprintReportSteps(birthIso, gender, hasHour, () => {});
 }
