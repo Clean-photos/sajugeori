@@ -33,7 +33,7 @@ export default async function DestinyPage() {
     if (p?.id) {
       try {
         const { count } = await supabaseAdmin
-          .from("premium_destiny_reports").select("saju_profile_id", { count: "exact", head: true })
+          .from("blueprint_reports").select("saju_profile_id", { count: "exact", head: true })
           .eq("saju_profile_id", p.id);
         hasReport = (count ?? 0) > 0;
       } catch { /* 테이블 없음 → 미보유로 간주 */ }
