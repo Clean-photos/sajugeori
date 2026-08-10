@@ -5,8 +5,9 @@ import { auth } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/db/client";
 import { isPremiumUser, findUnusedDestinyPass, hasSajuReport } from "@/lib/billing/access";
 import { DESTINY_BLUEPRINT_ONE, DESTINY_UPGRADE } from "@/lib/billing/plans";
-import { SAMPLE_REPORTS } from "@/lib/sample-reports";
-import { SamplePreview } from "@/components/premium/SamplePreview";
+import { DestinySamplePreview } from "@/components/blueprint/DestinySamplePreview";
+import sampleFullReport from "@/lib/blueprint-engine/sample-full-report.json";
+import type { BlueprintReport } from "@/lib/blueprint-engine/generate";
 import { DestinyReport } from "./DestinyReport";
 
 export const metadata: Metadata = {
@@ -93,11 +94,11 @@ export default async function DestinyPage() {
             </p>
           </Link>
           <p className="text-xs text-[#6B6661] px-1 leading-relaxed">
-            프리미엄 사주의 여덟 영역에 평생 대운 로드맵, 인생 전환점, 실행 전략까지 더한
-            확장판입니다.
+            생계·관계·신체·공간과 시간, 네 개의 축에서 24개 질문에 답하고 평생 대운 로드맵과
+            실행 설계까지 담은 확장판입니다.
           </p>
 
-          <SamplePreview sample={SAMPLE_REPORTS.destiny} />
+          <DestinySamplePreview report={sampleFullReport as unknown as BlueprintReport} input="예시 인물 · 2000년 12월 5일 15:48 남성" />
         </div>
       )}
 

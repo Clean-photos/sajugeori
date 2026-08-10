@@ -80,7 +80,7 @@ function SkeletonCard({ label }: { label: string }) {
  * 축 단위 병렬 생성이라 총론·각 축이 도착하는 대로 순차 노출하고, 아직
  * 안 온 부분은 스켈레톤으로 대체한다.
  */
-export function BlueprintReportView({ report }: { report: BlueprintReport | BlueprintPartial }) {
+export function BlueprintReportView({ report, showPrintButton = true }: { report: BlueprintReport | BlueprintPartial; showPrintButton?: boolean }) {
   const { chart, facts, narrative, overview, axes, closing } = report;
   const p = chart?.pillars;
 
@@ -226,7 +226,7 @@ export function BlueprintReportView({ report }: { report: BlueprintReport | Blue
         <PrintReportFooter />
       </div>
 
-      {closing && <PrintButton label="인쇄 · PDF로 저장하기" />}
+      {showPrintButton && closing && <PrintButton label="인쇄 · PDF로 저장하기" />}
     </div>
   );
 }
