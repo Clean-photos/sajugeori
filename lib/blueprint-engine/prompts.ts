@@ -31,11 +31,22 @@ ${anchorFactsToPromptText(facts)}
 ${COMMON_RULES}`;
 }
 
-export function buildAxisPrompt(axis: AxisDef, facts: AnchorFacts, narrative: AnchorNarrative): string {
-  const qList = axis.questions.map((q, i) => `Q${i + 1} (id=${q.id}). "${q.q}"`).join("\n");
-  return `당신은 명리학 데이터 분석가입니다. "${axis.title}" 축의 질문 6개에 아래 사실 시트만
-근거로 답합니다. 질문 하나당 반드시 6개 필드(판정·근거강도·수치·왜·장면·반증·처방)를 전부
-채우세요 — 반증을 생략하면 그 항목은 실패로 처리됩니다.
+/**
+ * 축 하나(6문항)를 통으로 한 번에 호출하면 출력 토큰이 많아 생성 시간이
+ * 60초를 넘기기 쉽다(Vercel Hobby 플랜의 함수 실행시간 상한). 실측해보니
+ * 질문 하나의 답변만으로도 토큰을 상당히 쓰기 때문에(장면·근거가 길다),
+ * 질문 1개씩 쪼개 호출한다 — 이 함수는 그 질문 하나를 처리한다.
+ */
+export function buildAxisGroupPrompt(
+  axisTitle: string,
+  group: { id: string; q: string }[],
+  facts: AnchorFacts,
+  narrative: AnchorNarrative
+): string {
+  const qList = group.map((q, i) => `Q${i + 1} (id=${q.id}). "${q.q}"`).join("\n");
+  return `당신은 명리학 데이터 분석가입니다. "${axisTitle}" 축의 질문 ${group.length}개에 아래
+사실 시트만 근거로 답합니다. 질문 하나당 반드시 6개 필드(판정·근거강도·수치·왜·장면·반증·처방)를
+전부 채우되, 길이를 짧게 유지하세요 — 답변이 길어지면 실패로 처리됩니다.
 
 ${anchorFactsToPromptText(facts)}
 
@@ -45,22 +56,22 @@ ${anchorFactsToPromptText(facts)}
 질문 목록:
 ${qList}
 
-각 질문에 대해 다음 형식을 지키세요:
-- verdict: 한 줄 결론
-- evidenceGrade: "A"(엔진 계산값에서 직접 도출) | "B"(계산값+표준 해석 결합) | "C"(발현 형태 추정). 6문항 중 A는 최대 2개로 제한(전부 A로 달면 신뢰를 잃습니다).
-- metrics: 이 판정과 관련된 사실 시트의 구체 수치를 인용(오행 개수, 지표 점수 등 최소 2개)
-- why: 명식의 어느 글자·구조 때문인지, 간지를 실명으로 인용해 설명
-- scenes: 실제로 이렇게 나타난다 — 구체 상황 2~3개(배열)
-- counterEvidence: 이 판정이 빗나가는 조건. 반드시 채울 것(생략 불가)
-- actions: 오늘부터 할 수 있는 것 1~3개(배열)
+각 질문에 대해 다음 형식을 지키세요(분량 제한 엄수):
+- verdict: 한 줄 결론(40자 이내)
+- evidenceGrade: "A"(엔진 계산값에서 직접 도출) | "B"(계산값+표준 해석 결합) | "C"(발현 형태 추정). 이 축 6문항 전체를 통틀어 A는 2개를 넘지 않도록, 정말 계산값에서 직접 나온 경우에만 A를 쓰고 그 외엔 B/C를 우선할 것.
+- metrics: 이 판정과 관련된 사실 시트의 구체 수치를 인용(오행 개수, 지표 점수 등 최소 2개, 1문장)
+- why: 명식의 어느 글자·구조 때문인지, 간지를 실명으로 인용해 2~3문장 이내로 설명
+- scenes: 실제로 이렇게 나타난다 — 구체 상황 정확히 2개(배열, 각 1문장)
+- counterEvidence: 이 판정이 빗나가는 조건. 1~2문장으로 반드시 채울 것(생략 불가)
+- actions: 오늘부터 할 수 있는 것 정확히 2개(배열, 각 1문장)
 
 다음 JSON으로만 응답하세요:
 {
   "questions": [
-    { "id": "${axis.questions[0].id}", "verdict": "...", "evidenceGrade": "A", "metrics": "...", "why": "...", "scenes": ["...","..."], "counterEvidence": "...", "actions": ["..."] }
+    { "id": "${group[0].id}", "verdict": "...", "evidenceGrade": "A", "metrics": "...", "why": "...", "scenes": ["...","..."], "counterEvidence": "...", "actions": ["..."] }
   ]
 }
-(questions 배열에 6개 전부 순서대로 넣을 것)
+(questions 배열에 ${group.length}개 전부 순서대로 넣을 것)
 ${COMMON_RULES}`;
 }
 
@@ -91,11 +102,11 @@ ${axisText}
   "start": ["신설할 것 1", "신설할 것 2", "신설할 것 3"],
   "recheckPoints": ["재점검 시점 1(연도나 나이 명시)", "재점검 시점 2", "재점검 시점 3"],
   "advice": [
-    "하나. 굵은 제목 한 줄 + 3~4문장. 위 축 판정에서 도출할 것, 일반론 금지.",
+    "하나. 굵은 제목 한 줄 + 2~3문장(분량 엄수). 위 축 판정에서 도출할 것, 일반론 금지.",
     "둘. ...",
     "셋. ...",
     "넷. ...",
-    "다섯. 반드시 '이 리포트보다 당신의 실제 삶이 상위 근거'라는 취지로 마무리."
+    "다섯. 2~3문장으로, 반드시 '이 리포트보다 당신의 실제 삶이 상위 근거'라는 취지로 마무리."
   ]
 }
 
