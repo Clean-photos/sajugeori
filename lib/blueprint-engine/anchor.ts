@@ -74,7 +74,14 @@ export function computeAnchorFacts(chart: BlueprintChart): AnchorFacts {
     tenGodCounts[label] = (tenGodCounts[label] ?? 0) + 1;
   }
 
-  const dw = chart.precise_daewoon.list[0] ?? null;
+  // 만 나이 기준으로 "지금" 해당하는 대운 구간을 찾는다. list[0](첫 대운, 보통 1~10세)을
+  // 무조건 쓰면 이미 성인인 사람에게도 유아기 대운을 "현재 대운"이라 소개하는 오류가 생긴다.
+  const birthYear = new Date(chart.birth_iso).getUTCFullYear();
+  const currentAge = new Date().getUTCFullYear() - birthYear;
+  const list = chart.precise_daewoon.list;
+  const dw = list.find((d) => currentAge >= d.start_age && currentAge <= d.end_age)
+    ?? (currentAge < list[0]?.start_age ? list[0] : list[list.length - 1])
+    ?? null;
 
   return {
     dayMaster: `${chart.day_master}(${C.STEM_KR[chart.day_master]})`,
@@ -133,5 +140,6 @@ ${anchorFactsToPromptText(facts)}
 }
 
 규칙: 반드시 사실 시트에 있는 오행·십성·합충·신살 용어를 인용할 것(지어내기 금지).
+모든 문장은 존댓말(합니다/입니다체)로 끝낼 것 — "~다/~이다"로 끝나는 평서체 금지.
 한국어. 마크다운 금지(#, ** 등). JSON 외 텍스트 금지.`;
 }

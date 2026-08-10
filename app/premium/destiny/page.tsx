@@ -98,7 +98,7 @@ export default async function DestinyPage() {
             실행 설계까지 담은 확장판입니다.
           </p>
 
-          <DestinySamplePreview report={sampleFullReport as unknown as BlueprintReport} input="예시 인물 · 2000년 12월 5일 15:48 남성" />
+          <DestinySamplePreview report={sampleFullReport as unknown as BlueprintReport} input="예시 인물 · 2000년생 남성" />
         </div>
       )}
 
