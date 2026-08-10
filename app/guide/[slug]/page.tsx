@@ -51,7 +51,7 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
           if (para.startsWith("» ")) {
             return (
               <div key={i} className="bg-[#C8743A]/8 border border-[#C8743A]/25 rounded-xl p-4">
-                <p className="text-[11px] font-semibold text-[#8A5228] tracking-wide mb-1.5">편집팀이 덧붙이는 말</p>
+                <p className="text-[11px] font-semibold text-[#8A5228] tracking-wide mb-1.5">주인장이 덧붙이는 말</p>
                 <p className="text-sm text-[#1A1A18] leading-relaxed">{para.slice(2)}</p>
               </div>
             );
