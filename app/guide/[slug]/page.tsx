@@ -38,7 +38,7 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
           읽을거리
         </Link>
         <h1 className="relative font-serif text-[26px] font-bold text-white leading-tight">{article.title}</h1>
-        <p className="relative text-sm text-white/60 mt-2">{article.published} 발행 · 사주거리 편집팀</p>
+        <p className="relative text-sm text-white/60 mt-2">사주거리 편집팀</p>
       </header>
 
       <article className="px-5 py-7 flex flex-col gap-4">

@@ -7,7 +7,8 @@ export interface Article {
   summary: string;
   readMinutes: number;
   /**
-   * 발행 시점 표기(예: "2026년 7월"). 실제 발행 이력을 따른다.
+   * 발행 시점(예: "2026년 7월") — 내부 기록용. UI에는 더 이상 노출하지 않는다
+   * (app/guide/page.tsx, app/guide/[slug]/page.tsx에서 제거함).
    * 도메인 취득이 2026년 7월이라 그보다 앞선 날짜는 쓰지 않는다.
    */
   published: string;

@@ -43,7 +43,6 @@ export default function GuidePage() {
             <article className="bg-[#FBF8F2] border border-[#E5DFD4] rounded-2xl p-5 active:scale-[0.98] transition-all shadow-sm">
               <h2 className="font-semibold text-base text-[#1F3D34]">{a.title}</h2>
               <p className="text-sm text-[#6B6661] mt-1.5 leading-snug">{a.summary}</p>
-              <p className="text-[11px] text-[#6B6661]/60 mt-2">{a.published} 발행</p>
             </article>
           </Link>
         ))}
