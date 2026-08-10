@@ -3,16 +3,14 @@
 import { useEffect, useRef, useState } from "react";
 import { PREMIUM_MONTHLY } from "@/lib/billing/plans";
 
-// Toss v2 표준 결제 SDK 타입 (최소)
-type TossPayment = {
-  requestPayment: (opts: Record<string, unknown>) => Promise<void>;
-};
-type TossPaymentsSDK = {
-  payment: (opts: { customerKey: string }) => TossPayment;
-};
+// Toss "기존 결제창"(API 개별연동, v1) SDK 타입 (최소).
+// app/premium/buy/BuyClient.tsx와 동일한 이유로 v1 방식을 쓴다 — 이 계정의
+// API 개별연동 계약이 기존 결제창까지만 포함하고, 최신 v2/결제위젯 일반결제는
+// 별도 사업자 신청이 필요해 아직 없음(대시보드 확인 완료).
+type TossPaymentsV1 = { requestPayment: (method: string, opts: Record<string, unknown>) => Promise<void> };
 declare global {
   interface Window {
-    TossPayments?: (clientKey: string) => TossPaymentsSDK;
+    TossPayments?: (clientKey: string) => TossPaymentsV1;
   }
 }
 
@@ -22,43 +20,45 @@ export default function SubscribePage() {
   const [ready, setReady] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const paymentRef = useRef<TossPayment | null>(null);
+  const tossRef = useRef<TossPaymentsV1 | null>(null);
 
   useEffect(() => {
     if (!CLIENT_KEY) {
       setError("결제 설정이 완료되지 않았습니다. (TOSS 키 미설정)");
       return;
     }
+    // 이미 로드돼 있으면(StrictMode 이중 실행 등) 재사용 — 중복 초기화가
+    // Toss SDK를 깨진 상태로 만드는 것을 확인했다(BuyClient.tsx와 동일 이슈).
+    if (window.TossPayments) {
+      tossRef.current = window.TossPayments(CLIENT_KEY);
+      setReady(true);
+      return;
+    }
     const script = document.createElement("script");
-    script.src = "https://js.tosspayments.com/v2/standard";
+    script.src = "https://js.tosspayments.com/v1";
     script.async = true;
     script.onload = () => {
       if (!window.TossPayments) return;
-      const toss = window.TossPayments(CLIENT_KEY);
-      // 단건 결제는 ANONYMOUS customerKey 사용 가능
-      paymentRef.current = toss.payment({ customerKey: "ANONYMOUS" });
+      tossRef.current = window.TossPayments(CLIENT_KEY);
       setReady(true);
     };
     script.onerror = () => setError("결제 모듈을 불러오지 못했습니다.");
     document.body.appendChild(script);
-    return () => { document.body.removeChild(script); };
   }, []);
 
   async function handlePay() {
-    if (!paymentRef.current) return;
+    if (!tossRef.current) return;
     setLoading(true);
     setError("");
     const orderId = `order_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
     const origin = window.location.origin;
     try {
-      await paymentRef.current.requestPayment({
-        method: "CARD",
-        amount: { currency: "KRW", value: PREMIUM_MONTHLY.amount },
+      await tossRef.current.requestPayment("카드", {
+        amount: PREMIUM_MONTHLY.amount,
         orderId,
         orderName: PREMIUM_MONTHLY.name,
         successUrl: `${origin}/premium/success?planId=${PREMIUM_MONTHLY.id}`,
         failUrl: `${origin}/premium/fail`,
-        card: { useEscrow: false, flowMode: "DEFAULT", useCardPoint: false, useAppCardOnly: false },
       });
     } catch (e) {
       setLoading(false);

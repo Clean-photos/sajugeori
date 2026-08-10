@@ -4,12 +4,15 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { getPlan, REPORT_PRODUCTS } from "@/lib/billing/plans";
 
-// Toss v2 표준 결제 SDK 타입 (최소)
-type TossPayment = { requestPayment: (opts: Record<string, unknown>) => Promise<void> };
-type TossPaymentsSDK = { payment: (opts: { customerKey: string }) => TossPayment };
+// Toss "기존 결제창"(API 개별연동, v1) SDK 타입 (최소).
+// 이 계정은 API 개별연동 상품이 자동결제(빌링)·기존 결제창·정산지급대행·
+// 현금영수증만 계약되어 있고(대시보드 확인 완료), 최신 v2/standard 일반결제나
+// 결제위젯 일반결제는 별도 사업자 신청(전자결제 심사)이 필요해 아직 없다.
+// 그래서 지금 활성화된 "기존 결제창"(v1) 방식으로 연동한다.
+type TossPaymentsV1 = { requestPayment: (method: string, opts: Record<string, unknown>) => Promise<void> };
 declare global {
   interface Window {
-    TossPayments?: (clientKey: string) => TossPaymentsSDK;
+    TossPayments?: (clientKey: string) => TossPaymentsV1;
   }
 }
 
@@ -32,7 +35,7 @@ export function BuyClient({ planId, returnTo }: { planId: string; returnTo: stri
   const [error, setError] = useState("");
   const [loading, setLoading] = useState<string | null>(null);
   const [agreed, setAgreed] = useState(false);
-  const paymentRef = useRef<TossPayment | null>(null);
+  const tossRef = useRef<TossPaymentsV1 | null>(null);
 
   const plan = getPlan(planId);
 
@@ -41,36 +44,42 @@ export function BuyClient({ planId, returnTo }: { planId: string; returnTo: stri
       setError("결제 설정이 완료되지 않았습니다. (TOSS 키 미설정)");
       return;
     }
+    // 이미 로드돼 있으면(리액트 StrictMode의 effect 이중 실행, 페이지 재방문 등)
+    // 스크립트를 또 넣지 않고 바로 재사용한다 — 중복 초기화가 Toss SDK를
+    // 깨진 상태로 만들어 "결제위젯 연동 키는 지원하지 않습니다" 같은 엉뚱한
+    // 에러를 던지는 걸 실제로 확인했다.
+    if (window.TossPayments) {
+      tossRef.current = window.TossPayments(CLIENT_KEY);
+      setReady(true);
+      return;
+    }
     const script = document.createElement("script");
-    script.src = "https://js.tosspayments.com/v2/standard";
+    script.src = "https://js.tosspayments.com/v1";
     script.async = true;
     script.onload = () => {
       if (!window.TossPayments) return;
-      const toss = window.TossPayments(CLIENT_KEY);
-      paymentRef.current = toss.payment({ customerKey: "ANONYMOUS" });
+      tossRef.current = window.TossPayments(CLIENT_KEY);
       setReady(true);
     };
     script.onerror = () => setError("결제 모듈을 불러오지 못했습니다.");
     document.body.appendChild(script);
-    return () => { document.body.removeChild(script); };
+    // cleanup에서 스크립트를 제거하지 않는다 — StrictMode 이중 실행 시
+    // 정상 로드된 스크립트를 지웠다가 다시 넣는 과정에서 SDK가 깨진다.
   }, []);
 
-  async function pay(targetId: string) {
-    const p = getPlan(targetId);
-    if (!paymentRef.current || !p) return;
-    setLoading(targetId);
+  async function pay() {
+    if (!tossRef.current || !plan) return;
+    setLoading(plan.id);
     setError("");
     const orderId = `order_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
     const origin = window.location.origin;
     try {
-      await paymentRef.current.requestPayment({
-        method: "CARD",
-        amount: { currency: "KRW", value: p.amount },
+      await tossRef.current.requestPayment("카드", {
+        amount: plan.amount,
         orderId,
-        orderName: p.name,
-        successUrl: `${origin}/premium/success?planId=${p.id}&next=${encodeURIComponent(returnTo)}`,
+        orderName: plan.name,
+        successUrl: `${origin}/premium/success?planId=${plan.id}&next=${encodeURIComponent(returnTo)}`,
         failUrl: `${origin}/premium/fail`,
-        card: { useEscrow: false, flowMode: "DEFAULT", useCardPoint: false, useAppCardOnly: false },
       });
     } catch (e) {
       setLoading(null);
@@ -109,7 +118,7 @@ export function BuyClient({ planId, returnTo }: { planId: string; returnTo: stri
           <span className="text-sm font-normal text-[#6B6661]"> / 1회</span>
         </p>
         <button
-          onClick={() => pay(plan.id)}
+          onClick={pay}
           disabled={!ready || loading !== null || !agreed}
           className="mt-3 w-full bg-[#C8743A] text-white rounded-xl py-3.5 font-semibold text-sm disabled:opacity-40 active:scale-[0.97] transition-all shadow-md"
         >
