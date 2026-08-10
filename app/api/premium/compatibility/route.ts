@@ -5,8 +5,10 @@ import { checkReportAccess, consumeOneTimePass } from "@/lib/billing/access";
 import { startAttempt, finishAttemptDone, finishAttemptFailed, discardAttempt } from "@/lib/billing/attempts";
 import { reportExpiresAtIso, notExpiredFilter } from "@/lib/billing/report-ttl";
 import { buildChart, mutualAnalysis } from "@/lib/saju-engine";
+import { generateCompatibilityReport } from "@/lib/premium/compat-generate";
 
-// 궁합 리포트 생성이 최대 ~40초 걸리므로 서버리스 타임아웃 상향
+// 궁합 리포트 생성이 병렬 2콜로 나뉘어 있어도(lib/premium/compat-generate.ts 참고)
+// 전체 요청 처리 시간은 Vercel Hobby 플랜의 60초 제한 안에 들어와야 한다.
 export const maxDuration = 60;
 
 const CONTEXT_LABEL: Record<string, string> = {
@@ -90,63 +92,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "사주 계산 오류", attemptId: started.attemptId }, { status: 500 });
   }
 
-  const engineSummary = `
-관계 유형: ${CONTEXT_LABEL[context] ?? context}
-종합 궁합 점수: ${normalizedScore}/100
-
-[상대가 나에게 주는 것 — 상대→나 분석]
-${mutual.partnerToMe.notes.map((n) => `- ${n}`).join("\n") || "- 특별한 상호작용 없음"}
-
-[내가 상대에게 주는 것 — 나→상대 분석]
-${mutual.meToPartner.notes.map((n) => `- ${n}`).join("\n") || "- 특별한 상호작용 없음"}`.trim();
-
-  const prompt = `당신은 명리학 궁합 대가입니다. 아래는 사주 엔진이 두 사람의 사주를 양방향으로 분석한 데이터입니다.
-이 데이터에 근거하여 유료 프리미엄 궁합 리포트를 작성하세요. 무료 버전보다 훨씬 깊고 구체적이어야 하며,
-특히 "서로 주고받는 것"의 양방향 흐름을 살려서 작성하세요.
-
-${engineSummary}
-
-다음 형식으로 정확히 작성하세요:
-
-【 종합 궁합 】 ${normalizedScore}점 / 100점
-(두 사람의 궁합을 한 문단으로 총평. 관계 유형(${CONTEXT_LABEL[context] ?? context})에 맞게.)
-
-【 서로에게 주는 것 】
-(상대가 나에게 채워주는 것과, 내가 상대에게 채워주는 것을 각각 2~3문장으로. 양방향의 차이를 분명히 드러낼 것.)
-
-【 잘 맞는 부분 】
-(구체적 강점 2~3가지. 엔진 데이터 근거로.)
-
-【 주의할 부분 】
-(마찰·소모 가능성 2~3가지. 없으면 솔직히 "큰 마찰 요인은 적습니다"라고 쓸 것.)
-
-【 관계를 위한 조언 】
-(관계 유형에 맞는 실용적 조언 2~3문장.)
-
-【 한줄 요약 】
-(60자 이내 한 문장, 마침표로 끝낼 것.)
-
-규칙:
-- 반드시 위 엔진 데이터에 근거. 과장·미신적 단정 금지.
-- 한국어. 마크다운 절대 금지(#, **, *, - 등 기호 사용 금지). 섹션 제목은 【 】 형식만.
-- 한자는 반드시 한글 독음 병기. 예: 庚(경), 巳申(사신)합. 단, 이미 한글로만 쓰인 단어(신약·극신약 등)에는 괄호로 같은 한글을 또 붙이지 말 것.
-- 나이 차이(연상·연하 등)는 이 분석의 근거가 아니므로 언급하지 말 것.`;
-
   try {
-    const Anthropic = (await import("@anthropic-ai/sdk")).default;
-    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-    const res = await client.messages.create({
-      model: process.env.LLM_PREMIUM_MODEL ?? "claude-sonnet-5",
-      max_tokens: 3000,
-      messages: [{ role: "user", content: prompt }],
-    });
-    // content 배열에서 text 블록을 찾는다 (thinking 블록이 앞에 올 수 있음)
-    const textBlock = res.content.find((b) => b.type === "text");
-    const report = textBlock && textBlock.type === "text" ? textBlock.text.trim() : "";
-    if (!report) {
-      await finishAttemptFailed(started.attemptId, "빈 응답");
-      return NextResponse.json({ error: "생성에 실패했습니다. 같은 정보로 다시 시도해주세요.", attemptId: started.attemptId }, { status: 500 });
-    }
+    const report = await generateCompatibilityReport(mutual, context, normalizedScore);
 
     // 캐시 저장 (테이블 없으면 무시)
     try {

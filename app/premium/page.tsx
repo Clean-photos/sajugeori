@@ -8,18 +8,6 @@ import { SAMPLE_REPORTS } from "@/lib/sample-reports";
 import { SamplePreview } from "@/components/premium/SamplePreview";
 import { PremiumReport } from "./PremiumReport";
 
-// 비구독자에게 보여줄 잠긴 섹션 미리보기
-const LOCKED_SECTIONS = [
-  { label: "타고난 성격·기질", icon: "🧠" },
-  { label: "직업운", icon: "💼" },
-  { label: "재물운", icon: "💰" },
-  { label: "연애·결혼운", icon: "❤️" },
-  { label: "건강", icon: "🌿" },
-  { label: "인생 패턴", icon: "🔄" },
-  { label: "현재 대운", icon: "🌊" },
-  { label: "연도별 운세", icon: "📆" },
-];
-
 export default async function PremiumPage() {
   const session = await auth();
   const userId = session?.user?.id;
@@ -88,25 +76,8 @@ export default async function PremiumPage() {
             </Link>
           </div>
 
-          <div className="px-4 pt-3">
+          <div className="px-4 pt-3 pb-4">
             <SamplePreview sample={SAMPLE_REPORTS.saju} />
-          </div>
-
-          <div className="px-4 py-4 flex flex-col gap-3">
-            {LOCKED_SECTIONS.map((sec, i) => (
-              <div key={i} className="bg-[#FBF8F2] border border-[#E5DFD4] rounded-2xl p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <span>{sec.icon}</span>
-                  <span className="text-sm font-semibold text-[#1B3A4B]">{sec.label}</span>
-                  <span className="ml-auto text-xs bg-[#1B3A4B]/10 text-[#1B3A4B] px-2 py-0.5 rounded-full">
-                    프리미엄
-                  </span>
-                </div>
-                <div className="h-14 bg-[#E5DFD4]/50 rounded-lg flex items-center justify-center">
-                  <p className="text-xs text-[#6B6661]">🔒 결제 후 열람 가능</p>
-                </div>
-              </div>
-            ))}
           </div>
         </>
       )}

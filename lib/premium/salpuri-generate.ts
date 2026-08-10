@@ -1,0 +1,67 @@
+// 990원 상품 단일 호출로 6000토큰까지 늘리면 compat-generate.ts와 같은 이유로
+// Vercel Hobby의 60초 상한을 넘길 위험이 크다(궁합에서 72.6초 실측). 앞부분
+// (내 사주의 살·강점으로 쓰는 법)과 뒷부분(조심할 지점·신강신약 상호작용·
+// 종합 조언)을 병렬 2콜로 쪼갠다.
+
+const COMMON_RULES = `
+규칙:
+- 반드시 위 엔진 데이터에 근거. 엔진이 검출하지 않은 신살을 지어내지 말 것.
+- 신살은 사주 해석의 보조 요소임을 잊지 말고, 하나의 살로 운명을 단정하는 서술 금지.
+- 겁을 주거나 불안을 조장하는 표현 금지. 흉살도 중립적 에너지로 설명하고 활용법을 함께 제시할 것.
+- 부적·굿·비방 등 해소를 위한 금전 지출을 암시하는 서술 절대 금지.
+- 한국어. 마크다운 절대 금지(#, **, *, - 등 기호 사용 금지). 섹션 제목은 【 】 형식만.
+- 한자는 반드시 한글 독음 병기. 예: 庚(경), 寅申(인신)충. 단, 이미 한글로만 쓰인 단어에는 괄호로 같은 한글을 또 붙이지 말 것.
+- JSON이나 다른 포맷 없이 순수 텍스트로만 응답.`;
+
+async function callText(prompt: string, maxTokens: number): Promise<string> {
+  const Anthropic = (await import("@anthropic-ai/sdk")).default;
+  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  const res = await client.messages.create({
+    model: process.env.LLM_PREMIUM_MODEL ?? "claude-sonnet-5",
+    max_tokens: maxTokens,
+    messages: [{ role: "user", content: prompt }],
+  });
+  const textBlock = res.content.find((b) => b.type === "text");
+  const text = textBlock && textBlock.type === "text" ? textBlock.text.trim() : "";
+  if (!text) throw new Error(`빈 응답 (stop_reason=${res.stop_reason})`);
+  return text;
+}
+
+/** 신살 검출 데이터로 프리미엄 살풀이 리포트 전문을 생성한다. */
+export async function generateSalpuriReport(engineSummary: string): Promise<string> {
+  const [front, back] = await Promise.all([
+    callText(`당신은 명리학 대가입니다. 아래는 사주 엔진이 이 사람의 사주에서 실제로 검출한 신살(神殺) 데이터입니다.
+이 데이터로 유료 프리미엄 "살풀이" 리포트의 앞부분을 작성하세요. 990원짜리 무료 버전과는 분량·깊이가
+확연히 달라야 합니다.
+
+${engineSummary}
+
+다음 형식으로 정확히 작성하세요:
+
+【 내 사주의 살 】
+(검출된 신살을 하나씩 짚어 주되, 각 살마다 최소 3~4문장: 그 살이 어느 자리(연지·월지·일지·시지)에 있는지, 그래서 어떤 영역에 작용하는지, 이 사람 사주 전체(일간·신강신약) 맥락에서 어떤 의미를 갖는지. 연지=조상·초년, 월지=부모·사회활동, 일지=배우자·본인, 시지=자식·말년. 검출된 살이 없으면 "뚜렷한 신살이 없다"는 것이 무엇을 뜻하는지 5~6문장으로 충실히 설명할 것.)
+
+【 강점으로 쓰는 법 】
+(검출된 살 하나하나가 지닌 긍정적 면과 그것을 살릴 수 있는 구체적 방향을 각 3~4문장씩. 실제 직업·상황 예시를 곁들일 것.)
+${COMMON_RULES}`, 3200),
+    callText(`당신은 명리학 대가입니다. 아래는 사주 엔진이 이 사람의 사주에서 실제로 검출한 신살(神殺) 데이터입니다.
+이 데이터로 유료 프리미엄 "살풀이" 리포트의 뒷부분을 작성하세요. 990원짜리 무료 버전과는 분량·깊이가
+확연히 달라야 합니다.
+
+${engineSummary}
+
+다음 형식으로 정확히 작성하세요:
+
+【 조심할 지점 】
+(각 살의 그림자와 실제로 조심할 상황을 각 3~4문장씩. 겁주지 말고 담담하게, 구체적인 생활 장면으로.)
+
+【 신강·신약과 살의 상호작용 】
+(이 사람의 신강·신약, 용신 상태가 위 신살들의 발현 방식에 어떤 영향을 주는지 5~6문장. 예: 신약한데 강한 살이 있으면 부담이 크고, 신강하면 살을 다스릴 힘이 있다는 식의 원리를 이 사람 데이터로 구체화.)
+
+【 종합 조언 】
+(5~6문장. 신강·신약과 용신을 함께 고려해 실용적으로, 일상에서 바로 적용할 수 있게.)
+${COMMON_RULES}`, 3200),
+  ]);
+
+  return [front, back].join("\n\n");
+}

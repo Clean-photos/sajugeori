@@ -6,8 +6,10 @@ import { startAttempt, finishAttemptDone, finishAttemptFailed } from "@/lib/bill
 import { reportExpiresAtIso, notExpiredFilter } from "@/lib/billing/report-ttl";
 import { SALPURI_ONE } from "@/lib/billing/plans";
 import { buildChart, stemBranchKr } from "@/lib/saju-engine";
+import { generateSalpuriReport } from "@/lib/premium/salpuri-generate";
 
-// 살풀이 리포트 생성이 최대 ~40초 걸리므로 서버리스 타임아웃 상향
+// 살풀이 리포트 생성이 병렬 2콜로 나뉘어 있어도(lib/premium/salpuri-generate.ts 참고)
+// 전체 요청 처리 시간은 Vercel Hobby 플랜의 60초 제한 안에 들어와야 한다.
 export const maxDuration = 60;
 
 const PRODUCT_ID = "salpuri_one";
@@ -87,48 +89,8 @@ export async function POST(_req: NextRequest) {
 [사주 엔진이 실제로 검출한 신살]
 ${salLines || "검출된 신살 없음"}`.trim();
 
-  const prompt = `당신은 명리학 대가입니다. 아래는 사주 엔진이 이 사람의 사주에서 실제로 검출한 신살(神殺) 데이터입니다.
-이 데이터에 근거하여 유료 프리미엄 "살풀이" 리포트를 작성하세요.
-
-${engineSummary}
-
-다음 형식으로 정확히 작성하세요:
-
-【 내 사주의 살 】
-(검출된 신살을 하나씩 짚어 주되, 각 살이 어느 자리(연지·월지·일지·시지)에 있는지에 따라 어떤 영역에 작용하는지 설명. 연지=조상·초년, 월지=부모·사회활동, 일지=배우자·본인, 시지=자식·말년. 검출된 살이 없으면 "뚜렷한 신살이 없다"는 것이 무엇을 뜻하는지 설명할 것.)
-
-【 강점으로 쓰는 법 】
-(검출된 살들이 지닌 긍정적 면과 그것을 살릴 수 있는 방향. 구체적으로.)
-
-【 조심할 지점 】
-(각 살의 그림자와 실제로 조심할 상황. 겁주지 말고 담담하게.)
-
-【 종합 조언 】
-(2~3문장. 신강·신약과 용신을 함께 고려해 실용적으로.)
-
-규칙:
-- 반드시 위 엔진 데이터에 근거. 엔진이 검출하지 않은 신살을 지어내지 말 것.
-- 신살은 사주 해석의 보조 요소임을 잊지 말고, 하나의 살로 운명을 단정하는 서술 금지.
-- 겁을 주거나 불안을 조장하는 표현 금지. 흉살도 중립적 에너지로 설명하고 활용법을 함께 제시할 것.
-- 부적·굿·비방 등 해소를 위한 금전 지출을 암시하는 서술 절대 금지.
-- 한국어. 마크다운 절대 금지(#, **, *, - 등 기호 사용 금지). 섹션 제목은 【 】 형식만.
-- 한자는 반드시 한글 독음 병기. 예: 庚(경), 寅申(인신)충. 단, 이미 한글로만 쓰인 단어에는 괄호로 같은 한글을 또 붙이지 말 것.`;
-
   try {
-    const Anthropic = (await import("@anthropic-ai/sdk")).default;
-    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-    const res = await client.messages.create({
-      model: process.env.LLM_PREMIUM_MODEL ?? "claude-sonnet-5",
-      max_tokens: 3500,
-      messages: [{ role: "user", content: prompt }],
-    });
-    // content 배열에서 text 블록을 찾는다 (thinking 블록이 앞에 올 수 있음)
-    const textBlock = res.content.find((b) => b.type === "text");
-    const report = textBlock && textBlock.type === "text" ? textBlock.text.trim() : "";
-    if (!report) {
-      await finishAttemptFailed(started.attemptId, "빈 응답");
-      return NextResponse.json({ error: "생성에 실패했습니다. 다시 시도해주세요.", attemptId: started.attemptId }, { status: 500 });
-    }
+    const report = await generateSalpuriReport(engineSummary);
 
     // 캐시 저장 (테이블 없으면 무시). 저장돼야 이용권 사용자가 재열람할 수 있다.
     try {

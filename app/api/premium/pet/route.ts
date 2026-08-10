@@ -178,7 +178,7 @@ ${facts.species === "cat"
     const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
     const res = await client.messages.create({
       model: process.env.LLM_PREMIUM_MODEL ?? "claude-sonnet-5",
-      max_tokens: 6000,
+      max_tokens: 7500,
       messages: [{ role: "user", content: prompt }],
     });
     const textBlock = res.content.find((b) => b.type === "text");

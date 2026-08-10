@@ -5,8 +5,10 @@ import { checkReportAccess, consumeOneTimePass } from "@/lib/billing/access";
 import { startAttempt, finishAttemptDone, finishAttemptFailed } from "@/lib/billing/attempts";
 import { reportExpiresAtIso, notExpiredFilter } from "@/lib/billing/report-ttl";
 import { buildChart, scoreYear } from "@/lib/saju-engine";
+import { generateYearlyReport } from "@/lib/premium/yearly-generate";
 
-// 연운세 리포트 생성이 최대 ~40초 걸리므로 서버리스 타임아웃 상향
+// 생성이 여러 병렬 LLM 호출로 나뉘어 있어도(lib/premium/yearly-generate.ts 참고)
+// 전체 요청 처리 시간은 Vercel Hobby 플랜의 60초 제한 안에 들어와야 한다.
 export const maxDuration = 60;
 
 const PRODUCT_ID = "yearly_one";
@@ -66,61 +68,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "사주 계산 오류", attemptId: started.attemptId }, { status: 500 });
   }
 
-  const monthLines = yr.months
-    .map((m) => `- ${m.month}월 ${m.ganji} [${m.score}]: ${m.note}`)
-    .join("\n");
-
-  const engineSummary = `
-대상 연도: ${year}년
-세운(그 해 간지): ${yr.yearGanji} [종합 ${yr.yearScore}]
-세운 특징: ${yr.yearNotes.join(" / ") || "특별한 합충 없음"}
-현재 대운: ${yr.daewoon ? `${yr.daewoon.ganji} (${yr.daewoon.ageRange}, ${yr.daewoon.favorability})` : "정보 없음"}
-
-[월별 흐름 — 점수가 높을수록 순조로운 달]
-${monthLines}`.trim();
-
-  const prompt = `당신은 명리학 대가입니다. 아래는 사주 엔진이 실제 세운(歲運)과 월운(月運)을 계산한 데이터입니다.
-이 데이터에 근거하여 유료 프리미엄 ${year}년 연운세 리포트를 작성하세요. 무료 버전보다 훨씬 깊고 구체적이어야 합니다.
-
-${engineSummary}
-
-다음 형식으로 정확히 작성하세요:
-
-【 ${year}년 총운 】
-(세운과 현재 대운을 근거로 올 한 해의 큰 흐름을 한 문단.)
-
-【 월별 흐름 】
-(위 월별 점수 데이터를 근거로, 특히 좋은 달과 조심할 달을 구체적으로 짚어줄 것. 점수가 높은 달은 무엇을 하면 좋고, 낮은 달(충 등)은 무엇을 조심할지. 엔진이 준 월 데이터만 사용.)
-
-【 재물·직업운 】
-(2~3문장.)
-
-【 관계·건강운 】
-(2~3문장. 특히 일지 충이 있는 달의 건강·이동 주의를 반영.)
-
-【 ${year}년 조언 】
-(2~3문장. 실용적으로.)
-
-규칙:
-- 반드시 위 엔진 데이터에 근거. 엔진이 준 달·점수와 모순되는 서술 금지.
-- 한국어. 마크다운 절대 금지(#, **, *, - 등 기호 사용 금지). 섹션 제목은 【 】 형식만.
-- 한자는 반드시 한글 독음 병기. 예: 庚(경), 丙午(병오)년, 寅申(인신)충. 단, 이미 한글로만 쓰인 단어(신약·극신약 등)에는 괄호로 같은 한글을 또 붙이지 말 것.`;
-
   try {
-    const Anthropic = (await import("@anthropic-ai/sdk")).default;
-    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-    const res = await client.messages.create({
-      model: process.env.LLM_PREMIUM_MODEL ?? "claude-sonnet-5",
-      max_tokens: 3500,
-      messages: [{ role: "user", content: prompt }],
-    });
-    // content 배열에서 text 블록을 찾는다 (thinking 블록이 앞에 올 수 있음)
-    const textBlock = res.content.find((b) => b.type === "text");
-    const report = textBlock && textBlock.type === "text" ? textBlock.text.trim() : "";
-    if (!report) {
-      await finishAttemptFailed(started.attemptId, "빈 응답");
-      return NextResponse.json({ error: "생성에 실패했습니다. 다시 시도해주세요.", attemptId: started.attemptId }, { status: 500 });
-    }
+    const report = await generateYearlyReport(yr, year);
 
     // 캐시 저장 (테이블 없으면 무시)
     try {

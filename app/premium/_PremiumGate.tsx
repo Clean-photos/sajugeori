@@ -74,7 +74,7 @@ export async function PremiumGate({
       {gate.ok ? (
         children
       ) : (
-        <div className="flex-1 flex flex-col items-center justify-center text-center gap-4 px-8 py-20">
+        <div className="flex-1 flex flex-col items-center text-center gap-4 px-4 py-20">
           <div className="w-14 h-14 rounded-full bg-[#1F3D34]/8 flex items-center justify-center text-2xl">
             {gate.kind === "subscribe" ? "🔮" : "🔒"}
           </div>
@@ -114,7 +114,7 @@ export async function PremiumGate({
           )}
 
           {sample && (
-            <div className="w-full max-w-sm text-left mt-2">
+            <div className="w-full text-left mt-2">
               <SamplePreview sample={sample} />
             </div>
           )}
