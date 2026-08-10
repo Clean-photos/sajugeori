@@ -47,6 +47,15 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
           const dia = para.startsWith("::") && para.endsWith("::") ? para.slice(2, -2) : null;
           if (dia === "ohaeng-cycle") return <OhaengCycle key={i} />;
           if (dia === "four-pillars") return <FourPillars key={i} />;
+          // "» " 문단은 편집팀이 덧붙이는 말 — 본문과 구분되는 박스로 렌더.
+          if (para.startsWith("» ")) {
+            return (
+              <div key={i} className="bg-[#C8743A]/8 border border-[#C8743A]/25 rounded-xl p-4">
+                <p className="text-[11px] font-semibold text-[#8A5228] tracking-wide mb-1.5">편집팀이 덧붙이는 말</p>
+                <p className="text-sm text-[#1A1A18] leading-relaxed">{para.slice(2)}</p>
+              </div>
+            );
+          }
           return para.startsWith("## ") ? (
             <h2 key={i} className="font-serif text-lg font-bold text-[#1F3D34] mt-3">{para.slice(3)}</h2>
           ) : (
