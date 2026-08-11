@@ -62,6 +62,17 @@ export default async function TermPage({ params }: { params: Promise<{ slug: str
         })}
       </article>
 
+      {term.relatedGuide && (
+        <div className="px-5 mb-4">
+          <Link href={term.relatedGuide.href}>
+            <div className="bg-[#FBF8F2] border border-[#C8743A]/30 rounded-xl px-4 py-3.5 flex items-center justify-between active:scale-[0.98] transition-all">
+              <p className="text-sm font-semibold text-[#1F3D34]">{term.relatedGuide.label}</p>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#C8743A" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </div>
+          </Link>
+        </div>
+      )}
+
       <div className="px-5">
         <div className="bg-[#C8743A]/8 border border-[#C8743A]/25 rounded-2xl p-4 text-xs text-[#6B6661] leading-relaxed">
           본 글은 사주·명리학의 일반적인 개념을 소개하는 참고 자료이며, 오락 및 교양 목적으로 제공됩니다.
