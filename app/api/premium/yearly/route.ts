@@ -90,3 +90,28 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "분석 중 오류가 발생했습니다. 같은 정보로 다시 시도해주세요.", attemptId: started.attemptId }, { status: 500 });
   }
 }
+
+// DELETE /api/premium/yearly — 로그인 필수. 사용자가 자기 연운세 결과(연도별)를 직접 삭제.
+export async function DELETE(req: NextRequest) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "login_required" }, { status: 401 });
+  }
+  const userId = session.user.id;
+
+  const body = await req.json().catch(() => ({}));
+  const year = parseInt(body.year) || new Date().getFullYear();
+
+  const { data: profile } = await supabaseAdmin
+    .from("saju_profiles").select("id")
+    .eq("user_id", userId).eq("label", "본인")
+    .order("created_at", { ascending: false }).limit(1).single();
+  if (!profile?.id) {
+    return NextResponse.json({ error: "profile_required" }, { status: 403 });
+  }
+
+  await supabaseAdmin.from("premium_yearly_reports").delete()
+    .eq("saju_profile_id", profile.id).eq("user_id", userId).eq("year", year);
+
+  return NextResponse.json({ ok: true });
+}

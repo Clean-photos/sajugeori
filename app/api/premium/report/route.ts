@@ -80,3 +80,25 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ report, day_master: dayMaster, strength, cached: false });
 }
 
+// DELETE /api/premium/report — 로그인 필수. 사용자가 자기 프리미엄 사주 결과를 직접 삭제.
+export async function DELETE() {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "login_required" }, { status: 401 });
+  }
+  const userId = session.user.id;
+
+  const { data: profile } = await supabaseAdmin
+    .from("saju_profiles").select("id")
+    .eq("user_id", userId).eq("label", "본인")
+    .order("created_at", { ascending: false }).limit(1).single();
+  if (!profile?.id) {
+    return NextResponse.json({ error: "profile_required" }, { status: 403 });
+  }
+
+  await supabaseAdmin.from("premium_reports").delete()
+    .eq("saju_profile_id", profile.id).eq("user_id", userId);
+
+  return NextResponse.json({ ok: true });
+}
+

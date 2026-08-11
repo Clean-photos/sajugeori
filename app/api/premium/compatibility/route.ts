@@ -113,3 +113,34 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "분석 중 오류가 발생했습니다. 같은 정보로 다시 시도해주세요.", attemptId: started.attemptId }, { status: 500 });
   }
 }
+
+// DELETE /api/premium/compatibility — 로그인 필수. 사용자가 특정 상대와의 궁합 결과를 직접 삭제.
+export async function DELETE(req: NextRequest) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "login_required" }, { status: 401 });
+  }
+  const userId = session.user.id;
+
+  const body = await req.json().catch(() => ({}));
+  const partnerBirth = body.partner_birth as string;
+  const partnerGender = (body.partner_gender ?? "F") as "M" | "F";
+  const context = (body.context ?? "romance") as Ctx;
+  if (!partnerBirth) {
+    return NextResponse.json({ error: "partner_birth is required" }, { status: 400 });
+  }
+
+  const { data: profile } = await supabaseAdmin
+    .from("saju_profiles").select("id")
+    .eq("user_id", userId).eq("label", "본인")
+    .order("created_at", { ascending: false }).limit(1).single();
+  if (!profile?.id) {
+    return NextResponse.json({ error: "profile_required" }, { status: 403 });
+  }
+
+  await supabaseAdmin.from("premium_compatibility_reports").delete()
+    .eq("saju_profile_id", profile.id).eq("user_id", userId)
+    .eq("partner_birth", partnerBirth).eq("partner_gender", partnerGender).eq("context", context);
+
+  return NextResponse.json({ ok: true });
+}

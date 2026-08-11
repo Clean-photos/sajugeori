@@ -114,3 +114,37 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "분석 중 오류가 발생했습니다. 같은 정보로 다시 시도해주세요.", attemptId: started.attemptId }, { status: 500 });
   }
 }
+
+// DELETE /api/premium/pet — 로그인 필수. 사용자가 특정 반려동물의 궁합 결과를 직접 삭제.
+export async function DELETE(req: NextRequest) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "login_required" }, { status: 401 });
+  }
+  const userId = session.user.id;
+
+  const body = await req.json().catch(() => ({}));
+  const species: PetSpecies = body.species === "cat" ? "cat" : "dog";
+  const petYear = parseInt(String(body.petYear));
+  const petMonth = parseInt(String(body.petMonth)) || PET_DEFAULT_MONTH;
+  const petDay = body.petDay ? parseInt(String(body.petDay)) : null;
+  const petName = String(body.petName ?? "").slice(0, 20).trim() || "아이";
+  if (!petYear) {
+    return NextResponse.json({ error: "petYear is required" }, { status: 400 });
+  }
+
+  const { data: profile } = await supabaseAdmin
+    .from("saju_profiles").select("id")
+    .eq("user_id", userId).eq("label", "본인")
+    .order("created_at", { ascending: false }).limit(1).single();
+  if (!profile?.id) {
+    return NextResponse.json({ error: "profile_required" }, { status: 403 });
+  }
+
+  await supabaseAdmin.from("premium_pet_reports").delete()
+    .eq("saju_profile_id", profile.id).eq("user_id", userId)
+    .eq("species", species).eq("pet_name", petName)
+    .eq("pet_year", petYear).eq("pet_month", petMonth).eq("pet_day", petDay ?? 0);
+
+  return NextResponse.json({ ok: true });
+}

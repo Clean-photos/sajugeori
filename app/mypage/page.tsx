@@ -1,5 +1,6 @@
 import { BottomTabBar } from "@/components/layout/BottomTabBar";
 import { LogoutButton } from "./LogoutButton";
+import { DangerZone } from "./DangerZone";
 import { auth } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/db/client";
 
@@ -98,6 +99,9 @@ export default async function MypagePage() {
             <LogoutButton />
           </div>
         )}
+
+        {/* 계정 관리 (사주 정보 삭제 / 회원 탈퇴) */}
+        {loggedIn && <DangerZone hasProfile={!!profile} />}
       </div>
 
       <BottomTabBar />
