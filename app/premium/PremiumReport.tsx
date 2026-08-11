@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { cleanReportText } from "@/lib/report-format";
 import { PrintButton, PrintReportFooter } from "@/components/premium/PrintReport";
+import { DeleteReportButton } from "@/components/premium/DeleteReportButton";
 import { DESTINY_UPGRADE } from "@/lib/billing/plans";
 
 const SECTIONS: { id: string; label: string; icon: string }[] = [
@@ -24,6 +25,13 @@ export function PremiumReport() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [regenerating, setRegenerating] = useState(false);
+  const [deleted, setDeleted] = useState(false);
+
+  async function handleDelete() {
+    const res = await fetch("/api/premium/report", { method: "DELETE" });
+    if (!res.ok) throw new Error("delete failed");
+    setDeleted(true);
+  }
 
   async function load(regenerate = false) {
     setError("");
@@ -65,6 +73,15 @@ export function PremiumReport() {
         <button onClick={() => load(false)} className="text-sm text-[#1B3A4B] underline underline-offset-2">
           다시 시도
         </button>
+      </div>
+    );
+  }
+
+  if (deleted) {
+    return (
+      <div className="px-4 py-8 flex flex-col items-center gap-2 text-center">
+        <p className="text-sm text-[#1A1A18]">결과를 삭제했습니다.</p>
+        <p className="text-xs text-[#6B6661]">다시 보려면 프리미엄 사주를 새로 결제해 주세요.</p>
       </div>
     );
   }
@@ -114,6 +131,7 @@ export function PremiumReport() {
         {regenerating ? "다시 생성 중..." : "풀이 다시 생성하기"}
       </button>
       <p className="no-print text-center text-[11px] text-[#9B968F]">생성된 결과는 1년간 다시 볼 수 있습니다</p>
+      <DeleteReportButton onConfirm={handleDelete} />
     </div>
   );
 }

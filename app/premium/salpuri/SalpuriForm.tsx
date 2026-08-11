@@ -5,8 +5,9 @@ import Link from "next/link";
 import { cleanReportText } from "@/lib/report-format";
 import { TERMS } from "@/app/dictionary/terms";
 import { PrintButton, PrintReportFooter } from "@/components/premium/PrintReport";
+import { DeleteReportButton } from "@/components/premium/DeleteReportButton";
 
-type Step = "form" | "loading" | "result";
+type Step = "form" | "loading" | "result" | "deleted";
 type DetectedSal = { name: string; where: string[] };
 
 /** 엔진이 돌려준 신살 이름 → 백과 slug. 이름이 백과 표제어와 일치하면 링크를 건다. */
@@ -42,6 +43,21 @@ export function SalpuriForm() {
       setError("네트워크 오류가 발생했습니다.");
       setStep("form");
     }
+  }
+
+  async function handleDelete() {
+    const res = await fetch("/api/premium/salpuri", { method: "DELETE" });
+    if (!res.ok) throw new Error("delete failed");
+    setStep("deleted");
+  }
+
+  if (step === "deleted") {
+    return (
+      <div className="px-4 py-8 flex flex-col items-center gap-2 text-center">
+        <p className="text-sm text-[#1A1A18]">결과를 삭제했습니다.</p>
+        <p className="text-xs text-[#6B6661]">다시 보려면 살풀이를 새로 결제해 주세요.</p>
+      </div>
+    );
   }
 
   if (step === "result") {
@@ -93,6 +109,7 @@ export function SalpuriForm() {
           다시 보기
         </button>
         <p className="no-print text-center text-[11px] text-[#9B968F] -mt-2">생성된 결과는 1년간 다시 볼 수 있습니다</p>
+        <DeleteReportButton onConfirm={handleDelete} />
       </div>
     );
   }

@@ -3,8 +3,9 @@
 import { useState } from "react";
 import { cleanReportText } from "@/lib/report-format";
 import { PrintButton, PrintReportFooter } from "@/components/premium/PrintReport";
+import { DeleteReportButton } from "@/components/premium/DeleteReportButton";
 
-type Step = "form" | "loading" | "result";
+type Step = "form" | "loading" | "result" | "deleted";
 
 const CONTEXT_OPTIONS = [
   { value: "romance", label: "연애 · 결혼" },
@@ -63,6 +64,27 @@ export function CompatForm() {
     setError("");
   }
 
+  async function handleDelete() {
+    const res = await fetch("/api/premium/compatibility", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        partner_birth: form.partner_birth, partner_gender: form.partner_gender, context: form.context,
+      }),
+    });
+    if (!res.ok) throw new Error("delete failed");
+    setStep("deleted");
+  }
+
+  if (step === "deleted") {
+    return (
+      <div className="px-4 py-8 flex flex-col items-center gap-2 text-center">
+        <p className="text-sm text-[#1A1A18]">결과를 삭제했습니다.</p>
+        <p className="text-xs text-[#6B6661]">다시 보려면 궁합을 새로 결제해 주세요.</p>
+      </div>
+    );
+  }
+
   if (step === "result") {
     return (
       <div className="px-5 py-6 flex flex-col gap-4">
@@ -88,6 +110,7 @@ export function CompatForm() {
           다른 상대와 보기
         </button>
         <p className="no-print text-center text-[11px] text-[#9B968F] -mt-2">생성된 결과는 1년간 다시 볼 수 있습니다</p>
+        <DeleteReportButton onConfirm={handleDelete} />
       </div>
     );
   }

@@ -3,13 +3,15 @@
 import { useEffect, useRef, useState } from "react";
 import type { BlueprintReport, BlueprintPartial } from "@/lib/blueprint-engine/generate";
 import { BlueprintReportView } from "@/components/blueprint/BlueprintReportView";
+import { DeleteReportButton } from "@/components/premium/DeleteReportButton";
 
 type ApiState =
   | { status: "loading" }
   | { status: "done"; report: BlueprintReport; regenerateCount: number }
   | { status: "generating"; partial: BlueprintPartial }
   | { status: "failed"; partial: BlueprintPartial; error: string }
-  | { status: "error"; message: string };
+  | { status: "error"; message: string }
+  | { status: "deleted" };
 
 export function DestinyReport() {
   const [state, setState] = useState<ApiState>({ status: "loading" });
@@ -58,6 +60,21 @@ export function DestinyReport() {
   function regenerate() {
     if (!window.confirm("전체를 다시 생성할까요? 재생성은 1회만 가능합니다.")) return;
     driveSteps("regenerate=1");
+  }
+
+  async function handleDelete() {
+    const res = await fetch("/api/premium/destiny", { method: "DELETE" });
+    if (!res.ok) throw new Error("delete failed");
+    setState({ status: "deleted" });
+  }
+
+  if (state.status === "deleted") {
+    return (
+      <div className="px-4 py-8 flex flex-col items-center gap-2 text-center">
+        <p className="text-sm text-[#1A1A18]">결과를 삭제했습니다.</p>
+        <p className="text-xs text-[#6B6661]">다시 보려면 운명 설계도를 새로 결제해 주세요.</p>
+      </div>
+    );
   }
 
   if (state.status === "loading") {
@@ -118,6 +135,7 @@ export function DestinyReport() {
         {state.regenerateCount >= 1 ? "재생성 1회 사용 완료" : busy ? "다시 생성 중... (3~5분)" : "풀이 다시 생성하기 (1회 한정)"}
       </button>
       <p className="no-print text-center text-[11px] text-[#9B968F]">생성된 결과는 1년간 다시 볼 수 있습니다</p>
+      <DeleteReportButton onConfirm={handleDelete} />
     </div>
   );
 }
