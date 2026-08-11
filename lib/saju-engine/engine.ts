@@ -163,6 +163,10 @@ export function tenGod(dayStem: Stem, otherStem: Stem): string {
 
 export function branchTenGod(dayStem: Stem, branch: Branch): string {
   const hidden = C.HIDDEN_STEMS[branch];
+  if (!hidden || hidden.length === 0) {
+    console.error("branchTenGod: HIDDEN_STEMS에 없는 branch 값", { branch, dayStem });
+    return "?";
+  }
   const mainHidden = hidden.reduce((a, b) => b[1] > a[1] ? b : a)[0];
   return tenGod(dayStem, mainHidden);
 }

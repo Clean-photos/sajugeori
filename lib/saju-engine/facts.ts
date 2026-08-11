@@ -12,7 +12,9 @@ export function deriveGyeokguk(chart: SajuChart) {
   const dg = chart.day_master;
   const monthBranch = chart.pillars.month.branch;
   const hidden = C.HIDDEN_STEMS[monthBranch];
-  const mainHidden = hidden.reduce((a, b) => b[1] > a[1] ? b : a)[0];
+  const mainHidden = hidden && hidden.length > 0
+    ? hidden.reduce((a, b) => b[1] > a[1] ? b : a)[0]
+    : dg;
   const tg = tenGod(dg, mainHidden);
   const category = C.TEN_GOD_CATEGORY[tg];
 
