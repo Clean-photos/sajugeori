@@ -243,7 +243,9 @@ export default async function HomePage() {
             <div className="relative flex-1">
               <p className="font-bold text-lg text-white leading-snug">프리미엄 운세보기</p>
               <p className="text-sm text-white/65 mt-0.5">
-                프리미엄 항목 한 편 {ONE_REPORT_PRICE.toLocaleString()}원, 당신의 운명 설계도 {DESTINY_BLUEPRINT_ONE.amount.toLocaleString()}원
+                프리미엄 사주, 궁합 등 한 편 {ONE_REPORT_PRICE.toLocaleString()}원
+                <br />
+                당신의 운명 설계도 {DESTINY_BLUEPRINT_ONE.amount.toLocaleString()}원
               </p>
             </div>
             <div className="relative w-8 h-8 rounded-full bg-[#C8743A] flex items-center justify-center flex-shrink-0">
