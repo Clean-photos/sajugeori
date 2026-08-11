@@ -64,6 +64,24 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
         })}
       </article>
 
+      {article.cta && (
+        <div className="px-5 mb-4">
+          <Link href={article.cta.href}>
+            <div className="relative overflow-hidden rounded-2xl bg-[#1F3D34] p-5 flex items-center justify-between active:scale-[0.98] transition-all duration-200 shadow-lg">
+              <div className="absolute inset-0 opacity-20"
+                style={{ backgroundImage: "radial-gradient(circle at 80% 50%, #C8743A 0%, transparent 60%)" }}
+              />
+              <p className="relative font-bold text-white leading-snug">{article.cta.label}</p>
+              <div className="relative w-8 h-8 rounded-full bg-[#C8743A] flex items-center justify-center flex-shrink-0">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M5 12h14M12 5l7 7-7 7"/>
+                </svg>
+              </div>
+            </div>
+          </Link>
+        </div>
+      )}
+
       <div className="px-5">
         <div className="bg-[#C8743A]/8 border border-[#C8743A]/25 rounded-2xl p-4 text-xs text-[#6B6661] leading-relaxed">
           본 글은 사주·명리학의 일반적인 개념을 소개하는 참고 자료이며, 오락 및 교양 목적으로 제공됩니다.

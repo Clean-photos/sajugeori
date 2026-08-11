@@ -140,6 +140,20 @@ export default async function HomePage() {
         </p>
       </section>
 
+      {/* 샘플 리포트 배너 — 실제 제공되는 프리미엄 리포트 전문을 로그인 없이 바로 보여준다 */}
+      <section className="px-4 mb-4 animate-fade-up" style={{animationDelay:'0.07s'}}>
+        <Link href="/premium/destiny">
+          <div className="rounded-2xl border border-[#C8743A]/30 bg-[#FBF8F2] px-5 py-4 flex items-center gap-3 active:scale-[0.98] transition-all shadow-sm">
+            <div className="w-10 h-10 rounded-full bg-[#C8743A]/15 flex items-center justify-center text-xl flex-shrink-0">📖</div>
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-[#1F3D34]">프리미엄 리포트 샘플 보기</p>
+              <p className="text-xs text-[#6B6661] mt-0.5">실제 제공되는 운명 설계도 리포트 전문을 공개합니다</p>
+            </div>
+            <span className="text-[#C8743A] text-sm flex-shrink-0">→</span>
+          </div>
+        </Link>
+      </section>
+
       {/* 콘텐츠 3카드 — 애드센스 심사 대비, 정보성 콘텐츠를 상단에 노출 */}
       <section className="px-4 grid grid-cols-3 gap-2 mb-4 animate-fade-up" style={{animationDelay:'0.08s'}}>
         {[
@@ -281,6 +295,24 @@ export default async function HomePage() {
               <div className="bg-[#FBF8F2] border border-[#E5DFD4] rounded-xl px-4 py-3 active:scale-[0.98] transition-all">
                 <p className="text-sm font-semibold text-[#1A1A18]">{a.title}</p>
                 <p className="text-xs text-[#6B6661] mt-0.5 leading-snug">{a.summary}</p>
+              </div>
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      {/* 인기 용어 — 용어 백과로 가는 내부 링크가 홈에 없었다. 읽을거리와 같은 방식으로 노출. */}
+      <section className="px-4 mt-6">
+        <div className="flex items-center justify-between mb-3 px-1">
+          <p className="text-sm font-semibold text-[#1F3D34]">인기 용어</p>
+          <Link href="/dictionary" className="text-xs font-medium text-[#C8743A]">전체보기 →</Link>
+        </div>
+        <div className="flex flex-col gap-2.5">
+          {pickDaily(TERMS, 3).map((t) => (
+            <Link key={t.slug} href={`/dictionary/${t.slug}`}>
+              <div className="bg-[#FBF8F2] border border-[#E5DFD4] rounded-xl px-4 py-3 active:scale-[0.98] transition-all">
+                <p className="text-sm font-semibold text-[#1A1A18]">{t.term}{t.hanja ? ` (${t.hanja})` : ""}</p>
+                <p className="text-xs text-[#6B6661] mt-0.5 leading-snug">{t.summary}</p>
               </div>
             </Link>
           ))}
