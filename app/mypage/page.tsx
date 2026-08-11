@@ -1,6 +1,7 @@
 import { BottomTabBar } from "@/components/layout/BottomTabBar";
 import { LogoutButton } from "./LogoutButton";
 import { DangerZone } from "./DangerZone";
+import { ChangePasswordSection } from "./ChangePasswordSection";
 import { auth } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/db/client";
 
@@ -10,6 +11,7 @@ export default async function MypagePage() {
 
   let profile: { label: string; birth_date: string; gender: string; saju_json: { identity?: { day_master?: string; strength_label?: string } } } | null = null;
   let payments: { plan: string | null; status: string; created_at: string }[] = [];
+  let isEmailAccount = false;
 
   if (loggedIn) {
     const userId = session!.user!.id;
@@ -27,6 +29,11 @@ export default async function MypagePage() {
       .eq("user_id", userId)
       .order("created_at", { ascending: false });
     if (subs) payments = subs;
+
+    const { data: u } = await supabaseAdmin
+      .from("users").select("oauth_provider")
+      .eq("id", userId).single();
+    isEmailAccount = u?.oauth_provider === "email";
   }
 
   return (
@@ -92,6 +99,9 @@ export default async function MypagePage() {
             </ul>
           )}
         </div>
+
+        {/* 비밀번호 변경 (이메일 가입 계정만) */}
+        {loggedIn && isEmailAccount && <ChangePasswordSection />}
 
         {/* 로그아웃 */}
         {loggedIn && (
