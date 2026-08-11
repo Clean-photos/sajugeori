@@ -86,7 +86,7 @@ export async function POST(_req: NextRequest) {
 신강·신약: ${chart.strength.verdict} (${chart.strength.detail})
 용신 후보: 억부 ${chart.yongsin.eokbu_candidates.join("·") || "없음"} / 조후 ${chart.yongsin.johu_candidates.join("·") || "없음"}
 
-[사주 엔진이 실제로 검출한 신살]
+[이 사주에서 실제로 검출된 신살]
 ${salLines || "검출된 신살 없음"}`.trim();
 
   try {

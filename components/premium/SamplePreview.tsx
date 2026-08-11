@@ -16,7 +16,7 @@ function WatermarkOverlay() {
         lines
           .map(
             (line, i) =>
-              `<text x='-40' y='${70 + i * 34}' font-size='16' font-family='sans-serif' font-weight='700' fill='#C8743A' opacity='0.16' transform='rotate(-24 240 130)'>${line}</text>`
+              `<text x='240' y='${70 + i * 34}' text-anchor='middle' font-size='16' font-family='sans-serif' font-weight='700' fill='#C8743A' opacity='0.16' transform='rotate(-24 240 130)'>${line}</text>`
           )
           .join("") +
         `</svg>`
@@ -25,7 +25,7 @@ function WatermarkOverlay() {
     <div
       aria-hidden="true"
       className="absolute inset-0 pointer-events-none z-10"
-      style={{ backgroundImage: `url("${svg}")`, backgroundRepeat: "repeat" }}
+      style={{ backgroundImage: `url("${svg}")`, backgroundRepeat: "repeat", backgroundPosition: "center" }}
     />
   );
 }

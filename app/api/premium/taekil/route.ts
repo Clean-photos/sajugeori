@@ -101,7 +101,7 @@ export async function POST(req: NextRequest) {
 조회 기간: ${from} ~ ${to}
 택일 기준: ${ranked.criteria.join(" / ")}
 
-[엔진이 계산한 최길일 후보 — 실제 일진 기준]
+[실제 계산한 최길일 후보 — 실제 일진 기준]
 ${bestLines || "- 조건에 맞는 좋은 날을 찾지 못함"}
 
 [피해야 할 날 — 일지 충]
