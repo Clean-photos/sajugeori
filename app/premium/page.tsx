@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { BottomTabBar } from "@/components/layout/BottomTabBar";
 import { auth } from "@/lib/auth";
@@ -7,6 +8,13 @@ import { ONE_REPORT_PRICE } from "@/lib/billing/plans";
 import { SAMPLE_REPORTS } from "@/lib/sample-reports";
 import { SamplePreview } from "@/components/premium/SamplePreview";
 import { PremiumReport } from "./PremiumReport";
+
+export const metadata: Metadata = {
+  title: "프리미엄 사주 — 실제 계산 데이터로 깊이 있게 | 사주거리",
+  description:
+    "일간·오행·용신·대운까지 실제로 계산한 데이터를 근거로 성격·직업·재물·연애·건강·인생 패턴을 깊이 있게 풀이하는 프리미엄 사주 리포트입니다.",
+  alternates: { canonical: "/premium" },
+};
 
 export default async function PremiumPage() {
   const session = await auth();

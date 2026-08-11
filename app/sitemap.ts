@@ -22,10 +22,15 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${BASE_URL}/free/taekil`, changeFrequency: "monthly", priority: 0.8, lastModified: now },
     { url: `${BASE_URL}/free/yearly`, changeFrequency: "monthly", priority: 0.8, lastModified: now },
     { url: `${BASE_URL}/premium/menu`, changeFrequency: "monthly", priority: 0.5, lastModified: now },
-    // /premium/salpuri, /premium/pet은 sitemap에서 뺀다.
-    // 로그인·구독 게이트 뒤라 크롤러에게는 소개문 + "로그인이 필요해요" 화면만 보인다.
-    // 색인 대상으로 제출하면 얇은 페이지를 스스로 신고하는 셈이라 역효과.
-    // 두 기능의 설명은 /premium/menu 본문에 담겨 있어 정보 손실은 없다.
+    // 비로그인 방문자에게도 실제 생성된 리포트 샘플 전문을 보여 주므로(SamplePreview/
+    // DestinySamplePreview), 더 이상 "얇은 게이트 페이지"가 아니다. 전부 색인 대상에 포함.
+    { url: `${BASE_URL}/premium`, changeFrequency: "monthly", priority: 0.7, lastModified: now },
+    { url: `${BASE_URL}/premium/compatibility`, changeFrequency: "monthly", priority: 0.7, lastModified: now },
+    { url: `${BASE_URL}/premium/salpuri`, changeFrequency: "monthly", priority: 0.7, lastModified: now },
+    { url: `${BASE_URL}/premium/taekil`, changeFrequency: "monthly", priority: 0.7, lastModified: now },
+    { url: `${BASE_URL}/premium/yearly`, changeFrequency: "monthly", priority: 0.7, lastModified: now },
+    { url: `${BASE_URL}/premium/pet`, changeFrequency: "monthly", priority: 0.7, lastModified: now },
+    { url: `${BASE_URL}/premium/destiny`, changeFrequency: "monthly", priority: 0.7, lastModified: now },
     { url: `${BASE_URL}/terms`, changeFrequency: "yearly", priority: 0.3, lastModified: now },
     { url: `${BASE_URL}/privacy`, changeFrequency: "yearly", priority: 0.3, lastModified: now },
   ];

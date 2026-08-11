@@ -13,7 +13,7 @@ import { DestinyReport } from "./DestinyReport";
 export const metadata: Metadata = {
   title: "운명 설계도 | 사주거리",
   description: "프리미엄 사주에 평생 대운 로드맵과 인생 전환점, 실행 전략까지 더한 확장판 풀이입니다.",
-  robots: { index: false },
+  alternates: { canonical: "/premium/destiny" },
 };
 
 export default async function DestinyPage() {
