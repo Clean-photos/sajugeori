@@ -2,15 +2,21 @@ import type { BlueprintReport } from "@/lib/blueprint-engine/generate";
 import { BlueprintReportView } from "./BlueprintReportView";
 
 /**
- * 대각선으로 "SAMPLE 샘플"을 반복 타일링하는 워터마크.
+ * 대각선으로 안내 문구를 반복 타일링하는 워터마크.
  * components/premium/SamplePreview.tsx의 것과 동일한 방식.
  */
 function WatermarkOverlay() {
+  const lines = ["샘플 SAMPLE 결과입니다", "로그인 후 본인의 사주로 확인하세요", "사주거리"];
   const svg =
     "data:image/svg+xml;utf8," +
     encodeURIComponent(
-      `<svg xmlns='http://www.w3.org/2000/svg' width='260' height='140'>` +
-        `<text x='-10' y='80' font-size='22' font-family='sans-serif' font-weight='700' fill='#C8743A' opacity='0.16' transform='rotate(-24 130 70)'>SAMPLE 샘플</text>` +
+      `<svg xmlns='http://www.w3.org/2000/svg' width='480' height='260'>` +
+        lines
+          .map(
+            (line, i) =>
+              `<text x='-40' y='${70 + i * 34}' font-size='16' font-family='sans-serif' font-weight='700' fill='#C8743A' opacity='0.16' transform='rotate(-24 240 130)'>${line}</text>`
+          )
+          .join("") +
         `</svg>`
     );
   return (
