@@ -110,7 +110,7 @@ export function PetForm() {
               <span className="text-base">{species === "cat" ? "🐈" : "🐕"}</span>
               <span className="text-xs font-medium text-[#6B6661] tracking-wide">{petLabel}</span>
             </div>
-            <div className="text-sm text-[#1A1A18] leading-relaxed whitespace-pre-wrap">{report}</div>
+            <div className="text-base text-[#1A1A18] leading-relaxed whitespace-pre-wrap">{report}</div>
           </div>
 
           <div className="print-card bg-[#C8743A]/8 border border-[#C8743A]/25 rounded-2xl p-4 text-xs text-[#6B6661] leading-relaxed">

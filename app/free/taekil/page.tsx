@@ -193,7 +193,7 @@ export default function FreeTaekilPage() {
             <span className="text-base">📅</span>
             <span className="text-xs font-medium text-[#6B6661] tracking-wide">AI 택일 분석</span>
           </div>
-          <div className="text-sm text-[#1A1A18] leading-relaxed whitespace-pre-wrap">{result || "분석 중..."}</div>
+          <div className="text-base text-[#1A1A18] leading-relaxed whitespace-pre-wrap">{result || "분석 중..."}</div>
         </div>
         <div className="relative overflow-hidden rounded-2xl bg-[#1F3D34] p-5 text-white shadow-lg">
           <div className="absolute inset-0 opacity-30" style={{ backgroundImage: "radial-gradient(circle at 90% 10%, #C8743A 0%, transparent 60%)" }} />

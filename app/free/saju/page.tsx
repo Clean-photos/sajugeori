@@ -217,7 +217,7 @@ export default function FreeSajuPage() {
             </div>
             <span className="text-xs font-medium text-[#6B6661] tracking-wide">AI 사주 분석</span>
           </div>
-          <div className="text-sm text-[#1A1A18] leading-relaxed whitespace-pre-wrap">
+          <div className="text-base text-[#1A1A18] leading-relaxed whitespace-pre-wrap">
             {result || "분석 중..."}
           </div>
         </div>

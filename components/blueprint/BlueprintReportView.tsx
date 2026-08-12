@@ -49,7 +49,7 @@ function QABlockCard({ index, question, block }: { index: number; question: stri
         </span>
       </div>
       <p className="text-xs text-[#6B6661] mb-2">수치 — {block.metrics}</p>
-      <p className="text-sm text-[#1A1A18] leading-relaxed mb-2">{block.why}</p>
+      <p className="text-base text-[#1A1A18] leading-relaxed mb-2">{block.why}</p>
       <ul className="text-xs text-[#6B6661] list-disc list-inside mb-2 flex flex-col gap-0.5">
         {block.scenes.map((s, i) => <li key={i}>{s}</li>)}
       </ul>
@@ -92,7 +92,7 @@ export function BlueprintReportView({ report, showPrintButton = true }: { report
           <div className="print-card rounded-2xl bg-[#1F3D34] text-white p-5">
             <p className="text-[10px] tracking-[0.2em] text-[#C8743A] uppercase mb-2">운명총론</p>
             <p className="font-serif text-xl font-bold leading-snug mb-3">{overview.headline}</p>
-            <p className="text-sm text-white/80 leading-relaxed">{overview.body}</p>
+            <p className="text-base text-white/80 leading-relaxed">{overview.body}</p>
           </div>
         ) : <SkeletonCard label="운명총론" />}
 
@@ -133,11 +133,11 @@ export function BlueprintReportView({ report, showPrintButton = true }: { report
         <div className="print-card grid grid-cols-1 gap-3">
           <div className="border border-[#E5DFD4] rounded-2xl p-4 bg-[#FBF8F2]">
             <p className="text-sm font-semibold text-[#1F3D34] mb-2">구조적 제약</p>
-            {narrative.constraints.map((c, i) => <p key={i} className="text-sm text-[#1A1A18] leading-relaxed mb-1.5">{c}</p>)}
+            {narrative.constraints.map((c, i) => <p key={i} className="text-base text-[#1A1A18] leading-relaxed mb-1.5">{c}</p>)}
           </div>
           <div className="border border-[#E5DFD4] rounded-2xl p-4 bg-[#FBF8F2]">
             <p className="text-sm font-semibold text-[#1F3D34] mb-2">지렛대</p>
-            {narrative.leverages.map((c, i) => <p key={i} className="text-sm text-[#1A1A18] leading-relaxed mb-1.5">{c}</p>)}
+            {narrative.leverages.map((c, i) => <p key={i} className="text-base text-[#1A1A18] leading-relaxed mb-1.5">{c}</p>)}
           </div>
         </div>
         ) : chart && <SkeletonCard label="구조적 제약 · 지렛대" />}
@@ -206,7 +206,7 @@ export function BlueprintReportView({ report, showPrintButton = true }: { report
         <div className="print-card rounded-2xl bg-[#1F3D34] text-white p-5">
           <p className="font-serif text-lg font-bold mb-3">운명 설계 위에 인생을 쌓을 때 잊지 말아야 할 조언 5</p>
           {closing.advice.map((a, i) => (
-            <p key={i} className="text-sm text-white/85 leading-relaxed mb-3">{a}</p>
+            <p key={i} className="text-base text-white/85 leading-relaxed mb-3">{a}</p>
           ))}
         </div>
         )}

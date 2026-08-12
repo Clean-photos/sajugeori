@@ -95,7 +95,7 @@ export function PremiumReport() {
               <span>{sec.icon}</span>
               <span className="text-sm font-semibold text-[#1B3A4B]">{sec.label}</span>
             </div>
-            <p className="text-sm text-[#1A1A18] leading-relaxed whitespace-pre-wrap">
+            <p className="text-base text-[#1A1A18] leading-relaxed whitespace-pre-wrap">
               {report?.[sec.id] ?? "준비 중입니다."}
             </p>
           </div>

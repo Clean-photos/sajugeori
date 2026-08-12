@@ -68,7 +68,7 @@ export default async function HomePage() {
           <HeaderAuth isLoggedIn={isLoggedIn} />
         </div>
 
-        <p className="text-xs font-medium tracking-[0.2em] text-[#C8743A] uppercase mb-2 animate-fade-up">
+        <p className="text-xs font-medium tracking-[0.2em] text-[#9C5220] uppercase mb-2 animate-fade-up">
           Saju Street
         </p>
         <h1 className="font-serif text-[32px] font-bold text-[#1F3D34] leading-tight animate-fade-up" style={{animationDelay:'0.05s'}}>

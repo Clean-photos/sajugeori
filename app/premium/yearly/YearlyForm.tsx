@@ -65,7 +65,7 @@ export function YearlyForm() {
               <span className="text-base">運</span>
               <span className="text-xs font-medium text-[#6B6661] tracking-wide">{year}년 프리미엄 연운세</span>
             </div>
-            <div className="text-sm text-[#1A1A18] leading-relaxed whitespace-pre-wrap">{report}</div>
+            <div className="text-base text-[#1A1A18] leading-relaxed whitespace-pre-wrap">{report}</div>
           </div>
           <PrintReportFooter />
         </div>

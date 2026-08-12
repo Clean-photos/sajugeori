@@ -55,12 +55,12 @@ export function SamplePreview({ sample }: { sample: SampleReport }) {
                 <span>{sec.icon}</span>
                 <span className="text-sm font-semibold text-[#1F3D34]">{sec.label}</span>
               </div>
-              <p className="text-sm text-[#1A1A18]/85 leading-relaxed whitespace-pre-wrap">{sec.text}</p>
+              <p className="text-base text-[#1A1A18]/85 leading-relaxed whitespace-pre-wrap">{sec.text}</p>
             </div>
           ))
         ) : (
           sample.text.split("\n\n").map((block, i) => (
-            <p key={i} className="text-sm text-[#1A1A18]/85 leading-relaxed whitespace-pre-wrap py-2">{block}</p>
+            <p key={i} className="text-base text-[#1A1A18]/85 leading-relaxed whitespace-pre-wrap py-2">{block}</p>
           ))
         )}
       </div>

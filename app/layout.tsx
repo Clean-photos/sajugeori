@@ -67,9 +67,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         )}
       </head>
       <body>
-        <div className="min-h-screen mx-auto max-w-[480px] relative">
+        <main className="min-h-screen mx-auto max-w-[480px] relative">
           {children}
-        </div>
+        </main>
       </body>
     </html>
   );
