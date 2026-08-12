@@ -46,9 +46,9 @@ export async function POST(req: NextRequest) {
     const samjae = checkSamjae(j.pillars.year.branch, nowYear);
     const daewoonFavorable = !!currentCycle && /우호/.test(currentCycle.favorability);
 
-    // 10대 이하 대운
-    const earlyLuck = j.luck_cycles.filter((c: { end_age: number }) => c.end_age <= 19);
-    const earlyLuckStr = earlyLuck
+    // 전체 대운(평생 로드맵) — 무료 리포트는 요약만 주고 전체 흐름은 프리미엄 사주로 유도한다.
+    const allLuckStr = j.luck_cycles
+      .slice(0, 8)
       .map((c: { start_age: number; end_age: number; ganji: string; favorability: string }) =>
         `${c.start_age}~${c.end_age}세 ${c.ganji}(${c.favorability})`)
       .join(", ") || "없음";
@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
 현재나이: ${currentAge}세 (${nowYear}년 기준)
 현재대운: ${currentCycle ? `${currentCycle.start_age}~${currentCycle.end_age}세 ${currentCycle.ganji}(${currentCycle.favorability})` : "정보 없음"}
 대운주의: ${j.current_phase.warnings.slice(0, 2).join(", ") || "없음"}
-10대까지대운: ${earlyLuckStr}
+전체대운(참고용): ${allLuckStr}
 삼재: ${samjae.isSamjae ? `${samjae.phase} (${samjae.years[0]}~${samjae.years[2]}년 삼재 중 ${nowYear}년은 ${nowYear - samjae.years[0] + 1}년차)` : "올해는 삼재 아님"}
     `.trim();
 
@@ -109,8 +109,8 @@ ${samjaeSection}
 강점 활용 + 약점 보완 실용 조언. 반드시 2문장만. 각 문장 40자 이내로 짧게.
 
 【 대운 (大運) 】
-• 10대까지: ${/* earlyLuckStr 직접 삽입 */""}10대 대운 특징 1문장.
-• 이후 대운은 20대부터 본격적으로 펼쳐집니다. 현재 내 대운이 궁금하다면 AI 역술가와 직접 대화해보세요.
+전체대운(참고용) 데이터를 근거로 평생 대운 흐름을 3문장으로 요약. 현재대운 시기가 어떤 흐름인지 반드시 짚고, 다음 대운으로 넘어가면 무엇이 달라지는지도 한 문장 포함.
+마지막 문장은 반드시 이렇게 쓰세요: "평생 대운을 10년 단위로 자세히 풀어보고 싶다면 프리미엄 사주에서 확인할 수 있습니다."
 
 주의: 추측 없이 위 데이터에 근거해 작성(나이·오행·대운 등 위에 없는 정보 임의 생성 금지). '삼재 여부' 섹션은 지시된 첫 문장을 절대 생략하지 말고 그대로 밝힐 것 — 해당 여부와 단계를 독자가 바로 알 수 있어야 한다. 한국어. 과장 금지. 지시한 문장 수 초과 금지. 마크다운 절대 금지(#, ##, **, *, @, >, - 기호 사용 금지). 섹션 제목은 【 】 형식만 사용.
 한자 표기 규칙: 한자 뒤에 반드시 한글 독음 괄호 표기. 예: 庚(경), 辛未(신미). 한자 단독 사용 절대 금지.

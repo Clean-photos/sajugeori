@@ -212,9 +212,11 @@ export function PetForm() {
           onChange={(e) => { setMonth(e.target.value.replace(/[^0-9]/g, "").slice(0, 2)); clearAttempt(); }}
           className="w-full border border-[#E5DFD4] rounded-xl px-4 py-3.5 text-sm bg-[#FBF8F2] disabled:opacity-40 focus:outline-none focus:border-[#1F3D34] transition-all tracking-widest"
         />
-        <label className="flex items-center gap-2.5 mt-2.5 text-sm text-[#6B6661] cursor-pointer select-none">
+        <label
+          onClick={() => { setNoMonth(!noMonth); if (!noMonth) { setMonth(""); setDay(""); } clearAttempt(); }}
+          className="flex items-center gap-2.5 mt-2.5 text-sm text-[#6B6661] cursor-pointer select-none"
+        >
           <div
-            onClick={() => { setNoMonth(!noMonth); if (!noMonth) { setMonth(""); setDay(""); } clearAttempt(); }}
             className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-all ${
               noMonth ? "bg-[#1F3D34] border-[#1F3D34]" : "border-[#E5DFD4] bg-white"
             }`}

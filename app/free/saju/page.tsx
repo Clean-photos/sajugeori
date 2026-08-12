@@ -105,9 +105,11 @@ export default function FreeSajuPage() {
               }}
               className="w-full border border-[#E5DFD4] rounded-xl px-4 py-3.5 text-sm bg-[#FBF8F2] disabled:opacity-40 focus:outline-none focus:border-[#1F3D34] transition-all tracking-widest"
             />
-            <label className="flex items-center gap-2.5 mt-2.5 text-sm text-[#6B6661] cursor-pointer select-none">
+            <label
+              onClick={() => setForm({ ...form, no_time: !form.no_time })}
+              className="flex items-center gap-2.5 mt-2.5 text-sm text-[#6B6661] cursor-pointer select-none"
+            >
               <div
-                onClick={() => setForm({ ...form, no_time: !form.no_time })}
                 className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-all ${
                   form.no_time ? "bg-[#1F3D34] border-[#1F3D34]" : "border-[#E5DFD4] bg-white"
                 }`}
@@ -215,7 +217,7 @@ export default function FreeSajuPage() {
             <div className="w-7 h-7 rounded-full bg-[#1F3D34]/10 flex items-center justify-center">
               <span className="text-base">☯</span>
             </div>
-            <span className="text-xs font-medium text-[#6B6661] tracking-wide">AI 사주 분석</span>
+            <span className="text-xs font-medium text-[#6B6661] tracking-wide">사주 분석</span>
           </div>
           <div className="text-base text-[#1A1A18] leading-relaxed whitespace-pre-wrap">
             {result || "분석 중..."}

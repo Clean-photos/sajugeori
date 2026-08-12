@@ -191,7 +191,7 @@ export default function FreeTaekilPage() {
         <div className="bg-[#FBF8F2] border border-[#E5DFD4] rounded-2xl p-5 shadow-sm">
           <div className="flex items-center gap-2 mb-4 pb-3 border-b border-[#E5DFD4]">
             <span className="text-base">📅</span>
-            <span className="text-xs font-medium text-[#6B6661] tracking-wide">AI 택일 분석</span>
+            <span className="text-xs font-medium text-[#6B6661] tracking-wide">택일 분석</span>
           </div>
           <div className="text-base text-[#1A1A18] leading-relaxed whitespace-pre-wrap">{result || "분석 중..."}</div>
         </div>
