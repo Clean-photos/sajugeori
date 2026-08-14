@@ -35,6 +35,7 @@ export function SiteFooter() {
         <span>상호: {BUSINESS.name}</span>
         {BUSINESS.ceo && <span>대표자: {BUSINESS.ceo}</span>}
         <span>사업자등록번호: {BUSINESS.registrationNo}</span>
+        {BUSINESS.phone && <span>전화: {BUSINESS.phone}</span>}
         {BUSINESS.mailOrderNo && <span>통신판매업 신고: {BUSINESS.mailOrderNo}</span>}
         <span className="w-full">주소: {BUSINESS.address}</span>
         {CONTACT_EMAIL && (

@@ -36,4 +36,5 @@ export const BUSINESS = {
   address: "인천광역시 남동구 남동서로236번길 30, 222-A29호",
   ceo: "최재진",
   mailOrderNo: "제2026-인천남동구-1267호",
+  phone: "010-4798-6525",
 } as const;

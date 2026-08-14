@@ -214,6 +214,7 @@ export default function TermsPage() {
               {BUSINESS.ceo && <p>대표자: {BUSINESS.ceo}</p>}
               <p>사업자등록번호: {BUSINESS.registrationNo}</p>
               <p>사업장 주소: {BUSINESS.address}</p>
+              {BUSINESS.phone && <p>상점 전화번호: {BUSINESS.phone}</p>}
               {BUSINESS.mailOrderNo ? (
                 <p>통신판매업 신고번호: {BUSINESS.mailOrderNo}</p>
               ) : (
