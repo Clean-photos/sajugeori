@@ -56,8 +56,22 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "partner_birth is required" }, { status: 400 });
   }
 
-  // 같은 상대·같은 관계유형 조합이면 재생성하지 않는다 (재열람 무료).
-  const cacheKey = { saju_profile_id: profile.id, partner_birth: partnerBirth, partner_gender: partnerGender, context };
+  // "A" 쪽도 임의의 사람으로 직접 입력할 수 있다(친구 커플·부모님 궁합 등).
+  // 체크박스를 안 켰으면 지금까지처럼 로그인 사용자의 등록된 본인 사주를 쓴다.
+  const useCustomA = !!input.custom_person_a;
+  const personABirth = (useCustomA ? input.person_a_birth : profile.birth_date) as string;
+  const personAGender = (useCustomA ? (input.person_a_gender ?? "M") : (profile.gender ?? "M")) as "M" | "F";
+  if (useCustomA && !personABirth) {
+    await discardAttempt(started.attemptId);
+    return NextResponse.json({ error: "person_a_birth is required" }, { status: 400 });
+  }
+
+  // 같은 두 사람·같은 관계유형 조합이면 재생성하지 않는다 (재열람 무료).
+  const cacheKey = {
+    saju_profile_id: profile.id,
+    person_a_birth: personABirth, person_a_gender: personAGender,
+    partner_birth: partnerBirth, partner_gender: partnerGender, context,
+  };
   try {
     const { data: cached } = await supabaseAdmin
       .from("premium_compatibility_reports").select("content, score")
@@ -75,16 +89,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "premium_required", redirect: "/premium/buy?product=compatibility_one" }, { status: 402 });
   }
 
-  // 내 사주(등록된 생일) + 상대 사주 재구성 후 양방향 분석
+  // A 사주(등록된 내 사주 또는 직접 입력한 임의의 사람) + 상대 사주 재구성 후 양방향 분석.
+  // 커스텀 A는 시각 정보를 받지 않으므로(폼에 시각 입력이 없다) 시주 제외로 계산한다.
   let mutual;
   let normalizedScore = 50;
   try {
-    const myIso = profile.birth_time
-      ? `${profile.birth_date}T${profile.birth_time}:00`
-      : `${profile.birth_date}T00:00:00`;
-    const me = buildChart(myIso, profile.gender ?? "M", !!profile.birth_time);
+    const aHasTime = !useCustomA && !!profile.birth_time;
+    const aIso = aHasTime ? `${personABirth}T${profile.birth_time}:00` : `${personABirth}T00:00:00`;
+    const personALabel = useCustomA ? "A" : "나";
+    const me = buildChart(aIso, personAGender, aHasTime);
     const other = buildChart(`${partnerBirth}T00:00:00`, partnerGender, false);
-    mutual = mutualAnalysis(me, other, "나", "상대", context);
+    mutual = mutualAnalysis(me, other, personALabel, useCustomA ? "B" : "상대", context);
     normalizedScore = Math.min(100, Math.max(0, Math.round(38 + mutual.combinedScore * 6)));
   } catch (e) {
     console.error("premium compatibility engine error:", e);
@@ -93,7 +108,10 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const report = await generateCompatibilityReport(mutual, context, normalizedScore);
+    const report = await generateCompatibilityReport(
+      mutual, context, normalizedScore,
+      useCustomA ? { a: "A", b: "B" } : { a: "나", b: "상대" }
+    );
 
     // 캐시 저장 (테이블 없으면 무시)
     try {
@@ -131,15 +149,20 @@ export async function DELETE(req: NextRequest) {
   }
 
   const { data: profile } = await supabaseAdmin
-    .from("saju_profiles").select("id")
+    .from("saju_profiles").select("id, birth_date, gender")
     .eq("user_id", userId).eq("label", "본인")
     .order("created_at", { ascending: false }).limit(1).single();
   if (!profile?.id) {
     return NextResponse.json({ error: "profile_required" }, { status: 403 });
   }
 
+  const useCustomA = !!body.custom_person_a;
+  const personABirth = (useCustomA ? body.person_a_birth : profile.birth_date) as string;
+  const personAGender = (useCustomA ? (body.person_a_gender ?? "M") : (profile.gender ?? "M")) as "M" | "F";
+
   await supabaseAdmin.from("premium_compatibility_reports").delete()
     .eq("saju_profile_id", profile.id).eq("user_id", userId)
+    .eq("person_a_birth", personABirth).eq("person_a_gender", personAGender)
     .eq("partner_birth", partnerBirth).eq("partner_gender", partnerGender).eq("context", context);
 
   return NextResponse.json({ ok: true });

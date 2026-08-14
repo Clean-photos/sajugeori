@@ -36,18 +36,26 @@ async function callText(prompt: string, maxTokens: number): Promise<string> {
 type Ctx = "romance" | "work" | "friend";
 type Mutual = ReturnType<typeof mutualAnalysis>;
 
-/** 양방향 궁합 분석 데이터로 프리미엄 궁합 리포트 전문을 생성한다. */
+/**
+ * 양방향 궁합 분석 데이터로 프리미엄 궁합 리포트 전문을 생성한다.
+ * labels: 리포트 문장에 쓰일 두 사람의 호칭. 기본값(나/상대)은 "로그인 사용자 vs 상대"
+ * 시나리오용이고, 친구 커플·부모님처럼 로그인 사용자와 무관한 두 사람을 볼 때는
+ * 호출부가 {a: "A", b: "B"} 같은 중립 호칭을 넘겨 "내가/나에게" 같은 1인칭 표현이
+ * 섞이지 않게 한다.
+ */
 export async function generateCompatibilityReport(
-  mutual: Mutual, context: Ctx, normalizedScore: number
+  mutual: Mutual, context: Ctx, normalizedScore: number,
+  labels: { a: string; b: string } = { a: "나", b: "상대" }
 ): Promise<string> {
+  const { a, b } = labels;
   const engineSummary = `
 관계 유형: ${CONTEXT_LABEL[context] ?? context}
 종합 궁합 점수: ${normalizedScore}/100
 
-[상대가 나에게 주는 것 — 상대→나 분석]
+[${b}가 ${a}에게 주는 것 — ${b}→${a} 분석]
 ${mutual.partnerToMe.notes.map((n) => `- ${n}`).join("\n") || "- 특별한 상호작용 없음"}
 
-[내가 상대에게 주는 것 — 나→상대 분석]
+[${a}가 ${b}에게 주는 것 — ${a}→${b} 분석]
 ${mutual.meToPartner.notes.map((n) => `- ${n}`).join("\n") || "- 특별한 상호작용 없음"}`.trim();
 
   const [front, back] = await Promise.all([
@@ -63,7 +71,7 @@ ${engineSummary}
 (두 사람의 궁합을 5~6문장으로 총평. 관계 유형(${CONTEXT_LABEL[context] ?? context})에 맞게, 점수가 왜 이렇게 나왔는지 근거를 짚어가며.)
 
 【 서로에게 주는 것 】
-(상대가 나에게 채워주는 것과, 내가 상대에게 채워주는 것을 각각 4~5문장으로. 위 데이터의 각 항목을 하나씩 짚어가며 구체적으로 풀고, 양방향의 차이를 분명히 드러낼 것.)
+(${b}가 ${a}에게 채워주는 것과, ${a}가 ${b}에게 채워주는 것을 각각 4~5문장으로. 위 데이터의 각 항목을 하나씩 짚어가며 구체적으로 풀고, 양방향의 차이를 분명히 드러낼 것.)
 
 【 잘 맞는 부분 】
 (구체적 강점 3~4가지. 각 강점마다 데이터 근거 + 실생활에서 어떻게 드러나는지 2~3문장씩.)
