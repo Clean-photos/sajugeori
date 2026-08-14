@@ -3,6 +3,7 @@
 import { Suspense, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { Spinner } from "@/components/ui/Spinner";
 
 function ResetPasswordInner() {
   const params = useSearchParams();
@@ -85,8 +86,9 @@ function ResetPasswordInner() {
             <button
               type="submit"
               disabled={loading || !password || !confirm}
-              className="w-full bg-[#1F3D34] text-white rounded-xl py-3.5 font-semibold text-sm disabled:opacity-40 active:scale-[0.97] transition-all shadow-md"
+              className="w-full flex items-center justify-center gap-2 bg-[#1F3D34] text-white rounded-xl py-3.5 font-semibold text-sm disabled:opacity-40 active:scale-[0.97] transition-all shadow-md"
             >
+              {loading && <Spinner />}
               {loading ? "변경 중..." : "비밀번호 변경"}
             </button>
           </form>

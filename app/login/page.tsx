@@ -4,15 +4,7 @@ import { useState, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
-
-function Spinner() {
-  return (
-    <svg className="animate-spin" width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2.5" strokeOpacity="0.25" />
-      <path d="M21 12a9 9 0 00-9-9" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
-    </svg>
-  );
-}
+import { Spinner } from "@/components/ui/Spinner";
 
 function GoogleIcon() {
   return (
@@ -167,8 +159,9 @@ function LoginInner() {
           <button
             type="submit"
             disabled={loading || !email || !password}
-            className="w-full bg-[#1F3D34] text-white rounded-xl py-3.5 font-semibold text-sm disabled:opacity-40 active:scale-[0.97] transition-all shadow-md mt-1"
+            className="w-full flex items-center justify-center gap-2 bg-[#1F3D34] text-white rounded-xl py-3.5 font-semibold text-sm disabled:opacity-40 active:scale-[0.97] transition-all shadow-md mt-1"
           >
+            {loading && <Spinner />}
             {loading ? "로그인 중..." : "로그인"}
           </button>
         </form>

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { cleanReportText } from "@/lib/report-format";
 import { PrintButton, PrintReportFooter } from "@/components/premium/PrintReport";
 import { DeleteReportButton } from "@/components/premium/DeleteReportButton";
+import { WaitingCards } from "@/components/premium/WaitingCards";
 
 type Step = "form" | "loading" | "result" | "deleted";
 type Species = "dog" | "cat";
@@ -141,6 +142,7 @@ export function PetForm() {
           {name.trim() || "아이"}와의 궁합을 살펴보고 있어요…
         </p>
         <p className="text-xs text-[#6B6661]/60">최대 1분 정도 걸릴 수 있어요</p>
+        <WaitingCards />
       </div>
     );
   }

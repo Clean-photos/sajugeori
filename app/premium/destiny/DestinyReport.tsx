@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import type { BlueprintReport, BlueprintPartial } from "@/lib/blueprint-engine/generate";
 import { BlueprintReportView } from "@/components/blueprint/BlueprintReportView";
 import { DeleteReportButton } from "@/components/premium/DeleteReportButton";
+import { WaitingCards } from "@/components/premium/WaitingCards";
+import { Spinner } from "@/components/ui/Spinner";
 
 type ApiState =
   | { status: "loading" }
@@ -82,6 +84,7 @@ export function DestinyReport() {
       <div className="px-4 py-10 flex flex-col items-center gap-3">
         <div className="text-3xl animate-pulse">🔮</div>
         <p className="text-sm text-[#6B6661]">운명 설계도를 그리고 있어요...</p>
+        <WaitingCards />
       </div>
     );
   }
@@ -104,6 +107,7 @@ export function DestinyReport() {
           <div className="text-2xl animate-pulse">🔮</div>
           <p className="text-sm text-[#6B6661]">24개 질문에 답을 만들고 있어요. 순서대로 화면에 나타납니다</p>
           <p className="text-xs text-[#9B968F]">처음 생성은 3~5분 정도 걸릴 수 있어요. 창을 닫았다 다시 열어도 진행된 부분은 그대로 남아있어요</p>
+          <WaitingCards />
         </div>
         <BlueprintReportView report={state.partial} />
       </div>
@@ -115,7 +119,8 @@ export function DestinyReport() {
       <div className="flex flex-col gap-3">
         <div className="px-4 pt-4 flex flex-col items-center gap-2 text-center">
           <p className="text-sm text-[#C0392B]">일부 생성에 실패했습니다: {state.error}</p>
-          <button onClick={() => driveSteps()} disabled={busy} className="text-sm text-white bg-[#1F3D34] rounded-full px-4 py-2 disabled:opacity-50">
+          <button onClick={() => driveSteps()} disabled={busy} className="flex items-center justify-center gap-1.5 text-sm text-white bg-[#1F3D34] rounded-full px-4 py-2 disabled:opacity-50">
+            {busy && <Spinner size={14} />}
             {busy ? "재시도 중..." : "실패한 부분만 다시 생성"}
           </button>
         </div>
@@ -130,8 +135,9 @@ export function DestinyReport() {
       <button
         onClick={regenerate}
         disabled={busy || state.regenerateCount >= 1}
-        className="no-print mt-1 text-center text-xs text-[#6B6661] py-2 disabled:opacity-50"
+        className="no-print mt-1 flex items-center justify-center gap-1.5 text-center text-xs text-[#6B6661] py-2 disabled:opacity-50"
       >
+        {busy && <Spinner size={13} />}
         {state.regenerateCount >= 1 ? "재생성 1회 사용 완료" : busy ? "다시 생성 중... (3~5분)" : "풀이 다시 생성하기 (1회 한정)"}
       </button>
       <p className="no-print text-center text-[11px] text-[#9B968F]">생성된 결과는 1년간 다시 볼 수 있습니다</p>

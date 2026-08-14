@@ -6,6 +6,7 @@ import { cleanReportText } from "@/lib/report-format";
 import { TERMS } from "@/app/dictionary/terms";
 import { PrintButton, PrintReportFooter } from "@/components/premium/PrintReport";
 import { DeleteReportButton } from "@/components/premium/DeleteReportButton";
+import { WaitingCards } from "@/components/premium/WaitingCards";
 
 type Step = "form" | "loading" | "result" | "deleted";
 type DetectedSal = { name: string; where: string[] };
@@ -120,6 +121,7 @@ export function SalpuriForm() {
         <div className="w-10 h-10 border-2 border-[#C8743A]/30 border-t-[#C8743A] rounded-full animate-spin" />
         <p className="text-sm text-[#6B6661]">사주에 들어 있는 살을 찾고 있어요…</p>
         <p className="text-xs text-[#6B6661]/60">최대 1분 정도 걸릴 수 있어요</p>
+        <WaitingCards />
       </div>
     );
   }

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { PREMIUM_MONTHLY } from "@/lib/billing/plans";
+import { Spinner } from "@/components/ui/Spinner";
 
 // Toss "기존 결제창"(API 개별연동, v1) SDK 타입 (최소).
 // app/premium/buy/BuyClient.tsx와 동일한 이유로 v1 방식을 쓴다 — 이 계정의
@@ -94,8 +95,9 @@ export default function SubscribePage() {
         <button
           onClick={handlePay}
           disabled={!ready || loading}
-          className="w-full bg-[#C8743A] text-white rounded-xl py-3.5 font-semibold text-sm disabled:opacity-40 active:scale-[0.97] transition-all shadow-md"
+          className="w-full flex items-center justify-center gap-2 bg-[#C8743A] text-white rounded-xl py-3.5 font-semibold text-sm disabled:opacity-40 active:scale-[0.97] transition-all shadow-md"
         >
+          {(loading || !ready) && <Spinner />}
           {loading ? "결제창 여는 중..." : ready ? "결제하고 시작하기" : "준비 중..."}
         </button>
 

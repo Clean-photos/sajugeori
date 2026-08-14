@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Spinner } from "@/components/ui/Spinner";
 
 export function ChangePasswordSection() {
   const [open, setOpen] = useState(false);
@@ -116,8 +117,9 @@ export function ChangePasswordSection() {
             <button
               type="submit"
               disabled={loading || !currentPassword || !newPassword || !confirm}
-              className="flex-1 bg-[#1F3D34] text-white rounded-xl py-2.5 text-xs font-semibold disabled:opacity-40"
+              className="flex-1 flex items-center justify-center gap-1.5 bg-[#1F3D34] text-white rounded-xl py-2.5 text-xs font-semibold disabled:opacity-40"
             >
+              {loading && <Spinner size={13} />}
               {loading ? "변경 중..." : "변경하기"}
             </button>
           </div>

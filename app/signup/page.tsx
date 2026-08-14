@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
+import { Spinner } from "@/components/ui/Spinner";
 
 function PasswordStrength({ password }: { password: string }) {
   const checks = [
@@ -21,15 +22,6 @@ function PasswordStrength({ password }: { password: string }) {
         </div>
       ))}
     </div>
-  );
-}
-
-function Spinner() {
-  return (
-    <svg className="animate-spin" width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2.5" strokeOpacity="0.25" />
-      <path d="M21 12a9 9 0 00-9-9" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
-    </svg>
   );
 }
 
@@ -270,8 +262,9 @@ export default function SignupPage() {
           <button
             type="submit"
             disabled={loading || !canSubmit}
-            className="w-full bg-[#C8743A] text-white rounded-xl py-4 font-semibold text-sm disabled:opacity-40 active:scale-[0.97] transition-all shadow-lg shadow-[#C8743A]/25 mt-1"
+            className="w-full flex items-center justify-center gap-2 bg-[#C8743A] text-white rounded-xl py-4 font-semibold text-sm disabled:opacity-40 active:scale-[0.97] transition-all shadow-lg shadow-[#C8743A]/25 mt-1"
           >
+            {loading && <Spinner />}
             {loading ? "가입 중..." : "가입하고 사주 등록하기"}
           </button>
         </form>

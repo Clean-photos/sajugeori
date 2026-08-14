@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Spinner } from "@/components/ui/Spinner";
 
 type Action = "profile" | "account";
 
@@ -91,8 +92,9 @@ function DangerAction({ action, endpoint }: { action: Action; endpoint: string }
           type="button"
           onClick={handleConfirm}
           disabled={!checked || busy}
-          className="flex-1 bg-[#C0392B] text-white rounded-xl py-2.5 text-xs font-semibold disabled:opacity-40"
+          className="flex-1 flex items-center justify-center gap-1.5 bg-[#C0392B] text-white rounded-xl py-2.5 text-xs font-semibold disabled:opacity-40"
         >
+          {busy && <Spinner size={13} />}
           {busy ? "처리 중..." : copy.confirmLabel}
         </button>
       </div>

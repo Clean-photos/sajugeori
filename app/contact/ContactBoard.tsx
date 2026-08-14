@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Spinner } from "@/components/ui/Spinner";
 
 interface Inquiry {
   id: string;
@@ -101,7 +102,8 @@ export function ContactBoard() {
         {done && <p className="text-xs text-[#4F7A5C] px-1">문의가 접수되었습니다. 확인 후 검토하겠습니다.</p>}
 
         <button onClick={submit} disabled={!canSubmit}
-          className="w-full bg-[#C8743A] text-white rounded-xl py-3.5 font-semibold text-sm disabled:opacity-40 active:scale-[0.97] transition-all">
+          className="w-full flex items-center justify-center gap-2 bg-[#C8743A] text-white rounded-xl py-3.5 font-semibold text-sm disabled:opacity-40 active:scale-[0.97] transition-all">
+          {submitting && <Spinner />}
           {submitting ? "등록 중…" : "문의 남기기"}
         </button>
         <p className="text-[11px] text-[#6B6661]/70 text-center">

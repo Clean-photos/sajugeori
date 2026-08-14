@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { Spinner } from "@/components/ui/Spinner";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -63,8 +64,9 @@ export default function ForgotPasswordPage() {
             <button
               type="submit"
               disabled={loading || !email}
-              className="w-full bg-[#1F3D34] text-white rounded-xl py-3.5 font-semibold text-sm disabled:opacity-40 active:scale-[0.97] transition-all shadow-md"
+              className="w-full flex items-center justify-center gap-2 bg-[#1F3D34] text-white rounded-xl py-3.5 font-semibold text-sm disabled:opacity-40 active:scale-[0.97] transition-all shadow-md"
             >
+              {loading && <Spinner />}
               {loading ? "전송 중..." : "재설정 링크 보내기"}
             </button>
             <Link href="/login" className="text-center text-sm text-[#6B6661] mt-1">

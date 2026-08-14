@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { PrintButton } from "@/components/premium/PrintReport";
+import { Spinner } from "@/components/ui/Spinner";
 
 /**
  * 결제한 리포트 결과를 사용자가 직접 삭제할 수 있게 하는 공용 UI.
@@ -81,8 +82,9 @@ export function DeleteReportButton({ onConfirm }: { onConfirm: () => Promise<voi
           type="button"
           onClick={handleDelete}
           disabled={!checked || deleting}
-          className="flex-1 bg-[#C0392B] text-white rounded-xl py-2.5 text-xs font-semibold disabled:opacity-40"
+          className="flex-1 flex items-center justify-center gap-1.5 bg-[#C0392B] text-white rounded-xl py-2.5 text-xs font-semibold disabled:opacity-40"
         >
+          {deleting && <Spinner size={13} />}
           {deleting ? "삭제 중..." : "완전히 삭제하기"}
         </button>
       </div>

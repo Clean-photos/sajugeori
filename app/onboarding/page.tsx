@@ -3,6 +3,7 @@
 import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { Spinner } from "@/components/ui/Spinner";
 
 const STEPS = ["생년월일", "태어난 시각", "성별 · 역법"];
 
@@ -231,8 +232,9 @@ function OnboardingInner() {
             <button
               onClick={handleSubmit}
               disabled={loading || !form.gender}
-              className="flex-1 bg-[#C8743A] text-white rounded-xl py-3.5 font-semibold text-sm disabled:opacity-40 active:scale-[0.97] transition-all shadow-lg shadow-[#C8743A]/25"
+              className="flex-1 flex items-center justify-center gap-2 bg-[#C8743A] text-white rounded-xl py-3.5 font-semibold text-sm disabled:opacity-40 active:scale-[0.97] transition-all shadow-lg shadow-[#C8743A]/25"
             >
+              {loading && <Spinner />}
               {loading ? "사주 분석 중..." : "내 사주 확인하기 →"}
             </button>
           )}

@@ -5,6 +5,8 @@ import Link from "next/link";
 import { cleanReportText } from "@/lib/report-format";
 import { PrintButton, PrintReportFooter } from "@/components/premium/PrintReport";
 import { DeleteReportButton } from "@/components/premium/DeleteReportButton";
+import { WaitingCards } from "@/components/premium/WaitingCards";
+import { Spinner } from "@/components/ui/Spinner";
 import { DESTINY_UPGRADE } from "@/lib/billing/plans";
 
 const SECTIONS: { id: string; label: string; icon: string }[] = [
@@ -62,6 +64,7 @@ export function PremiumReport() {
         <div className="text-3xl animate-pulse">🔮</div>
         <p className="text-sm text-[#6B6661]">사주를 깊이 있게 풀이하고 있어요...</p>
         <p className="text-xs text-[#9B968F]">처음 생성은 1분 정도 걸릴 수 있어요</p>
+        <WaitingCards />
       </div>
     );
   }
@@ -126,8 +129,9 @@ export function PremiumReport() {
       <button
         onClick={() => load(true)}
         disabled={regenerating}
-        className="no-print mt-1 text-center text-xs text-[#6B6661] py-2 disabled:opacity-50"
+        className="no-print mt-1 flex items-center justify-center gap-1.5 text-center text-xs text-[#6B6661] py-2 disabled:opacity-50"
       >
+        {regenerating && <Spinner size={13} />}
         {regenerating ? "다시 생성 중..." : "풀이 다시 생성하기"}
       </button>
       <p className="no-print text-center text-[11px] text-[#9B968F]">생성된 결과는 1년간 다시 볼 수 있습니다</p>

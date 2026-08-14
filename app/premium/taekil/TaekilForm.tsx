@@ -4,6 +4,7 @@ import { useState } from "react";
 import { cleanReportText } from "@/lib/report-format";
 import { PrintButton, PrintReportFooter } from "@/components/premium/PrintReport";
 import { DeleteReportButton } from "@/components/premium/DeleteReportButton";
+import { WaitingCards } from "@/components/premium/WaitingCards";
 
 type Step = "form" | "loading" | "result" | "deleted";
 
@@ -134,6 +135,7 @@ export function TaekilForm() {
         <div className="w-10 h-10 border-2 border-[#C8743A]/30 border-t-[#C8743A] rounded-full animate-spin" />
         <p className="text-sm text-[#6B6661]">일진을 계산하고 있어요…</p>
         <p className="text-xs text-[#6B6661]/60">최대 1분 정도 걸릴 수 있어요</p>
+        <WaitingCards />
       </div>
     );
   }

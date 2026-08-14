@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { getPlan, REPORT_PRODUCTS } from "@/lib/billing/plans";
+import { Spinner } from "@/components/ui/Spinner";
 
 // Toss "기존 결제창"(API 개별연동, v1) SDK 타입 (최소).
 // 이 계정은 API 개별연동 상품이 자동결제(빌링)·기존 결제창·정산지급대행·
@@ -120,8 +121,9 @@ export function BuyClient({ planId, returnTo }: { planId: string; returnTo: stri
         <button
           onClick={pay}
           disabled={!ready || loading !== null || !agreed}
-          className="mt-3 w-full bg-[#C8743A] text-white rounded-xl py-3.5 font-semibold text-sm disabled:opacity-40 active:scale-[0.97] transition-all shadow-md"
+          className="mt-3 w-full flex items-center justify-center gap-2 bg-[#C8743A] text-white rounded-xl py-3.5 font-semibold text-sm disabled:opacity-40 active:scale-[0.97] transition-all shadow-md"
         >
+          {(loading === plan.id || !ready) && <Spinner />}
           {loading === plan.id ? "결제창 여는 중..." : ready ? `${plan.amount.toLocaleString()}원 결제하고 보기` : "준비 중..."}
         </button>
       </div>
