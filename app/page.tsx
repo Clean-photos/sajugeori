@@ -3,6 +3,7 @@ import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { BottomTabBar } from "@/components/layout/BottomTabBar";
 import { BannerAd } from "@/components/ads/BannerAd";
+import { KakaoAdFitBanner } from "@/components/ads/KakaoAdFitBanner";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { ARTICLES } from "./guide/articles";
 import { pickDaily } from "@/lib/daily-pick";
@@ -78,6 +79,11 @@ export default async function HomePage() {
           당신을 잘 아는 역술가들이 모인 골목
         </p>
       </header>
+
+      {/* Kakao AdFit 320x100 */}
+      <section className="px-4 mb-5 flex justify-center animate-fade-up" style={{animationDelay:'0.05s'}}>
+        <KakaoAdFitBanner />
+      </section>
 
       {/*
         서비스 소개 본문. 히어로 바로 아래·기능 카드 위에 둔다.
