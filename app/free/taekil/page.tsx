@@ -177,7 +177,7 @@ export default function FreeTaekilPage() {
   }
 
   if (step === "ad") {
-    return <AdGate onComplete={fetchReport} />;
+    return <AdGate onComplete={fetchReport} page="taekil" />;
   }
 
   return (

@@ -166,7 +166,7 @@ export default function FreeCompatibilityPage() {
   }
 
   if (step === "ad") {
-    return <AdGate onComplete={fetchReport} />;
+    return <AdGate onComplete={fetchReport} page="compatibility" />;
   }
 
   return (

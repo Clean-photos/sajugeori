@@ -135,7 +135,7 @@ export default function FreeYearlyPage() {
   }
 
   if (step === "ad") {
-    return <AdGate onComplete={fetchReport} />;
+    return <AdGate onComplete={fetchReport} page="yearly" />;
   }
 
   return (

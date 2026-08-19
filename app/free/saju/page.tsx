@@ -193,7 +193,7 @@ export default function FreeSajuPage() {
   }
 
   if (step === "ad") {
-    return <AdGate onComplete={fetchReport} />;
+    return <AdGate onComplete={fetchReport} page="saju" />;
   }
 
   // Result
