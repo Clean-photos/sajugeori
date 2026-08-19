@@ -5,8 +5,9 @@ import Link from "next/link";
 import { AdGate } from "../AdGate";
 import { ReadingIntro } from "../ReadingIntro";
 import { cleanReportText } from "@/lib/report-format";
+import { Spinner } from "@/components/ui/Spinner";
 
-type Step = "form" | "ad" | "result";
+type Step = "form" | "ad" | "loading" | "result";
 
 function maxBirthDate() {
   const d = new Date();
@@ -193,7 +194,16 @@ export default function FreeSajuPage() {
   }
 
   if (step === "ad") {
-    return <AdGate onComplete={fetchReport} page="saju" />;
+    return <AdGate onComplete={fetchReport} onSkip={() => setStep("loading")} page="saju" />;
+  }
+
+  if (step === "loading") {
+    return (
+      <div className="min-h-screen bg-[#F6F1E7] flex flex-col items-center justify-center gap-4 px-6">
+        <Spinner size={28} />
+        <p className="text-sm text-[#6B6661]">결과를 준비하고 있어요...</p>
+      </div>
+    );
   }
 
   // Result

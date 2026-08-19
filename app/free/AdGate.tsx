@@ -15,11 +15,21 @@ type FreePage = keyof typeof ADFIT_UNITS;
 
 /**
  * 광고 시청 게이트.
- * 1) /api/ads/token 으로 1회용 토큰 발급
- * 2) 카카오 애드핏 300x250 광고(유닛 설정 시) 또는 플레이스홀더 노출 + 카운트다운
- * 3) 카운트다운 종료 시 onComplete(token) 호출 → 호출부가 무료 리포트 API 요청
+ * 1) /api/ads/token 으로 1회용 토큰 발급 → 발급 즉시 onComplete(token) 호출해 리포트 생성을
+ *    광고 시청과 병렬로 시작한다(최소 시청 시간 동안 이미 결과가 준비되면 대기 없이 바로 전환됨).
+ * 2) 카카오 애드핏 300x250 광고(유닛 설정 시) 또는 플레이스홀더 노출 + 최소 시청 카운트다운
+ * 3) 카운트다운(5초) 종료 후에도 결과가 아직 준비되지 않았으면 닫기 버튼을 노출한다.
+ *    닫기를 누르면 onSkip()으로 화면만 전환하고, 이미 시작된 리포트 생성은 백그라운드에서 계속된다.
  */
-export function AdGate({ onComplete, page }: { onComplete: (token: string) => void; page: FreePage }) {
+export function AdGate({
+  onComplete,
+  onSkip,
+  page,
+}: {
+  onComplete: (token: string) => void;
+  onSkip: () => void;
+  page: FreePage;
+}) {
   const [remaining, setRemaining] = useState(COUNTDOWN_SECONDS);
   const [token, setToken] = useState<string | null>(null);
   const firedRef = useRef(false);
@@ -46,27 +56,36 @@ export function AdGate({ onComplete, page }: { onComplete: (token: string) => vo
     };
   }, [adUnit]);
 
-  // 카운트다운
+  // 최소 시청 카운트다운 (표시용 — 결과 생성 시작을 막지 않는다)
   useEffect(() => {
     if (remaining <= 0) return;
     const t = setTimeout(() => setRemaining((n) => n - 1), 1000);
     return () => clearTimeout(t);
   }, [remaining]);
 
-  // 종료 조건: 카운트다운 0 + 토큰 준비됨
+  // 토큰이 준비되는 즉시 리포트 생성 시작 — 광고 시청과 병렬 진행
   useEffect(() => {
-    if (remaining <= 0 && token !== null && !firedRef.current) {
+    if (token !== null && !firedRef.current) {
       firedRef.current = true;
       onComplete(token);
     }
-  }, [remaining, token, onComplete]);
+  }, [token, onComplete]);
 
   const progress = ((COUNTDOWN_SECONDS - remaining) / COUNTDOWN_SECONDS) * 100;
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto flex flex-col items-center justify-center gap-7 bg-[#0E2521] px-6 py-16">
+      {remaining <= 0 && (
+        <button
+          onClick={onSkip}
+          className="absolute top-6 right-6 text-white/70 text-sm border border-white/30 rounded-full px-3.5 py-1.5"
+        >
+          닫기 ✕
+        </button>
+      )}
+
       <div className="flex flex-col items-center gap-2">
-        <p className="text-white/80 text-sm">광고 시청 중... {remaining > 0 ? `${remaining}초` : "완료"}</p>
+        <p className="text-white/80 text-sm">광고 시청 중... {remaining > 0 ? `${remaining}초` : "결과 준비 중"}</p>
         <p className="text-white/80 text-sm text-center leading-relaxed">
           광고를 클릭해도 결과 페이지는 그대로 유지됩니다.
           <br />

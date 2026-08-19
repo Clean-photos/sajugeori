@@ -5,8 +5,9 @@ import Link from "next/link";
 import { AdGate } from "../AdGate";
 import { ReadingIntro } from "../ReadingIntro";
 import { cleanReportText } from "@/lib/report-format";
+import { Spinner } from "@/components/ui/Spinner";
 
-type Step = "form" | "ad" | "result";
+type Step = "form" | "ad" | "loading" | "result";
 
 const PURPOSE_OPTIONS = [
   { value: "wedding", label: "결혼식" },
@@ -177,7 +178,16 @@ export default function FreeTaekilPage() {
   }
 
   if (step === "ad") {
-    return <AdGate onComplete={fetchReport} page="taekil" />;
+    return <AdGate onComplete={fetchReport} onSkip={() => setStep("loading")} page="taekil" />;
+  }
+
+  if (step === "loading") {
+    return (
+      <div className="min-h-screen bg-[#F6F1E7] flex flex-col items-center justify-center gap-4 px-6">
+        <Spinner size={28} />
+        <p className="text-sm text-[#6B6661]">결과를 준비하고 있어요...</p>
+      </div>
+    );
   }
 
   return (
