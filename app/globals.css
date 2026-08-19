@@ -39,9 +39,6 @@ body::before {
   z-index: 0;
 }
 
-/* Scrollbar */
-::-webkit-scrollbar { width: 0; }
-
 /* Animations */
 @keyframes fadeUp {
   from { opacity: 0; transform: translateY(12px); }
