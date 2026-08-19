@@ -93,7 +93,7 @@ export async function PremiumGate({
               {oneTime ? (
                 <>
                   <Link href={oneTime.buyPath} className="rounded-xl bg-[#C8743A] text-white px-6 py-3 text-sm font-semibold">
-                    {oneTime.priceLabel}로 보기
+                    {oneTime.priceLabel}으로 보기
                   </Link>
                   <Link href="/premium/menu" className="text-xs text-[#6B6661] underline underline-offset-4 mt-1">
                     다른 리포트도 보기
