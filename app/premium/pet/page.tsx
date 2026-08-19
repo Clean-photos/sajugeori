@@ -27,15 +27,6 @@ export default function PremiumPetPage() {
             아이의 띠·오행과 집사님의 일간을 함께 계산해 둘의 결이 어떻게 맞물리는지 풀이합니다.
           </p>
 
-          <h2 className="font-serif text-lg font-bold text-[#1F3D34] mt-2">강아지는 강아지답게, 고양이는 고양이답게</h2>
-          <p className="text-[16px] text-[#1A1A18] leading-[1.85]">
-            같은 기운이라도 강아지와 고양이는 그것을 전혀 다른 방식으로 드러냅니다.
-            그래서 시작할 때 종을 먼저 고르게 하고, 동물행동학 연구에서 확인된 각 종의 특성을
-            사주 해석에 함께 얹습니다. 강아지가 주인을 안전기지로 삼아 낯선 상황에서 집사님을
-            돌아본다는 점, 고양이가 천천히 눈을 감았다 뜨는 슬로우 블링크로 신뢰를 표현한다는
-            점처럼 실제로 연구된 행동의 결을 담아, 그 아이다운 풀이를 드립니다.
-          </p>
-
           <h2 className="font-serif text-lg font-bold text-[#1F3D34] mt-2">태어난 날을 몰라도 괜찮습니다</h2>
           <p className="text-[16px] text-[#1A1A18] leading-[1.85]">
             반려동물은 정확한 생일을 모르는 경우가 많습니다. 태어난 해만 알아도 아이의 띠와
