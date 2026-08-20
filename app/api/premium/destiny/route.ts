@@ -115,7 +115,7 @@ export async function GET(req: NextRequest) {
   }
 
   const wantsRegenerate = req.nextUrl.searchParams.get("regenerate") === "1";
-  const iso = profile.birth_time ? `${profile.birth_date}T${profile.birth_time}:00` : `${profile.birth_date}T00:00:00`;
+  const iso = profile.birth_time ? `${profile.birth_date}T${profile.birth_time}` : `${profile.birth_date}T00:00:00`;
   const hasHour = !!profile.birth_time;
   const gender = profile.gender ?? "M";
 

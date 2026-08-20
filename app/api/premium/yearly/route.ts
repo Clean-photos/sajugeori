@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
   let yr;
   try {
     const iso = profile.birth_time
-      ? `${profile.birth_date}T${profile.birth_time}:00`
+      ? `${profile.birth_date}T${profile.birth_time}`
       : `${profile.birth_date}T00:00:00`;
     const chart = buildChart(iso, profile.gender ?? "M", !!profile.birth_time);
     yr = scoreYear(chart, year);

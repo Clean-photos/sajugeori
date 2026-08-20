@@ -95,7 +95,7 @@ export async function POST(req: NextRequest) {
   let normalizedScore = 50;
   try {
     const aHasTime = !useCustomA && !!profile.birth_time;
-    const aIso = aHasTime ? `${personABirth}T${profile.birth_time}:00` : `${personABirth}T00:00:00`;
+    const aIso = aHasTime ? `${personABirth}T${profile.birth_time}` : `${personABirth}T00:00:00`;
     const personALabel = useCustomA ? "A" : "나";
     const me = buildChart(aIso, personAGender, aHasTime);
     const other = buildChart(`${partnerBirth}T00:00:00`, partnerGender, false);
