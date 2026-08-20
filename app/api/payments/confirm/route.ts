@@ -47,11 +47,20 @@ export async function POST(req: NextRequest) {
 
   const payment = await tossRes.json();
   if (!tossRes.ok) {
+    // 승인 자체가 실패 — 과금 없음. DB에 남길 것도 없다.
     return NextResponse.json(
-      { error: payment?.message ?? "결제 승인 실패", code: payment?.code },
+      { error: payment?.message ?? "결제 승인 실패", code: payment?.code, stage: "confirm" },
       { status: 402 }
     );
   }
+
+  // 승인은 여기서부터 완료된 상태 — 과금이 실제로 발생했다. 이후 DB 저장이
+  // 실패해도 이 결제 자체를 잃어버리면 안 되므로, 어떤 경로로도 서버 로그에
+  // 반드시 남긴다(대사·복구의 유일한 근거).
+  console.log("[payment_confirmed]", JSON.stringify({
+    userId, orderId, paymentKey, amount: payment.totalAmount ?? amount, planId,
+    approvedAt: payment.approvedAt, method: payment.method,
+  }));
 
   // 단건 이용권: 소진형 구매 기록만 남긴다 (구독 아님)
   if (plan.kind === "one_time") {
@@ -70,9 +79,19 @@ export async function POST(req: NextRequest) {
 
     const { error } = await supabaseAdmin.from("one_time_purchases").insert(rows);
     if (error) {
-      // 승인은 이미 완료된 상태 — 기록 실패는 로그로 남기고 실패 응답 (Toss 대시보드에서 수동 대사 가능)
-      console.error("one_time purchase insert error:", error);
-      return NextResponse.json({ error: "구매 기록 저장에 실패했습니다. 문의해주세요." }, { status: 500 });
+      // 23505 = order_id UNIQUE 충돌 = 같은 결제가 이미 기록돼 있다는 뜻
+      // (성공 후 페이지 새로고침·중복 요청 등). 실패가 아니라 이미 처리된 결제이므로
+      // 성공으로 응답한다 — 안 그러면 정상 결제인데도 "저장 실패" 화면을 보게 된다.
+      if (error.code === "23505") {
+        console.log("[payment_duplicate_confirm]", JSON.stringify({ userId, orderId, paymentKey }));
+        return NextResponse.json({ ok: true, plan: plan.id, kind: "one_time", credits, duplicate: true });
+      }
+      // 그 외 진짜 저장 실패 — 승인된 결제(위 로그 참고)이므로 문의 시 orderId로 대사 가능
+      console.error("[payment_save_failed]", JSON.stringify({ userId, orderId, paymentKey, dbError: error }));
+      return NextResponse.json(
+        { error: "결제는 확인되었으나 처리 중 문제가 발생했습니다.", orderId, stage: "save", charged: true },
+        { status: 500 }
+      );
     }
     return NextResponse.json({ ok: true, plan: plan.id, kind: "one_time", credits });
   }
