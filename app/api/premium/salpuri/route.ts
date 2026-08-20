@@ -90,7 +90,7 @@ export async function POST(_req: NextRequest) {
 ${salLines || "검출된 신살 없음"}`.trim();
 
   try {
-    const report = await generateSalpuriReport(engineSummary);
+    const report = await generateSalpuriReport(engineSummary, grouped.size);
 
     // 캐시 저장 (테이블 없으면 무시). 저장돼야 이용권 사용자가 재열람할 수 있다.
     try {
