@@ -35,6 +35,7 @@ function LoginInner() {
   const [password, setPassword] = useState("");
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
+  const verifiedParam = searchParams.get("verified");
   const [error, setError] = useState(
     errorCode === "invalid_credentials" ? "이메일 또는 비밀번호가 올바르지 않습니다." : ""
   );
@@ -151,6 +152,13 @@ function LoginInner() {
           <Link href="/forgot-password" className="text-xs text-[#6B6661] text-right -mt-1 underline underline-offset-2">
             비밀번호를 잊으셨나요?
           </Link>
+
+          {verifiedParam === "1" && (
+            <p className="text-xs text-[#4F7A5C] px-1">이메일 인증이 완료됐어요. 로그인해주세요.</p>
+          )}
+          {verifiedParam === "0" && (
+            <p className="text-xs text-[#C0392B] px-1">인증 링크가 만료되었거나 올바르지 않습니다.</p>
+          )}
 
           {error && (
             <p className="text-xs text-[#C0392B] px-1">{error}</p>
