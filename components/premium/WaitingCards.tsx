@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { WAITING_CARDS, type WaitingCard } from "@/lib/waiting-cards";
 
-const EXPOSURE_MS = 2500;
+const EXPOSURE_MS = 5000;
 const FADE_MS = 250;
 
 function shuffled(cards: WaitingCard[]): WaitingCard[] {
