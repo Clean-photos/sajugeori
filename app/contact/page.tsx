@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import { auth } from "@/lib/auth";
 import { BottomTabBar } from "@/components/layout/BottomTabBar";
@@ -28,7 +29,9 @@ export default async function ContactPage() {
       </header>
 
       {loggedIn ? (
-        <ContactBoard />
+        <Suspense fallback={null}>
+          <ContactBoard />
+        </Suspense>
       ) : (
         <div className="flex-1 flex flex-col items-center justify-center text-center gap-4 px-8 py-20">
           <div className="w-14 h-14 rounded-full bg-[#1F3D34]/8 flex items-center justify-center text-2xl">🔒</div>

@@ -45,6 +45,8 @@ function SuccessInner() {
   const router = useRouter();
   const [state, setState] = useState<"confirming" | "done" | "error">("confirming");
   const [message, setMessage] = useState("");
+  const [charged, setCharged] = useState(false);
+  const [failedOrderId, setFailedOrderId] = useState("");
   const outcome = outcomeFor(params.get("planId"));
 
   useEffect(() => {
@@ -55,7 +57,7 @@ function SuccessInner() {
 
     if (!paymentKey || !orderId || !amount || !planId) {
       setState("error");
-      setMessage("결제 정보가 올바르지 않습니다.");
+      setMessage("결제가 완료되지 않았습니다. 금액은 청구되지 않았습니다.");
       return;
     }
 
@@ -69,13 +71,20 @@ function SuccessInner() {
         const data = await res.json();
         if (!res.ok) {
           setState("error");
-          setMessage(data?.error ?? "결제 승인에 실패했습니다.");
+          setFailedOrderId(orderId);
+          if (data?.charged) {
+            setCharged(true);
+            setMessage(`결제는 확인되었으나 처리 중 문제가 발생했습니다. 주문번호 ${orderId}로 문의해주시면 확인해 드립니다.`);
+          } else {
+            setMessage(data?.error ? `결제가 완료되지 않았습니다. 금액은 청구되지 않았습니다. (${data.error})` : "결제가 완료되지 않았습니다. 금액은 청구되지 않았습니다.");
+          }
           return;
         }
         setState("done");
       } catch {
         setState("error");
-        setMessage("결제 확인 중 오류가 발생했습니다.");
+        setMessage("결제 확인 중 오류가 발생했습니다. 금액이 청구되었다면 문의해주세요.");
+        setFailedOrderId(orderId);
       }
     })();
   }, [params]);
@@ -104,14 +113,31 @@ function SuccessInner() {
       {state === "error" && (
         <>
           <div className="text-5xl">⚠️</div>
-          <h1 className="font-serif text-lg font-bold text-[#C0392B]">결제 확인 실패</h1>
-          <p className="text-sm text-[#6B6661]">{message}</p>
-          <button
-            onClick={() => router.push("/premium/menu")}
-            className="mt-2 border border-[#E5DFD4] text-[#1F3D34] rounded-xl px-6 py-3 text-sm font-semibold"
-          >
-            프리미엄으로 돌아가기
-          </button>
+          <h1 className="font-serif text-lg font-bold text-[#C0392B]">
+            {charged ? "결제 확인 중 문제가 발생했어요" : "결제가 완료되지 않았어요"}
+          </h1>
+          <p className="text-sm text-[#6B6661] max-w-xs">{message}</p>
+          {failedOrderId && (
+            <p className="text-xs text-[#6B6661]/70">
+              주문번호 {failedOrderId} · {new Date().toLocaleString("ko-KR")}
+            </p>
+          )}
+          <div className="flex flex-col gap-2 w-full max-w-xs mt-2">
+            {charged && (
+              <button
+                onClick={() => router.push(`/contact?category=payment&subject=${encodeURIComponent(`결제 확인 문의 (주문번호 ${failedOrderId})`)}&message=${encodeURIComponent(`주문번호: ${failedOrderId}\n결제 시각: ${new Date().toLocaleString("ko-KR")}\n\n결제는 확인되었으나 처리 중 문제가 발생했다는 안내를 받았습니다. 확인 부탁드립니다.`)}`)}
+                className="bg-[#C8743A] text-white rounded-xl px-6 py-3 text-sm font-semibold"
+              >
+                결제 문의하기
+              </button>
+            )}
+            <button
+              onClick={() => router.push("/premium/menu")}
+              className="border border-[#E5DFD4] text-[#1F3D34] rounded-xl px-6 py-3 text-sm font-semibold"
+            >
+              프리미엄으로 돌아가기
+            </button>
+          </div>
         </>
       )}
     </div>

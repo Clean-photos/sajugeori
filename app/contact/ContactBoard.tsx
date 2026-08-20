@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Spinner } from "@/components/ui/Spinner";
 
 interface Inquiry {
@@ -24,9 +25,17 @@ const CATEGORY_LABEL: Record<string, string> = Object.fromEntries(CATEGORY_OPTIO
 const STATUS_LABEL: Record<string, string> = { open: "접수됨", answered: "답변 완료", closed: "종료" };
 
 export function ContactBoard() {
+  const params = useSearchParams();
   const [list, setList] = useState<Inquiry[]>([]);
   const [loading, setLoading] = useState(true);
-  const [form, setForm] = useState({ category: "general", subject: "", message: "" });
+  const [form, setForm] = useState(() => {
+    const category = params.get("category");
+    return {
+      category: CATEGORY_OPTIONS.some((c) => c.value === category) ? category! : "general",
+      subject: params.get("subject") ?? "",
+      message: params.get("message") ?? "",
+    };
+  });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
