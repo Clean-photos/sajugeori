@@ -107,9 +107,12 @@ ${summary}
 ${COMMON_RULES}`;
 
   try {
+    // 실제 API로 재현 테스트한 결과 back 프롬프트가 3000 토큰 중 2936까지
+    // 채워 거의 한계까지 육박했다(2026-08-20 실측) — 여유가 없어 응답이 조금만
+    // 길어져도 JSON이 중간에 잘려 파싱 실패로 이어진다. 여유를 넉넉히 둔다.
     const [front, back] = await Promise.all([
-      callJSON<Report>(frontPrompt, 3000, "front"),
-      callJSON<Report>(backPrompt, 3000, "back"),
+      callJSON<Report>(frontPrompt, 4200, "front"),
+      callJSON<Report>(backPrompt, 4200, "back"),
     ]);
     const parsed = { ...front, ...back };
 
