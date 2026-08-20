@@ -76,9 +76,23 @@ export async function POST(_req: NextRequest) {
     return NextResponse.json({ error: started.error }, { status: started.status });
   }
 
-  const salLines = [...grouped.entries()]
-    .map(([name, v]) => `- ${name} (${v.where.join(", ")}): ${v.meaning}`)
-    .join("\n");
+  // 신살이 6개 이상이면 전부 똑같이 자세히 쓰라고 하면 콜 하나의 소요 시간이
+  // 개수에 비례해 계속 늘어나 Vercel 60초 상한을 넘긴다(실측). 상위 3개만
+  // "주요 신살"로 자세히 쓰고, 나머지는 "그 외 신살"로 묶어 간결하게만
+  // 언급하도록 데이터 자체를 나눠서 준다 — 신살이 아무리 많아도 분량이
+  // 무한정 늘어나지 않는다.
+  const salEntries = [...grouped.entries()];
+  const isDense = salEntries.length >= 6;
+  const majorEntries = isDense ? salEntries.slice(0, 3) : salEntries;
+  const minorEntries = isDense ? salEntries.slice(3) : [];
+  const formatSal = (entries: typeof salEntries) =>
+    entries.map(([name, v]) => `- ${name} (${v.where.join(", ")}): ${v.meaning}`).join("\n");
+
+  const salSection = majorEntries.length === 0
+    ? "검출된 신살 없음"
+    : isDense
+      ? `주요 신살 (자세히 설명할 것):\n${formatSal(majorEntries)}\n\n그 외 신살 (간결하게 한 줄씩만 언급할 것):\n${formatSal(minorEntries)}`
+      : formatSal(majorEntries);
 
   const engineSummary = `
 일주(日柱): ${stemBranchKr(chart.pillars.day.stem, chart.pillars.day.branch)}
@@ -87,10 +101,10 @@ export async function POST(_req: NextRequest) {
 용신 후보: 억부 ${chart.yongsin.eokbu_candidates.join("·") || "없음"} / 조후 ${chart.yongsin.johu_candidates.join("·") || "없음"}
 
 [이 사주에서 실제로 검출된 신살]
-${salLines || "검출된 신살 없음"}`.trim();
+${salSection}`.trim();
 
   try {
-    const report = await generateSalpuriReport(engineSummary, grouped.size);
+    const report = await generateSalpuriReport(engineSummary, isDense);
 
     // 캐시 저장 (테이블 없으면 무시). 저장돼야 이용권 사용자가 재열람할 수 있다.
     try {
