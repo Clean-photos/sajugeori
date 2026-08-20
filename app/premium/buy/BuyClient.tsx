@@ -18,6 +18,10 @@ declare global {
 }
 
 const CLIENT_KEY = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY ?? "";
+// 토스 카드사 심사가 끝나 실결제를 열 준비가 되면 Vercel에서 이 값을 "true"로
+// 바꾸고 재배포만 하면 된다(코드 수정 불필요). 그 전까지는 결제 버튼을 눌러도
+// 실제 결제창을 열지 않고 안내만 노출한다.
+const PAYMENTS_ENABLED = process.env.NEXT_PUBLIC_PAYMENTS_ENABLED === "true";
 
 /** 상품별 안내 문구 */
 const BENEFITS: Record<string, string[]> = {
@@ -36,11 +40,16 @@ export function BuyClient({ planId, returnTo }: { planId: string; returnTo: stri
   const [error, setError] = useState("");
   const [loading, setLoading] = useState<string | null>(null);
   const [agreed, setAgreed] = useState(false);
+  const [notice, setNotice] = useState(false);
   const tossRef = useRef<TossPaymentsV1 | null>(null);
 
   const plan = getPlan(planId);
 
   useEffect(() => {
+    if (!PAYMENTS_ENABLED) {
+      setReady(true); // 결제 준비 중 — 토스 SDK는 안 띄우되 버튼은 눌러서 안내를 볼 수 있게 둔다
+      return;
+    }
     if (!CLIENT_KEY) {
       setError("결제 설정이 완료되지 않았습니다. (TOSS 키 미설정)");
       return;
@@ -69,6 +78,10 @@ export function BuyClient({ planId, returnTo }: { planId: string; returnTo: stri
   }, []);
 
   async function pay() {
+    if (!PAYMENTS_ENABLED) {
+      setNotice(true);
+      return;
+    }
     if (!tossRef.current || !plan) return;
     setLoading(plan.id);
     setError("");
@@ -126,6 +139,13 @@ export function BuyClient({ planId, returnTo }: { planId: string; returnTo: stri
           {(loading === plan.id || !ready) && <Spinner />}
           {loading === plan.id ? "결제창 여는 중..." : ready ? `${plan.amount.toLocaleString()}원 결제하고 보기` : "준비 중..."}
         </button>
+
+        {notice && (
+          <div className="mt-3 rounded-xl bg-[#1F3D34]/5 border border-[#1F3D34]/15 px-4 py-3">
+            <p className="text-sm font-medium text-[#1F3D34]">결제 시스템 준비 중입니다</p>
+            <p className="text-xs text-[#6B6661] mt-1 leading-relaxed">9월 중 오픈 예정입니다. 조금만 기다려 주세요.</p>
+          </div>
+        )}
       </div>
 
       {error && <p className="text-xs text-[#C0392B] px-1">{error}</p>}
