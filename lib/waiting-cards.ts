@@ -1,5 +1,7 @@
-// 리포트 생성 대기 화면에 노출하는 사주 상식 카드 30종.
+// 리포트 생성 대기 화면에 노출하는 사주 상식 카드.
 // 출처: "[제안 초안] 사주 상식 카드 30" (2026-08-11) — #8, #16은 사실 검증 결과에 따라 수정.
+import { TERMS } from "@/app/dictionary/terms";
+
 export type WaitingCard = { title: string; body: string };
 
 export const WAITING_CARDS: WaitingCard[] = [
@@ -46,4 +48,14 @@ export const WAITING_CARDS: WaitingCard[] = [
   { title: "용신은 부족한 것을 채우는 글자다", body: "사주에서 균형을 잡아주는 오행을 용신이라 부릅니다. 개운법에서 색이나 방위를 말하는 근거가 여기 있습니다." },
   { title: "신살은 부록에 가깝다", body: "도화살·역마살 같은 신살은 이름이 강렬해 유명하지만, 명리에서는 원국 구조를 본 뒤 참고하는 요소로 다룹니다." },
   { title: "명리는 예언이 아니라 통계적 관찰의 기록이다", body: "오랜 시간 사람과 시기를 관찰해 정리한 해석 체계입니다. 다만 현대적 의미의 과학적 검증을 거친 것은 아닙니다." },
+
+  // E. 신살(神殺) — 용어 백과(app/dictionary/terms.ts)의 sinsal 카테고리에서 그대로 가져온다.
+  // 대기 시간이 긴 만큼, 사람들이 자주 궁금해하는 "도화살·화개살이 뭔가요"에
+  // 바로 답을 주면서 지루함도 덜어준다. 백과 내용이 갱신되면 이 카드도 자동으로 따라간다.
+  ...TERMS.filter((t) => t.category === "sinsal").map(
+    (t): WaitingCard => ({
+      title: t.hanja ? `${t.term}(${t.hanja})` : t.term,
+      body: t.summary,
+    })
+  ),
 ];
