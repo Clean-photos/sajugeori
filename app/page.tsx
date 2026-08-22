@@ -86,100 +86,12 @@ export default async function HomePage() {
       </section>
 
       {/*
-        서비스 소개 본문. 히어로 바로 아래·기능 카드 위에 둔다.
-        이 글이 카드 아래에 있을 때는 크롤러가 페이지 앞부분에서 버튼·카드 라벨만 읽어
-        사이트를 '입력 도구'로 인식하기 쉬웠다. 페이지를 여는 텍스트가 설명글이 되도록 올린다.
+        Service Cards Grid — 무료 4종. 사이트의 핵심 진입점이라 최상단에 둔다.
+        한때 애드센스 심사를 의식해 이 아래의 서비스 소개 본문을 위로 올렸었는데,
+        심사는 결국 통과하지 못했고(콘텐츠 가치 부족) 애드핏으로 전환했다. 크롤러보다
+        실제 방문자 동선을 우선해 무료 서비스를 다시 첫 화면에 올린다. 소개 본문은
+        하단으로 내려 검색 유입용 텍스트로 유지한다.
       */}
-      <section className="px-5 mb-5 flex flex-col gap-3.5 animate-fade-up" style={{animationDelay:'0.06s'}}>
-        <p className="text-[16px] text-[#1A1A18] leading-[1.85]">
-          사주거리는 정통 명리학의 해석 방식을 그대로 따르는 사주·운세 서비스입니다.
-          생년월일과 태어난 시각을 입력하면 사주팔자 여덟 글자를 세우고, 오행의 균형과
-          십성의 배치를 계산해 타고난 기질과 삶의 흐름을 풀어 드립니다. 무료 사주와
-          궁합·택일·연운세는 광고 시청만으로 이용할 수 있고, 더 깊은 풀이가 필요하면
-          프리미엄 리포트를 한 편씩 골라 이용하실 수 있습니다.
-        </p>
-
-        <h2 className="font-serif text-lg font-bold text-[#1F3D34] mt-1">사주는 어떻게 계산되나요</h2>
-        <p className="text-[16px] text-[#1A1A18] leading-[1.85]">
-          사주는 태어난 연·월·일·시를 각각 하늘의 기운인 천간과 땅의 기운인 지지 한 쌍씩
-          세워 여덟 글자로 옮긴 것입니다. 이때 달과 해의 경계는 달력의 1일이나 신정이
-          아니라 입춘·경칩 같은 절기를 기준으로 나뉩니다. 사주거리는 이 절기 계산해
-          여덟 글자에 담긴 목·화·토·금·수 다섯 기운의 균형과 일간의 강약, 그리고 10년
-          단위로 흐르는 대운까지 함께 산출합니다. 태어난 시각을 모르면 시주를 제외한
-          세 기둥으로도 사주를 확인할 수 있습니다.
-        </p>
-
-        <h2 className="font-serif text-lg font-bold text-[#1F3D34] mt-1">해석은 어떤 기준을 따르나요</h2>
-        <p className="text-[16px] text-[#1A1A18] leading-[1.85]">
-          사주팔자를 세우고 오행과 십성을 계산하는 일은 정해진 규칙을 따르는 작업이기때문에,
-          사주거리에서는 자체 계산 엔진을 구성해 이용하고 있습니다. 해석 역시 이렇게
-          산출된 실제 데이터를 탄탄하게 근거 삼아 억부·조후 용신, 십성, 대운 같은 정통
-          명리학 이론에 따라 문장으로 풀어냅니다. 그래서 같은 사주라면 언제 보아도
-          일관된 기준으로 풀이됩니다.
-        </p>
-
-        <h2 className="font-serif text-lg font-bold text-[#1F3D34] mt-1">읽을거리와 용어 백과</h2>
-        <p className="text-[16px] text-[#1A1A18] leading-[1.85]">
-          사주를 처음 접하면 낯선 한자 용어에 &ldquo;이게 무슨뜻이야?&rdquo; 라고 하기 쉽습니다.
-          그래서 사주거리는 결과만 보여 주고 끝내지 않습니다. 사주란 무엇인지, 오행과
-          십성은 어떻게 읽는지부터 부족한 기운을 채우는 전통적인 방법, 같은 사주를 가진
-          사람이 왜 다른 삶을 사는지까지 주인장이 엮은{" "}
-          <Link href="/guide" className="underline decoration-[#C8743A]/40 underline-offset-2">읽을거리</Link>로
-          정리해 두었습니다. 비견·상관·도화살·역마살·용신·대운처럼 결과에 자주 등장하는
-          용어는{" "}
-          <Link href="/dictionary" className="underline decoration-[#C8743A]/40 underline-offset-2">용어 백과</Link>
-          {" "}항목들에서 하나씩 찾아볼 수 있습니다. 많은 분들이 궁금해 하시는{" "}
-          <Link href="/reference/samjae" className="underline decoration-[#C8743A]/40 underline-offset-2">삼재 표(띠별 삼재 연도표)</Link>와{" "}
-          <Link href="/reference/ganji" className="underline decoration-[#C8743A]/40 underline-offset-2">출생 연도별 띠·간지 확인표</Link>도
-          확인 가능합니다.
-        </p>
-
-        <h2 className="font-serif text-lg font-bold text-[#1F3D34] mt-1">결과를 대하는 태도</h2>
-        <p className="text-[16px] text-[#1A1A18] leading-[1.85]">
-          사주는 정해진 운명을 통보하는 것이 아니라, 타고난 기질과 삶의 리듬을 이해하는
-          지도에 가깝습니다. 같은 사주를 가진 사람이 또래 중에 수십 명씩 있지만 그들의 삶이
-          모두 같지 않다는 사실이 이를 잘 보여 줍니다. 강한 기운은 잘 살리고 부족한 기운은
-          채워 가는 방향으로 활용할 때 의미가 있습니다. 결국 의지와 실천을 이기는 사주는
-          없습니다. 사주거리가 제공하는 콘텐츠는 오락 및 참고 목적으로 제공되며, 법률·의료·재정
-          등 전문적 자문을 대체하지 않습니다. 사주거리에 오신 모든 분들이 사주와 운세의
-          재미를 느끼고 가시기를 바랍니다.
-        </p>
-      </section>
-
-      {/* 샘플 리포트 배너 — 실제 제공되는 프리미엄 리포트 전문을 로그인 없이 바로 보여준다 */}
-      <section className="px-4 mb-4 animate-fade-up" style={{animationDelay:'0.07s'}}>
-        <Link href="/premium/destiny">
-          <div className="rounded-2xl border border-[#C8743A]/30 bg-[#FBF8F2] px-5 py-4 flex items-center gap-3 active:scale-[0.98] transition-all shadow-sm">
-            <div className="w-10 h-10 rounded-full bg-[#C8743A]/15 flex items-center justify-center text-xl flex-shrink-0">📖</div>
-            <div className="flex-1">
-              <p className="text-sm font-semibold text-[#1F3D34]">프리미엄 리포트 샘플 보기</p>
-              <p className="text-xs text-[#6B6661] mt-0.5">실제 제공되는 운명 설계도 리포트 전문을 공개합니다</p>
-            </div>
-            <span className="text-[#C8743A] text-sm flex-shrink-0">→</span>
-          </div>
-        </Link>
-      </section>
-
-      {/* 콘텐츠 3카드 — 애드센스 심사 대비, 정보성 콘텐츠를 상단에 노출 */}
-      <section className="px-4 grid grid-cols-3 gap-2 mb-4 animate-fade-up" style={{animationDelay:'0.08s'}}>
-        {[
-          { href: "/guide", icon: "書", title: "사주에 관하여", subtitle: `읽을거리 ${ARTICLES.length}편` },
-          { href: "/dictionary", icon: "字", title: "사주 용어사전", subtitle: `핵심 용어 ${TERMS.length}개` },
-          { href: "/faq", icon: "問", title: "자주 묻는 질문", subtitle: "양력·음력·시간" },
-        ].map((c) => (
-          <Link key={c.href} href={c.href}>
-            <div className="h-full bg-[#FBF8F2] border border-[#E5DFD4] rounded-xl px-3 py-3.5 flex flex-col gap-1.5 active:scale-[0.96] transition-all shadow-sm">
-              <span className="font-serif text-lg font-bold text-[#C8743A] leading-none">{c.icon}</span>
-              <div>
-                <p className="text-[12.5px] font-semibold text-[#1F3D34] leading-tight">{c.title}</p>
-                <p className="text-[10.5px] text-[#6B6661] mt-0.5 leading-tight">{c.subtitle}</p>
-              </div>
-            </div>
-          </Link>
-        ))}
-      </section>
-
-      {/* Service Cards Grid */}
       <section className="px-4 grid grid-cols-2 gap-3 mb-4">
         {MENU_CARDS.map((card) => (
           <Link key={card.href} href={card.href} className={card.delay}>
@@ -213,6 +125,39 @@ export default async function HomePage() {
                 <p className={`text-xs mt-0.5 ${card.accent ? "text-white/65" : "text-[#6B6661]"}`}>
                   {card.subtitle}
                 </p>
+              </div>
+            </div>
+          </Link>
+        ))}
+      </section>
+
+      {/* 샘플 리포트 배너 — 실제 제공되는 프리미엄 리포트 전문을 로그인 없이 바로 보여준다 */}
+      <section className="px-4 mb-4 animate-fade-up" style={{animationDelay:'0.07s'}}>
+        <Link href="/premium/destiny">
+          <div className="rounded-2xl border border-[#C8743A]/30 bg-[#FBF8F2] px-5 py-4 flex items-center gap-3 active:scale-[0.98] transition-all shadow-sm">
+            <div className="w-10 h-10 rounded-full bg-[#C8743A]/15 flex items-center justify-center text-xl flex-shrink-0">📖</div>
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-[#1F3D34]">프리미엄 리포트 샘플 보기</p>
+              <p className="text-xs text-[#6B6661] mt-0.5">실제 제공되는 운명 설계도 리포트 전문을 공개합니다</p>
+            </div>
+            <span className="text-[#C8743A] text-sm flex-shrink-0">→</span>
+          </div>
+        </Link>
+      </section>
+
+      {/* 콘텐츠 3카드 — 읽을거리·용어사전·FAQ로 가는 진입점 */}
+      <section className="px-4 grid grid-cols-3 gap-2 mb-4 animate-fade-up" style={{animationDelay:'0.08s'}}>
+        {[
+          { href: "/guide", icon: "書", title: "사주에 관하여", subtitle: `읽을거리 ${ARTICLES.length}편` },
+          { href: "/dictionary", icon: "字", title: "사주 용어사전", subtitle: `핵심 용어 ${TERMS.length}개` },
+          { href: "/faq", icon: "問", title: "자주 묻는 질문", subtitle: "양력·음력·시간" },
+        ].map((c) => (
+          <Link key={c.href} href={c.href}>
+            <div className="h-full bg-[#FBF8F2] border border-[#E5DFD4] rounded-xl px-3 py-3.5 flex flex-col gap-1.5 active:scale-[0.96] transition-all shadow-sm">
+              <span className="font-serif text-lg font-bold text-[#C8743A] leading-none">{c.icon}</span>
+              <div>
+                <p className="text-[12.5px] font-semibold text-[#1F3D34] leading-tight">{c.title}</p>
+                <p className="text-[10.5px] text-[#6B6661] mt-0.5 leading-tight">{c.subtitle}</p>
               </div>
             </div>
           </Link>
@@ -325,6 +270,66 @@ export default async function HomePage() {
             </Link>
           ))}
         </div>
+      </section>
+
+      {/*
+        서비스 소개 본문. 검색 유입용 텍스트라 페이지에는 유지하되, 방문자 동선을
+        가리지 않도록 본문 맨 아래(푸터 직전)에 둔다.
+      */}
+      <section className="px-5 mb-5 flex flex-col gap-3.5">
+        <p className="text-[16px] text-[#1A1A18] leading-[1.85]">
+          사주거리는 정통 명리학의 해석 방식을 그대로 따르는 사주·운세 서비스입니다.
+          생년월일과 태어난 시각을 입력하면 사주팔자 여덟 글자를 세우고, 오행의 균형과
+          십성의 배치를 계산해 타고난 기질과 삶의 흐름을 풀어 드립니다. 무료 사주와
+          궁합·택일·연운세는 광고 시청만으로 이용할 수 있고, 더 깊은 풀이가 필요하면
+          프리미엄 리포트를 한 편씩 골라 이용하실 수 있습니다.
+        </p>
+
+        <h2 className="font-serif text-lg font-bold text-[#1F3D34] mt-1">사주는 어떻게 계산되나요</h2>
+        <p className="text-[16px] text-[#1A1A18] leading-[1.85]">
+          사주는 태어난 연·월·일·시를 각각 하늘의 기운인 천간과 땅의 기운인 지지 한 쌍씩
+          세워 여덟 글자로 옮긴 것입니다. 이때 달과 해의 경계는 달력의 1일이나 신정이
+          아니라 입춘·경칩 같은 절기를 기준으로 나뉩니다. 사주거리는 이 절기 계산해
+          여덟 글자에 담긴 목·화·토·금·수 다섯 기운의 균형과 일간의 강약, 그리고 10년
+          단위로 흐르는 대운까지 함께 산출합니다. 태어난 시각을 모르면 시주를 제외한
+          세 기둥으로도 사주를 확인할 수 있습니다.
+        </p>
+
+        <h2 className="font-serif text-lg font-bold text-[#1F3D34] mt-1">해석은 어떤 기준을 따르나요</h2>
+        <p className="text-[16px] text-[#1A1A18] leading-[1.85]">
+          사주팔자를 세우고 오행과 십성을 계산하는 일은 정해진 규칙을 따르는 작업이기때문에,
+          사주거리에서는 자체 계산 엔진을 구성해 이용하고 있습니다. 해석 역시 이렇게
+          산출된 실제 데이터를 탄탄하게 근거 삼아 억부·조후 용신, 십성, 대운 같은 정통
+          명리학 이론에 따라 문장으로 풀어냅니다. 그래서 같은 사주라면 언제 보아도
+          일관된 기준으로 풀이됩니다.
+        </p>
+
+        <h2 className="font-serif text-lg font-bold text-[#1F3D34] mt-1">읽을거리와 용어 백과</h2>
+        <p className="text-[16px] text-[#1A1A18] leading-[1.85]">
+          사주를 처음 접하면 낯선 한자 용어에 &ldquo;이게 무슨뜻이야?&rdquo; 라고 하기 쉽습니다.
+          그래서 사주거리는 결과만 보여 주고 끝내지 않습니다. 사주란 무엇인지, 오행과
+          십성은 어떻게 읽는지부터 부족한 기운을 채우는 전통적인 방법, 같은 사주를 가진
+          사람이 왜 다른 삶을 사는지까지 주인장이 엮은{" "}
+          <Link href="/guide" className="underline decoration-[#C8743A]/40 underline-offset-2">읽을거리</Link>로
+          정리해 두었습니다. 비견·상관·도화살·역마살·용신·대운처럼 결과에 자주 등장하는
+          용어는{" "}
+          <Link href="/dictionary" className="underline decoration-[#C8743A]/40 underline-offset-2">용어 백과</Link>
+          {" "}항목들에서 하나씩 찾아볼 수 있습니다. 많은 분들이 궁금해 하시는{" "}
+          <Link href="/reference/samjae" className="underline decoration-[#C8743A]/40 underline-offset-2">삼재 표(띠별 삼재 연도표)</Link>와{" "}
+          <Link href="/reference/ganji" className="underline decoration-[#C8743A]/40 underline-offset-2">출생 연도별 띠·간지 확인표</Link>도
+          확인 가능합니다.
+        </p>
+
+        <h2 className="font-serif text-lg font-bold text-[#1F3D34] mt-1">결과를 대하는 태도</h2>
+        <p className="text-[16px] text-[#1A1A18] leading-[1.85]">
+          사주는 정해진 운명을 통보하는 것이 아니라, 타고난 기질과 삶의 리듬을 이해하는
+          지도에 가깝습니다. 같은 사주를 가진 사람이 또래 중에 수십 명씩 있지만 그들의 삶이
+          모두 같지 않다는 사실이 이를 잘 보여 줍니다. 강한 기운은 잘 살리고 부족한 기운은
+          채워 가는 방향으로 활용할 때 의미가 있습니다. 결국 의지와 실천을 이기는 사주는
+          없습니다. 사주거리가 제공하는 콘텐츠는 오락 및 참고 목적으로 제공되며, 법률·의료·재정
+          등 전문적 자문을 대체하지 않습니다. 사주거리에 오신 모든 분들이 사주와 운세의
+          재미를 느끼고 가시기를 바랍니다.
+        </p>
       </section>
 
       <SiteFooter />
