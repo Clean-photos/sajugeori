@@ -1,4 +1,6 @@
 import type { SampleReport } from "@/lib/sample-reports";
+import { cleanReportText } from "@/lib/report-format";
+import { ReportBody } from "./ReportBody";
 
 /**
  * 대각선으로 안내 문구를 반복 타일링하는 워터마크. 순수 CSS 배경(SVG 데이터
@@ -47,6 +49,8 @@ export function SamplePreview({ sample }: { sample: SampleReport }) {
         <span className="text-[10px] text-[#6B6661]">{sample.input}</span>
       </div>
 
+      {/* 실제 결제 후 보게 될 리포트와 같은 렌더러(ReportBody)를 쓴다 —
+          샘플에서 본 것과 실제 결과의 생김새가 달라 보이면 안 된다. */}
       <div className="relative px-4 py-3 flex flex-col gap-1">
         {sample.kind === "sections" ? (
           sample.sections.map((sec) => (
@@ -55,13 +59,13 @@ export function SamplePreview({ sample }: { sample: SampleReport }) {
                 <span>{sec.icon}</span>
                 <span className="text-sm font-semibold text-[#1F3D34]">{sec.label}</span>
               </div>
-              <p className="text-base text-[#1A1A18]/85 leading-relaxed whitespace-pre-wrap">{sec.text}</p>
+              <ReportBody text={cleanReportText(sec.text)} />
             </div>
           ))
         ) : (
-          sample.text.split("\n\n").map((block, i) => (
-            <p key={i} className="text-base text-[#1A1A18]/85 leading-relaxed whitespace-pre-wrap py-2">{block}</p>
-          ))
+          <div className="py-2">
+            <ReportBody text={cleanReportText(sample.text)} />
+          </div>
         )}
       </div>
 
