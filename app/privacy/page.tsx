@@ -43,6 +43,7 @@ export default function PrivacyPage() {
                 ["생년월일 · 태어난 시각", "사주 계산 (서비스 핵심 기능)"],
                 ["성별", "사주 계산 (대운 방향 결정)"],
                 ["소셜 로그인 시: 제공자 식별값", "카카오·Google 연동 계정 식별"],
+                ["오픈 알림 신청 시: 이메일 주소", "유료 서비스 오픈 알림 발송 (신청자에 한함)"],
               ].map(([item, purpose]) => (
                 <div key={item} className="flex gap-3">
                   <div className="w-1.5 h-1.5 rounded-full bg-[#C8743A] mt-1.5 flex-shrink-0" />
@@ -97,6 +98,10 @@ export default function PrivacyPage() {
               <div className="flex justify-between">
                 <span>유료 리포트 생성 결과</span>
                 <span className="font-medium text-[#1A1A18]">1년 (서비스 정책) — 자동 삭제</span>
+              </div>
+              <div className="flex justify-between">
+                <span>오픈 알림 신청 이메일</span>
+                <span className="font-medium text-[#1A1A18]">알림 발송 후 지체 없이 파기</span>
               </div>
             </div>
             <p className="text-[#6B6661] leading-relaxed mt-3">

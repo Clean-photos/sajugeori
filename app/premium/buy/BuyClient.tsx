@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { getPlan, REPORT_PRODUCTS } from "@/lib/billing/plans";
 import { Spinner } from "@/components/ui/Spinner";
+import { LaunchNotifyForm } from "@/components/premium/LaunchNotifyForm";
+import { CouponForm } from "@/components/premium/CouponForm";
 
 // Toss "기존 결제창"(API 개별연동, v1) SDK 타입 (최소).
 // 이 계정은 API 개별연동 상품이 자동결제(빌링)·기존 결제창·정산지급대행·
@@ -113,7 +115,9 @@ export function BuyClient({ planId, returnTo }: { planId: string; returnTo: stri
   }
 
   const benefits = BENEFITS[plan.id] ?? [];
-  const label = REPORT_PRODUCTS.find((r) => r.productId === plan.id)?.label ?? plan.name;
+  const reportProduct = REPORT_PRODUCTS.find((r) => r.productId === plan.id);
+  const label = reportProduct?.label ?? plan.name;
+  const isReportProduct = !!reportProduct;
 
   return (
     <div className="flex-1 px-5 py-7 max-w-sm mx-auto w-full flex flex-col gap-4">
@@ -141,12 +145,18 @@ export function BuyClient({ planId, returnTo }: { planId: string; returnTo: stri
         </button>
 
         {notice && (
-          <div className="mt-3 rounded-xl bg-[#1F3D34]/5 border border-[#1F3D34]/15 px-4 py-3">
-            <p className="text-sm font-medium text-[#1F3D34]">결제 시스템 준비 중입니다</p>
-            <p className="text-xs text-[#6B6661] mt-1 leading-relaxed">9월 중 오픈 예정입니다. 조금만 기다려 주세요.</p>
-          </div>
+          <>
+            <div className="mt-3 rounded-xl bg-[#1F3D34]/5 border border-[#1F3D34]/15 px-4 py-3">
+              <p className="text-sm font-medium text-[#1F3D34]">결제 시스템 준비 중입니다</p>
+              <p className="text-xs text-[#6B6661] mt-1 leading-relaxed">9월 중 오픈 예정입니다. 조금만 기다려 주세요.</p>
+            </div>
+            <LaunchNotifyForm />
+          </>
         )}
       </div>
+
+      {/* 쿠폰은 990원 리포트 6종 전용. 결제창을 타지 않으므로 오픈 전에도 쓸 수 있다. */}
+      {isReportProduct && <CouponForm productId={plan.id} returnTo={returnTo} />}
 
       {error && <p className="text-xs text-[#C0392B] px-1">{error}</p>}
 
