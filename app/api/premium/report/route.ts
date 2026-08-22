@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
   const userId = session.user.id;
 
   const { data: profile } = await supabaseAdmin
-    .from("saju_profiles").select("id, saju_json")
+    .from("saju_profiles").select("id, birth_date, saju_json")
     .eq("user_id", userId).eq("label", "본인")
     .order("created_at", { ascending: false }).limit(1).single();
 
@@ -61,7 +61,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "premium_required", redirect: "/premium/buy?product=saju_one" }, { status: 402 });
   }
 
-  const report = await generateReport(j);
+  const report = await generateReport(j, profile.birth_date);
   if (!report) {
     await finishAttemptFailed(started.attemptId, "빈 응답");
     return NextResponse.json({ error: "생성에 실패했습니다. 잠시 후 다시 시도해주세요." }, { status: 500 });

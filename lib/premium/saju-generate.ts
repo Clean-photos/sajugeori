@@ -50,8 +50,12 @@ async function callJSON<T>(prompt: string, maxTokens: number, label: string): Pr
   return JSON.parse(match[0]) as Partial<T>;
 }
 
-/** saju_json(Layer B)으로 프리미엄 사주 8개 섹션 리포트를 생성한다. */
-export async function generateReport(j: Record<string, unknown>): Promise<Report | null> {
+/**
+ * saju_json(Layer B)으로 프리미엄 사주 8개 섹션 리포트를 생성한다.
+ * birthDate("YYYY-MM-DD")를 주면 현재 나이와 현재 대운을 프롬프트에 명시한다 —
+ * 없으면 LLM이 현재 대운을 추정하다 틀린다(2026-08 실측: 37세인데 45~54세 구간으로 서술).
+ */
+export async function generateReport(j: Record<string, unknown>, birthDate?: string): Promise<Report | null> {
   const identity = j.identity as Record<string, string> | undefined;
   const personality = j.personality as { strengths?: string[]; weaknesses?: string[] } | undefined;
   const elements = j.elements as Record<string, number> | undefined;
@@ -61,8 +65,24 @@ export async function generateReport(j: Record<string, unknown>): Promise<Report
 
   const yongsin = (yongsinObj?.eokbu?.length ? yongsinObj.eokbu : yongsinObj?.johu) ?? [];
   const kaiun = yongsin.map((e) => elementGuide[e] ?? e).join(", ");
-  const earlyLuck = luckCycles.slice(0, 8)
-    .map((c) => `${c.start_age}~${c.end_age}세 ${c.ganji}(${c.favorability})`).join(", ");
+  const fmtCycle = (c: { start_age: number; end_age: number; ganji: string; favorability: string }) =>
+    `${c.start_age}~${c.end_age}세 ${c.ganji}(${c.favorability})`;
+  // 초년 8개만 넘기면 현재·앞으로의 대운이 잘려 나가 LLM이 지어낸다. 전 구간을 준다.
+  const allLuck = luckCycles.map(fmtCycle).join(", ");
+
+  // 현재 나이·현재 대운은 엔진이 이미 정확히 계산해 둔 값(current_phase)을 그대로 쓴다.
+  const currentAge = birthDate
+    ? new Date().getFullYear() - parseInt(birthDate.slice(0, 4), 10)
+    : null;
+  const phase = j.current_phase as { age_range?: string } | undefined;
+  const currentCycle =
+    (currentAge !== null
+      ? luckCycles.find((c) => currentAge >= c.start_age && currentAge <= c.end_age)
+      : undefined) ??
+    luckCycles.find((c) => `${c.start_age}-${c.end_age}` === phase?.age_range);
+  const nextCycle = currentCycle
+    ? luckCycles[luckCycles.indexOf(currentCycle) + 1]
+    : undefined;
 
   const summary = `
 일간: ${identity?.day_master ?? ""} / 강약: ${identity?.strength_label ?? ""}
@@ -71,9 +91,11 @@ export async function generateReport(j: Record<string, unknown>): Promise<Report
 약점: ${personality?.weaknesses?.slice(0, 4).join(", ") ?? ""}
 오행 분포: ${elements ? Object.entries(elements).map(([e, v]) => `${e}${v}`).join(" ") : ""}
 용신: ${yongsin.join(", ")} / 개운 장소: ${kaiun || "없음"}
-대운 흐름(초년~중년): ${earlyLuck || "없음"}
+대운 흐름(전 구간): ${allLuck || "없음"}
 핵심 태그: ${coreTags.map((t) => t.tag).join(", ")}
-현재 연도: ${new Date().getFullYear()}년
+현재 연도: ${new Date().getFullYear()}년${currentAge !== null ? ` / 현재 나이: 만 ${currentAge}세` : ""}
+현재 대운: ${currentCycle ? fmtCycle(currentCycle) : "정보 없음"}
+다음 대운: ${nextCycle ? fmtCycle(nextCycle) : "정보 없음"}
   `.trim();
 
   const frontPrompt = `당신은 명리학 대가입니다. 아래 사주 데이터로 유료 프리미엄 사주 풀이의 앞부분을 작성하세요.
@@ -101,10 +123,11 @@ ${summary}
 {
   "health": "건강. 오행 과부족 기반으로 주의할 신체 부위·습관.",
   "life_pattern": "인생에서 반복되는 패턴과 중요한 교훈.",
-  "current_phase": "현재 대운 시기의 의미와 앞으로 몇 년간의 흐름. 현재 나이 기준.",
+  "current_phase": "현재 대운 시기의 의미와 앞으로 몇 년간의 흐름.",
   "yearly": "향후 3년(올해 포함) 연도별 핵심 운세를 연도별로."
 }
-${COMMON_RULES}`;
+${COMMON_RULES}
+- current_phase는 위 데이터의 '현재 대운'에 적힌 나이 구간·간지를 그대로 써야 한다. 임의로 다른 구간을 현재 대운이라고 쓰지 말 것. 다음 대운을 언급할 때도 '다음 대운' 값을 그대로 쓸 것.`;
 
   try {
     // 실제 API로 재현 테스트한 결과 back 프롬프트가 3000 토큰 중 2936까지
