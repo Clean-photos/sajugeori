@@ -1,14 +1,22 @@
 /** LLM이 생성한 리포트 텍스트의 흔한 포맷 실수를 정리한다. 스트리밍/JSON 응답 모두 최종 텍스트에 적용. */
 export function cleanReportText(text: string): string {
-  // 빈 줄을 전부 지우고, 【 제목 】 줄 앞에만 빈 줄을 하나씩 다시 넣는다.
-  // 결과: 섹션 제목-본문은 붙고, 섹션과 섹션 사이만 한 줄 띄워진다.
-  const lines = text.split("\n").map((l) => l.trim()).filter((l) => l.length > 0);
+  // 프롬프트가 "문단은 2~3문장마다 끊고 빈 줄로 나눌 것"을 지시하므로 LLM은 실제로
+  // 빈 줄을 넣어 보낸다. 예전에는 여기서 그 빈 줄을 전부 지우고 【 제목 】 앞에만
+  // 다시 넣었는데, 그 탓에 문단이 전부 붙어 읽기 힘든 줄글이 됐다. 이제는 문단
+  // 구분을 보존하고(연속된 빈 줄은 하나로 정규화), 제목 앞에만 빈 줄을 보장한다.
+  const lines = text.split("\n").map((l) => l.trim());
   const out: string[] = [];
   for (const line of lines) {
+    if (line.length === 0) {
+      // 연속 빈 줄은 하나로. 맨 앞의 빈 줄은 버린다.
+      if (out.length > 0 && out[out.length - 1] !== "") out.push("");
+      continue;
+    }
     const isTitle = /^【.*】/.test(line);
-    if (isTitle && out.length > 0) out.push("");
+    if (isTitle && out.length > 0 && out[out.length - 1] !== "") out.push("");
     out.push(line);
   }
+  while (out.length > 0 && out[out.length - 1] === "") out.pop();
 
   return out
     .join("\n")

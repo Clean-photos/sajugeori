@@ -5,6 +5,7 @@ import { cleanReportText } from "@/lib/report-format";
 import { PrintButton, PrintReportFooter } from "@/components/premium/PrintReport";
 import { DeleteReportButton } from "@/components/premium/DeleteReportButton";
 import { WaitingCards } from "@/components/premium/WaitingCards";
+import { ReportBody } from "@/components/premium/ReportBody";
 
 type Step = "form" | "loading" | "result" | "deleted";
 
@@ -66,7 +67,7 @@ export function YearlyForm() {
               <span className="text-base">運</span>
               <span className="text-xs font-medium text-[#6B6661] tracking-wide">{year}년 프리미엄 연운세</span>
             </div>
-            <div className="text-base text-[#1A1A18] leading-relaxed whitespace-pre-wrap">{report}</div>
+            <ReportBody text={report} />
           </div>
           <PrintReportFooter />
         </div>

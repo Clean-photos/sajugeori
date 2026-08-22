@@ -7,6 +7,7 @@ import { TERMS } from "@/app/dictionary/terms";
 import { PrintButton, PrintReportFooter } from "@/components/premium/PrintReport";
 import { DeleteReportButton } from "@/components/premium/DeleteReportButton";
 import { WaitingCards } from "@/components/premium/WaitingCards";
+import { ReportBody } from "@/components/premium/ReportBody";
 
 type Step = "form" | "loading" | "result" | "deleted";
 type DetectedSal = { name: string; where: string[] };
@@ -94,7 +95,7 @@ export function SalpuriForm() {
               <span className="text-base">殺</span>
               <span className="text-xs font-medium text-[#6B6661] tracking-wide">프리미엄 살풀이</span>
             </div>
-            <div className="text-base text-[#1A1A18] leading-relaxed whitespace-pre-wrap">{report}</div>
+            <ReportBody text={report} highlight={sal.map((s) => s.name)} />
           </div>
 
           <div className="print-card bg-[#C8743A]/8 border border-[#C8743A]/25 rounded-2xl p-4 text-xs text-[#6B6661] leading-relaxed">

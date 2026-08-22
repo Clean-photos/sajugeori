@@ -6,6 +6,7 @@ import { cleanReportText } from "@/lib/report-format";
 import { PrintButton, PrintReportFooter } from "@/components/premium/PrintReport";
 import { DeleteReportButton } from "@/components/premium/DeleteReportButton";
 import { WaitingCards } from "@/components/premium/WaitingCards";
+import { ReportBody } from "@/components/premium/ReportBody";
 import { Spinner } from "@/components/ui/Spinner";
 import { DESTINY_UPGRADE } from "@/lib/billing/plans";
 
@@ -98,9 +99,7 @@ export function PremiumReport() {
               <span>{sec.icon}</span>
               <span className="text-sm font-semibold text-[#1B3A4B]">{sec.label}</span>
             </div>
-            <p className="text-base text-[#1A1A18] leading-relaxed whitespace-pre-wrap">
-              {report?.[sec.id] ?? "준비 중입니다."}
-            </p>
+            <ReportBody text={report?.[sec.id] ?? "준비 중입니다."} />
           </div>
         ))}
         <PrintReportFooter />
