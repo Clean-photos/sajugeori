@@ -20,6 +20,11 @@ export const metadata: Metadata = {
     types: { "application/rss+xml": "/rss.xml" },
   },
   appleWebApp: { capable: true, statusBarStyle: "default", title: "사주거리" },
+  // 네이버 서치어드바이저 사이트 소유확인. 홈 <head>에 있어야 확인이 통과된다.
+  // 확인이 끝난 뒤에도 지우면 소유권이 풀릴 수 있으니 그대로 둔다.
+  verification: {
+    other: { "naver-site-verification": "de69f8f44b8757c2821c8f6984606ccb27642297" },
+  },
   // openGraph/twitter에 title·description·url을 고정하면 canonical 때와 같은
   // 상속 문제로 전 페이지의 og가 홈 값으로 덮인다. 여기서는 공통 속성만 두고,
   // og:title/description은 각 페이지의 resolved title/description으로 폴백시킨다.
