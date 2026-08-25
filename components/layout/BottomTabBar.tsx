@@ -50,7 +50,7 @@ const TABS = [
   },
   {
     href: "/mypage",
-    label: "보관함",
+    label: "마이페이지",
     icon: (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
         <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/>
