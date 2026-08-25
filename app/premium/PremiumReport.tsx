@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { cleanReportText } from "@/lib/report-format";
-import { PrintButton, PrintReportFooter } from "@/components/premium/PrintReport";
+import { PrintReportFooter } from "@/components/premium/PrintReport";
+import { SaveReportButtons } from "@/components/premium/SaveReportButtons";
 import { DeleteReportButton } from "@/components/premium/DeleteReportButton";
 import { WaitingCards } from "@/components/premium/WaitingCards";
 import { ReportBody } from "@/components/premium/ReportBody";
@@ -177,7 +178,11 @@ export function PremiumReport({
         </p>
       </Link>
 
-      <PrintButton />
+      {/* 8개 섹션을 "제목 + 본문" 한 덩어리로 합쳐 복사·공유에 그대로 쓴다. */}
+      <SaveReportButtons
+        title="프리미엄 사주"
+        text={SECTIONS.map((sec) => `【 ${sec.label} 】\n${report?.[sec.id] ?? ""}`).join("\n\n")}
+      />
       <button
         onClick={() => { setShowForm(true); setError(""); }}
         className="no-print text-center text-xs text-[#6B6661] py-2 active:opacity-60"

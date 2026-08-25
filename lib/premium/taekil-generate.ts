@@ -29,7 +29,7 @@ async function callText(prompt: string, maxTokens: number): Promise<string> {
 
 /** 일진 스코어링 데이터로 프리미엄 택일 리포트 전문을 생성한다. */
 export async function generateTaekilReport(engineSummary: string, purposeLabel: string): Promise<string> {
-  const [front, back] = await Promise.all([
+  const [front, back, tips] = await Promise.all([
     callText(`당신은 명리학 택일 대가입니다. 아래는 실제 일진(日辰)을 계산해 산출한 택일 데이터입니다.
 이 데이터로 유료 프리미엄 택일 리포트의 앞부분을 작성하세요. 990원짜리 무료 버전과는 분량·깊이가 확연히
 달라야 합니다.
@@ -57,11 +57,21 @@ ${engineSummary}
 
 【 날짜별 우선순위 정리 】
 (추천 날짜들을 이 사람에게 가장 좋은 순서로 다시 한번 요약하고, 하나만 고른다면 어떤 기준으로 골라야 할지 4~5문장.)
+${COMMON_RULES}`, 2600),
+
+    // 실행 조언은 앞 섹션들과 독립적이라 따로 떼어 병렬로 돌린다 —
+    // 한 콜의 출력을 줄여 Vercel 60초 상한에 여유를 둔다(다른 리포트와 같은 이유).
+    callText(`당신은 명리학 택일 대가입니다. 아래는 실제 일진(日辰)을 계산해 산출한 택일 데이터입니다.
+이 데이터로 유료 프리미엄 택일 리포트의 마지막 부분을 작성하세요.
+
+${engineSummary}
+
+다음 형식으로 정확히 작성하세요:
 
 【 시간대·실행 조언 】
 (목적(${purposeLabel})에 맞는 실용적 조언 5~6문장. 당일 준비할 것, 피할 행동까지 구체적으로.)
-${COMMON_RULES}`, 3400),
+${COMMON_RULES}`, 2000),
   ]);
 
-  return [front, back].join("\n\n");
+  return [front, back, tips].join("\n\n");
 }

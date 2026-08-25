@@ -4,7 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { cleanReportText } from "@/lib/report-format";
 import { TERMS } from "@/app/dictionary/terms";
-import { PrintButton, PrintReportFooter } from "@/components/premium/PrintReport";
+import { PrintReportFooter } from "@/components/premium/PrintReport";
+import { SaveReportButtons } from "@/components/premium/SaveReportButtons";
 import { DeleteReportButton } from "@/components/premium/DeleteReportButton";
 import { WaitingCards } from "@/components/premium/WaitingCards";
 import { ReportBody } from "@/components/premium/ReportBody";
@@ -105,7 +106,7 @@ export function SalpuriForm() {
           <PrintReportFooter />
         </div>
 
-        <PrintButton />
+        <SaveReportButtons text={report} title="프리미엄 살풀이" />
         <button onClick={() => { setStep("form"); setReport(""); setSal([]); }}
           className="no-print text-sm text-[#6B6661] text-center py-2 active:opacity-60">
           다시 보기

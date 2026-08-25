@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { cleanReportText } from "@/lib/report-format";
-import { PrintButton, PrintReportFooter } from "@/components/premium/PrintReport";
+import { PrintReportFooter } from "@/components/premium/PrintReport";
+import { SaveReportButtons } from "@/components/premium/SaveReportButtons";
 import { DeleteReportButton } from "@/components/premium/DeleteReportButton";
 import { WaitingCards } from "@/components/premium/WaitingCards";
 import { ReportBody } from "@/components/premium/ReportBody";
@@ -122,7 +123,7 @@ export function PetForm() {
           <PrintReportFooter />
         </div>
 
-        <PrintButton />
+        <SaveReportButtons text={report} title="반려동물 궁합" />
         <button
           onClick={() => { setStep("form"); setReport(""); }}
           className="no-print text-sm text-[#6B6661] text-center py-2 active:opacity-60"
