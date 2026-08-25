@@ -98,46 +98,44 @@ export async function generateReport(j: Record<string, unknown>, birthDate?: str
 다음 대운: ${nextCycle ? fmtCycle(nextCycle) : "정보 없음"}
   `.trim();
 
-  const frontPrompt = `당신은 명리학 대가입니다. 아래 사주 데이터로 유료 프리미엄 사주 풀이의 앞부분을 작성하세요.
+  const buildPrompt = (fields: string, extraRule = "") => `당신은 명리학 대가입니다. 아래 사주 데이터로 유료 프리미엄 사주 풀이의 일부를 작성하세요.
 무료 버전보다 훨씬 깊고 구체적이어야 합니다.
 
 ${summary}
 
-다음 4개 항목을 JSON으로만 응답하세요. 각 값은 문자열이며, 항목당 4~6문장의 풍부한 풀이.
+다음 항목을 JSON으로만 응답하세요. 각 값은 문자열이며, 항목당 4~6문장의 풍부한 풀이.
 
 {
-  "personality": "타고난 성격·기질. 일간과 강약, 핵심 태그 근거로 깊이 있게.",
-  "career": "직업운. 어떤 분야·업무 스타일이 맞는지, 대운 흐름과 연결해 구체적으로.",
-  "money": "재물운. 재물을 모으는 방식, 주의할 시기, 오행 균형 관점.",
-  "love": "연애·결혼운. 관계에서의 강점과 약점, 어떤 상대와 맞는지."
+${fields}
 }
-${COMMON_RULES}`;
-
-  const backPrompt = `당신은 명리학 대가입니다. 아래 사주 데이터로 유료 프리미엄 사주 풀이의 뒷부분을 작성하세요.
-무료 버전보다 훨씬 깊고 구체적이어야 합니다.
-
-${summary}
-
-다음 4개 항목을 JSON으로만 응답하세요. 각 값은 문자열이며, 항목당 4~6문장의 풍부한 풀이.
-
-{
-  "health": "건강. 오행 과부족 기반으로 주의할 신체 부위·습관.",
-  "life_pattern": "인생에서 반복되는 패턴과 중요한 교훈.",
-  "current_phase": "현재 대운 시기의 의미와 앞으로 몇 년간의 흐름.",
-  "yearly": "향후 3년(올해 포함) 연도별 핵심 운세를 연도별로."
-}
-${COMMON_RULES}
-- current_phase는 위 데이터의 '현재 대운'에 적힌 나이 구간·간지를 그대로 써야 한다. 임의로 다른 구간을 현재 대운이라고 쓰지 말 것. 다음 대운을 언급할 때도 '다음 대운' 값을 그대로 쓸 것.`;
+${COMMON_RULES}${extraRule}`;
 
   try {
-    // 실제 API로 재현 테스트한 결과 back 프롬프트가 3000 토큰 중 2936까지
-    // 채워 거의 한계까지 육박했다(2026-08-20 실측) — 여유가 없어 응답이 조금만
-    // 길어져도 JSON이 중간에 잘려 파싱 실패로 이어진다. 여유를 넉넉히 둔다.
-    const [front, back] = await Promise.all([
-      callJSON<Report>(frontPrompt, 4200, "front"),
-      callJSON<Report>(backPrompt, 4200, "back"),
+    // 2콜(항목 4개씩)로는 한 콜의 출력이 3000토큰에 육박해 40~50초가 걸렸고,
+    // DB 왕복까지 더해지면 Vercel 60초 상한을 넘겨 생성이 통째로 실패했다
+    // (2026-08-25 실측: 캐시가 살아난 뒤에도 계속 타임아웃). 항목 2개씩 4콜로
+    // 쪼개 한 콜의 출력을 절반으로 줄인다 — 병렬이라 벽시계 시간은 가장 느린
+    // 콜 하나에만 좌우되므로, 쪼갤수록 총 소요 시간이 짧아진다.
+    const [p1, p2, p3, p4] = await Promise.all([
+      callJSON<Report>(buildPrompt(
+        `  "personality": "타고난 성격·기질. 일간과 강약, 핵심 태그 근거로 깊이 있게.",\n` +
+        `  "career": "직업운. 어떤 분야·업무 스타일이 맞는지, 대운 흐름과 연결해 구체적으로."`
+      ), 3600, "p1"),
+      callJSON<Report>(buildPrompt(
+        `  "money": "재물운. 재물을 모으는 방식, 주의할 시기, 오행 균형 관점.",\n` +
+        `  "love": "연애·결혼운. 관계에서의 강점과 약점, 어떤 상대와 맞는지."`
+      ), 3600, "p2"),
+      callJSON<Report>(buildPrompt(
+        `  "health": "건강. 오행 과부족 기반으로 주의할 신체 부위·습관.",\n` +
+        `  "life_pattern": "인생에서 반복되는 패턴과 중요한 교훈."`
+      ), 3600, "p3"),
+      callJSON<Report>(buildPrompt(
+        `  "current_phase": "현재 대운 시기의 의미와 앞으로 몇 년간의 흐름.",\n` +
+        `  "yearly": "향후 3년(올해 포함) 연도별 핵심 운세를 연도별로."`,
+        `\n- current_phase는 위 데이터의 '현재 대운'에 적힌 나이 구간·간지를 그대로 써야 한다. 임의로 다른 구간을 현재 대운이라고 쓰지 말 것. 다음 대운을 언급할 때도 '다음 대운' 값을 그대로 쓸 것.`
+      ), 3600, "p4"),
     ]);
-    const parsed = { ...front, ...back };
+    const parsed = { ...p1, ...p2, ...p3, ...p4 };
 
     const report = {} as Report;
     for (const k of SECTION_KEYS) report[k] = parsed[k]?.trim() || "데이터가 부족해 이 항목은 준비 중입니다.";

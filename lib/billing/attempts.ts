@@ -7,8 +7,11 @@ import { supabaseAdmin } from "@/lib/db/client";
  * 함수가 타임아웃으로 강제 종료돼 finishAttemptFailed를 부르지 못했다는 뜻이다.
  * 이 처리가 없으면 uq_pga_pending 때문에 그 사용자는 해당 상품을 영영 다시
  * 생성할 수 없다("이미 생성 중입니다"가 계속 뜬다).
+ *
+ * 60초(실행 상한) + 30초(여유)로 잡는다. 더 길게 잡으면 실패한 사용자가
+ * 재시도까지 그만큼 더 기다려야 한다.
  */
-const STALE_PENDING_MS = 3 * 60 * 1000;
+const STALE_PENDING_MS = 90 * 1000;
 
 function isStale(updatedAt: string | null | undefined): boolean {
   if (!updatedAt) return true;
