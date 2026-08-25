@@ -65,7 +65,7 @@ export default async function PremiumPage() {
           <PremiumReport />
         ) : (
           <div className="px-4 pt-6">
-            <Link href="/onboarding" className="block rounded-2xl bg-[#1B3A4B] text-white px-5 py-4 text-center text-sm font-semibold">
+            <Link href="/onboarding?next=%2Fpremium" className="block rounded-2xl bg-[#1B3A4B] text-white px-5 py-4 text-center text-sm font-semibold">
               풀이를 보려면 사주를 등록하세요
             </Link>
           </div>

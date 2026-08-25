@@ -109,7 +109,9 @@ export async function PremiumGate({
           {gate.kind === "onboarding" && (
             <>
               <p className="text-sm font-medium text-[#1A1A18]">먼저 사주를 등록해주세요</p>
-              <Link href="/onboarding" className="rounded-xl bg-[#C8743A] text-white px-6 py-3 text-sm font-semibold">사주 등록하기</Link>
+              {/* 등록을 마치면 홈이 아니라 원래 보려던 리포트로 돌려보낸다 —
+                  결제까지 마친 사람이 홈으로 떨어지면 흐름이 끊긴다. */}
+              <Link href={`/onboarding?next=${encodeURIComponent(path)}`} className="rounded-xl bg-[#C8743A] text-white px-6 py-3 text-sm font-semibold">사주 등록하기</Link>
             </>
           )}
 

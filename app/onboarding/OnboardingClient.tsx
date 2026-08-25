@@ -24,6 +24,11 @@ function OnboardingInner({ existingProfile }: { existingProfile: ExistingProfile
   const router = useRouter();
   const searchParams = useSearchParams();
   const from = searchParams.get("from");
+  // 등록 후 돌아갈 곳. 결제까지 마치고 사주 등록으로 넘어온 사람을 홈으로
+  // 떨어뜨리지 않기 위해 호출부가 next를 넘긴다. 외부 URL로 튕기지 않도록
+  // 사이트 내부 경로("/로 시작하되 //가 아닌")만 허용한다.
+  const nextParam = searchParams.get("next");
+  const nextPath = nextParam && /^\/(?!\/)/.test(nextParam) ? nextParam : null;
   // 등록된 사주가 있으면 먼저 그 사주를 보여주고, "다시 등록"을 눌러야 폼으로 들어간다.
   const [showForm, setShowForm] = useState(!existingProfile);
   const [step, setStep] = useState(0);
@@ -51,8 +56,10 @@ function OnboardingInner({ existingProfile }: { existingProfile: ExistingProfile
         }),
       });
       if (!res.ok) throw new Error("계산 실패");
-      // 사주거리 잠금에서 등록하러 온 경우만 사주거리로, 그 외 일반 등록은 홈으로
-      router.push(from === "street" ? "/street" : "/");
+      // next가 있으면 원래 보려던 화면으로, 사주거리 잠금에서 왔으면 사주거리로,
+      // 그 외 일반 등록은 홈으로.
+      router.push(nextPath ?? (from === "street" ? "/street" : "/"));
+      router.refresh();
     } catch {
       alert("오류가 발생했습니다. 다시 시도해주세요.");
     } finally {

@@ -64,7 +64,7 @@ export default async function DestinyPage() {
           <DestinyReport />
         ) : (
           <div className="px-4 pt-6">
-            <Link href="/onboarding" className="block rounded-2xl bg-[#1F3D34] text-white px-5 py-4 text-center text-sm font-semibold">
+            <Link href="/onboarding?next=%2Fpremium%2Fdestiny" className="block rounded-2xl bg-[#1F3D34] text-white px-5 py-4 text-center text-sm font-semibold">
               풀이를 보려면 사주를 등록하세요
             </Link>
           </div>
