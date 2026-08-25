@@ -1,5 +1,20 @@
 import { supabaseAdmin } from "@/lib/db/client";
 
+/**
+ * 이 시간이 지나도 pending인 시도는 죽은 것으로 본다.
+ *
+ * 리포트 라우트의 maxDuration이 60초라, 그 이상 pending으로 남아 있다는 건
+ * 함수가 타임아웃으로 강제 종료돼 finishAttemptFailed를 부르지 못했다는 뜻이다.
+ * 이 처리가 없으면 uq_pga_pending 때문에 그 사용자는 해당 상품을 영영 다시
+ * 생성할 수 없다("이미 생성 중입니다"가 계속 뜬다).
+ */
+const STALE_PENDING_MS = 3 * 60 * 1000;
+
+function isStale(updatedAt: string | null | undefined): boolean {
+  if (!updatedAt) return true;
+  return Date.now() - new Date(updatedAt).getTime() > STALE_PENDING_MS;
+}
+
 export type StartAttemptResult =
   | { ok: true; attemptId: string | null; input: Record<string, unknown> }
   | { ok: false; status: number; error: string };
@@ -27,13 +42,13 @@ export async function startAttempt(
     if (attemptId) {
       const { data, error } = await supabaseAdmin
         .from("premium_generation_attempts")
-        .select("id, input, status")
+        .select("id, input, status, updated_at")
         .eq("id", attemptId).eq("user_id", userId).eq("product_id", productId)
         .single();
       if (error || !data) {
         return { ok: false, status: 404, error: "재생성할 요청을 찾을 수 없습니다. 처음부터 다시 시도해주세요." };
       }
-      if (data.status === "pending") {
+      if (data.status === "pending" && !isStale(data.updated_at)) {
         return { ok: false, status: 409, error: "이미 생성 중입니다. 잠시 후 다시 시도해주세요." };
       }
       await supabaseAdmin
@@ -51,6 +66,23 @@ export async function startAttempt(
     if (error) {
       // uq_pga_pending 위반 = 같은 상품에 이미 진행 중인 시도가 있음(더블클릭 레이스)
       if (error.code === "23505") {
+        // 다만 타임아웃으로 죽은 채 남은 pending이면 이어받아 새로 진행한다.
+        const { data: stuck } = await supabaseAdmin
+          .from("premium_generation_attempts")
+          .select("id, updated_at")
+          .eq("user_id", userId).eq("product_id", productId).eq("status", "pending")
+          .order("updated_at", { ascending: true })
+          .limit(1)
+          .maybeSingle();
+
+        if (stuck?.id && isStale(stuck.updated_at)) {
+          await supabaseAdmin
+            .from("premium_generation_attempts")
+            .update({ input: freshInput, status: "pending", error_message: null, updated_at: new Date().toISOString() })
+            .eq("id", stuck.id);
+          console.warn("[attempt_takeover]", JSON.stringify({ userId, productId, attemptId: stuck.id }));
+          return { ok: true, attemptId: stuck.id, input: freshInput };
+        }
         return { ok: false, status: 409, error: "이미 생성 중입니다. 잠시 후 다시 시도해주세요." };
       }
       // 테이블 미생성 등 — 잠금 없이 통과(하위 호환)
