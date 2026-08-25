@@ -26,11 +26,16 @@ export default async function PremiumPage() {
   let subtitle = "내 사주 풀이";
   let hasProfile = false;
   let hasReport = false;   // 이미 생성해 둔 풀이(이용권 소진 후 재열람용)
+  // 입력 폼의 "입력된 사주 사용" 버튼에 쓸 요약
+  let savedSaju: { birth_date: string; birth_time: string | null; gender: string } | null = null;
   if (userId) {
     const { data: p } = await supabaseAdmin
-      .from("saju_profiles").select("id, saju_json")
+      .from("saju_profiles").select("id, saju_json, birth_date, birth_time, gender")
       .eq("user_id", userId).eq("label", "본인")
       .order("created_at", { ascending: false }).limit(1).single();
+    if (p?.birth_date) {
+      savedSaju = { birth_date: p.birth_date, birth_time: p.birth_time ?? null, gender: p.gender };
+    }
     if (p?.id) {
       try {
         const { count } = await supabaseAdmin
@@ -61,15 +66,8 @@ export default async function PremiumPage() {
       </header>
 
       {canView ? (
-        hasProfile ? (
-          <PremiumReport />
-        ) : (
-          <div className="px-4 pt-6">
-            <Link href="/onboarding?next=%2Fpremium" className="block rounded-2xl bg-[#1B3A4B] text-white px-5 py-4 text-center text-sm font-semibold">
-              풀이를 보려면 사주를 등록하세요
-            </Link>
-          </div>
-        )
+        // 사주가 없어도 다른 페이지로 보내지 않는다 — 리포트 화면에서 바로 입력받는다.
+        <PremiumReport hasProfile={hasProfile} saved={savedSaju} />
       ) : (
         <>
           <div className="px-4 pt-4">

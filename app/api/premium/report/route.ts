@@ -5,6 +5,7 @@ import { checkReportAccess, consumeOneTimePass } from "@/lib/billing/access";
 import { startAttempt, finishAttemptDone, finishAttemptFailed, discardAttempt } from "@/lib/billing/attempts";
 import { reportExpiresAtIso, notExpiredFilter } from "@/lib/billing/report-ttl";
 import { generateReport } from "@/lib/premium/saju-generate";
+import { runSajuEngine } from "@/lib/saju-engine";
 
 const PRODUCT_ID = "saju_one";
 
@@ -78,6 +79,121 @@ export async function GET(req: NextRequest) {
   } catch { /* noop */ }
 
   return NextResponse.json({ report, day_master: dayMaster, strength, cached: false });
+}
+
+/**
+ * POST /api/premium/report — 화면에서 사주를 직접 입력해 풀이를 받는다.
+ * body: { birth_date, birth_time|null, gender, calendar? }
+ *
+ * 등록된 사주가 없던 사람은 이 입력이 본인 프로필로 저장되고(온보딩과 동일),
+ * 이미 등록된 사주가 있는 사람은 프로필을 건드리지 않고 1회성으로 처리한다.
+ */
+export async function POST(req: NextRequest) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "login_required", redirect: "/login?redirect=/premium" }, { status: 401 });
+  }
+  const userId = session.user.id;
+
+  const body = await req.json().catch(() => ({}));
+  const birthDate = typeof body.birth_date === "string" ? body.birth_date : "";
+  const birthTime = typeof body.birth_time === "string" && body.birth_time ? body.birth_time : null;
+  const gender = body.gender === "M" || body.gender === "F" ? body.gender : "";
+  const calendar = body.calendar === "lunar" ? "lunar" : "solar";
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(birthDate) || !gender) {
+    return NextResponse.json({ error: "생년월일과 성별을 확인해주세요." }, { status: 400 });
+  }
+
+  let engine: ReturnType<typeof runSajuEngine>;
+  try {
+    engine = runSajuEngine({ birth_date: birthDate, birth_time: birthTime, calendar, gender });
+  } catch (e) {
+    return NextResponse.json({ error: e instanceof Error ? e.message : "사주 계산 오류" }, { status: 400 });
+  }
+
+  const j = engine.saju_json as Record<string, unknown>;
+  const identity = (j.identity ?? {}) as Record<string, string>;
+  const dayMaster = identity.day_master ?? "";
+  const strength = identity.strength_label ?? "";
+
+  // 등록된 본인 사주가 있는지로 "프로필 저장" / "1회성"이 갈린다.
+  const { data: existingProfile } = await supabaseAdmin
+    .from("saju_profiles").select("id")
+    .eq("user_id", userId).eq("label", "본인")
+    .order("created_at", { ascending: false }).limit(1).maybeSingle();
+
+  const timeKey = birthTime ?? "";
+
+  // 1회성인 경우 이미 만들어 둔 같은 조건의 리포트가 있으면 재사용한다(재열람 무료).
+  if (existingProfile?.id) {
+    try {
+      const { data: cached } = await supabaseAdmin
+        .from("premium_saju_adhoc_reports").select("content")
+        .eq("user_id", userId).eq("birth_date", birthDate)
+        .eq("birth_time", timeKey).eq("gender", gender)
+        .or(notExpiredFilter()).limit(1).maybeSingle();
+      if (cached?.content) {
+        return NextResponse.json({ report: cached.content, day_master: dayMaster, strength, cached: true, adhoc: true });
+      }
+    } catch { /* 테이블 없음 → 생성으로 진행 */ }
+  }
+
+  const started = await startAttempt(userId, PRODUCT_ID, undefined, { birth_date: birthDate, birth_time: timeKey, gender });
+  if (!started.ok) {
+    return NextResponse.json({ error: started.error }, { status: started.status });
+  }
+
+  const { allowed, passId } = await checkReportAccess(userId, PRODUCT_ID);
+  if (!allowed) {
+    await discardAttempt(started.attemptId);
+    return NextResponse.json({ error: "premium_required", redirect: "/premium/buy?product=saju_one" }, { status: 402 });
+  }
+
+  const report = await generateReport(j, birthDate);
+  if (!report) {
+    await finishAttemptFailed(started.attemptId, "빈 응답");
+    return NextResponse.json({ error: "생성에 실패했습니다. 잠시 후 다시 시도해주세요." }, { status: 500 });
+  }
+  if (passId) await consumeOneTimePass(passId);
+  await finishAttemptDone(started.attemptId);
+
+  if (existingProfile?.id) {
+    // 1회성 — 본인 프로필은 그대로 두고 별도 캐시에만 저장한다.
+    try {
+      await supabaseAdmin.from("premium_saju_adhoc_reports").upsert(
+        {
+          user_id: userId, birth_date: birthDate, birth_time: timeKey, gender,
+          content: report, expires_at: reportExpiresAtIso(),
+        },
+        { onConflict: "user_id,birth_date,birth_time,gender" }
+      );
+    } catch { /* noop */ }
+    return NextResponse.json({ report, day_master: dayMaster, strength, cached: false, adhoc: true });
+  }
+
+  // 등록된 사주가 없던 사람 — 이 입력을 본인 프로필로 저장하고 기존 캐시 경로를 쓴다.
+  const { data: created, error: profileError } = await supabaseAdmin
+    .from("saju_profiles")
+    .insert({
+      user_id: userId, label: "본인",
+      birth_date: birthDate, birth_time: birthTime, calendar, gender,
+      saju_raw: engine.saju_raw, saju_json: engine.saju_json, schema_version: 1,
+    })
+    .select("id")
+    .single();
+  if (profileError) console.error("saju_profiles insert error:", profileError);
+
+  if (created?.id) {
+    try {
+      await supabaseAdmin.from("premium_reports").upsert(
+        { saju_profile_id: created.id, user_id: userId, content: report, expires_at: reportExpiresAtIso() },
+        { onConflict: "saju_profile_id" }
+      );
+    } catch { /* noop */ }
+  }
+
+  return NextResponse.json({ report, day_master: dayMaster, strength, cached: false, savedProfile: true });
 }
 
 // DELETE /api/premium/report — 로그인 필수. 사용자가 자기 프리미엄 사주 결과를 직접 삭제.

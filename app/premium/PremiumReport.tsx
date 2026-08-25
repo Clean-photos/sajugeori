@@ -7,6 +7,7 @@ import { PrintButton, PrintReportFooter } from "@/components/premium/PrintReport
 import { DeleteReportButton } from "@/components/premium/DeleteReportButton";
 import { WaitingCards } from "@/components/premium/WaitingCards";
 import { ReportBody } from "@/components/premium/ReportBody";
+import { SajuInputForm, type SavedSaju } from "@/components/premium/SajuInputForm";
 import { Spinner } from "@/components/ui/Spinner";
 import { DESTINY_UPGRADE } from "@/lib/billing/plans";
 
@@ -23,12 +24,23 @@ const SECTIONS: { id: string; label: string; icon: string }[] = [
 
 type Report = Record<string, string>;
 
-export function PremiumReport() {
+export function PremiumReport({
+  hasProfile = true,
+  saved = null,
+}: {
+  /** 등록된 본인 사주가 있는지. 없으면 곧장 입력 폼을 띄운다. */
+  hasProfile?: boolean;
+  /** 등록된 사주 요약 — 입력 폼의 "입력된 사주 사용" 버튼에 쓴다. */
+  saved?: SavedSaju;
+} = {}) {
   const [report, setReport] = useState<Report | null>(null);
-  const [loading, setLoading] = useState(true);
+  // 등록된 사주가 없으면 조회할 게 없으므로 로딩 없이 바로 입력 폼부터 보여준다.
+  const [loading, setLoading] = useState(hasProfile);
   const [error, setError] = useState("");
   const [regenerating, setRegenerating] = useState(false);
   const [deleted, setDeleted] = useState(false);
+  const [showForm, setShowForm] = useState(!hasProfile);
+  const [submitting, setSubmitting] = useState(false);
 
   async function handleDelete() {
     const res = await fetch("/api/premium/report", { method: "DELETE" });
@@ -57,7 +69,48 @@ export function PremiumReport() {
     }
   }
 
-  useEffect(() => { load(false); }, []);
+  /** 화면에서 입력한 사주로 풀이를 만든다. 저장 규칙은 서버가 판단한다. */
+  async function submitSaju(v: { birth_date: string; birth_time: string | null; gender: string }) {
+    setSubmitting(true);
+    setError("");
+    try {
+      const res = await fetch("/api/premium/report", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(v),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data?.error ?? "풀이를 만들지 못했습니다.");
+        setSubmitting(false);
+        return;
+      }
+      const cleaned: Report = {};
+      for (const k of Object.keys(data.report ?? {})) cleaned[k] = cleanReportText(data.report[k]);
+      setReport(cleaned);
+      setShowForm(false);
+    } catch {
+      setError("풀이를 만들지 못했습니다.");
+    }
+    setSubmitting(false);
+  }
+
+  useEffect(() => { if (hasProfile) load(false); }, [hasProfile]);
+
+  if (showForm) {
+    return (
+      <>
+        {error && <p className="px-5 pt-4 text-xs text-[#C0392B]">{error}</p>}
+        <SajuInputForm saved={saved} busy={submitting} onSubmit={submitSaju} />
+        {submitting && (
+          <div className="px-4 pb-8 flex flex-col items-center gap-3">
+            <p className="text-xs text-[#9B968F]">처음 생성은 1분 정도 걸릴 수 있어요</p>
+            <WaitingCards />
+          </div>
+        )}
+      </>
+    );
+  }
 
   if (loading) {
     return (
@@ -125,6 +178,12 @@ export function PremiumReport() {
       </Link>
 
       <PrintButton />
+      <button
+        onClick={() => { setShowForm(true); setError(""); }}
+        className="no-print text-center text-xs text-[#6B6661] py-2 active:opacity-60"
+      >
+        다른 사주로 보기
+      </button>
       <button
         onClick={() => load(true)}
         disabled={regenerating}
