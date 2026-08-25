@@ -157,6 +157,14 @@ export function BuyClient({ planId, returnTo }: { planId: string; returnTo: stri
           {loading === plan.id ? "결제창 여는 중..." : ready ? `${plan.amount.toLocaleString()}원 결제하고 보기` : "준비 중..."}
         </button>
 
+        {/* 동의 전에는 버튼이 비활성이라 눌러도 아무 반응이 없다.
+            이유를 안 알려주면 "결제가 안 된다"로 오해하기 쉬워 안내를 띄운다. */}
+        {ready && !agreed && loading === null && (
+          <p className="mt-2 text-xs text-[#C0392B] text-center">
+            아래 청약철회 제한 동의에 체크하시면 결제가 진행됩니다.
+          </p>
+        )}
+
         {notice && (
           <>
             <div className="mt-3 rounded-xl bg-[#1F3D34]/5 border border-[#1F3D34]/15 px-4 py-3">
