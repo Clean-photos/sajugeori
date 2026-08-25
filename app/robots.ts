@@ -11,7 +11,18 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: "*",
         allow: "/",
-        disallow: ["/api/", "/mypage", "/onboarding", "/login", "/signup", "/reset-password", "/forgot-password"],
+        // /chemi/r/*(방 결과 페이지)는 참가자 실명 닉네임이 노출되고 12시간 뒤 삭제되는
+        // 휘발성 데이터라 색인되면 "12시간 후 소멸" 약속과 어긋난다. 색인 가치도 없다(2026-08-25).
+        disallow: [
+          "/api/",
+          "/mypage",
+          "/onboarding",
+          "/login",
+          "/signup",
+          "/reset-password",
+          "/forgot-password",
+          "/chemi/r/",
+        ],
       },
     ],
     host: SITE_URL,
