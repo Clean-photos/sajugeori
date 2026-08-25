@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { supabaseAdmin } from "@/lib/db/client";
-import { getPlan, BUNDLE_CREDITS } from "@/lib/billing/plans";
-import { ANY_REPORT_PASS } from "@/lib/billing/access";
+import { getPlan } from "@/lib/billing/plans";
+import { fulfillPayment } from "@/lib/billing/fulfill";
 
 // POST /api/payments/confirm
 // Toss Payments 결제 승인 → 구독 활성화
@@ -62,68 +61,17 @@ export async function POST(req: NextRequest) {
     approvedAt: payment.approvedAt, method: payment.method,
   }));
 
-  // 단건 이용권: 소진형 구매 기록만 남긴다 (구독 아님)
-  if (plan.kind === "one_time") {
-    // 묶음권은 아무 리포트에나 쓸 수 있는 이용권을 장수만큼 발급한다.
-    // 단품은 해당 리포트 전용 이용권 1장.
-    const credits = BUNDLE_CREDITS[plan.id] ?? 1;
-    const productId = credits > 1 ? ANY_REPORT_PASS : plan.id;
-    const rows = Array.from({ length: credits }, (_, i) => ({
-      user_id: userId,
-      product_id: productId,
-      amount: plan.amount,
-      // order_id에 unique 제약이 있어 묶음권은 장별로 접미사를 붙인다
-      order_id: credits > 1 ? `${orderId}-${i + 1}` : orderId,
-      payment_key: paymentKey,
-    }));
-
-    const { error } = await supabaseAdmin.from("one_time_purchases").insert(rows);
-    if (error) {
-      // 23505 = order_id UNIQUE 충돌 = 같은 결제가 이미 기록돼 있다는 뜻
-      // (성공 후 페이지 새로고침·중복 요청 등). 실패가 아니라 이미 처리된 결제이므로
-      // 성공으로 응답한다 — 안 그러면 정상 결제인데도 "저장 실패" 화면을 보게 된다.
-      if (error.code === "23505") {
-        console.log("[payment_duplicate_confirm]", JSON.stringify({ userId, orderId, paymentKey }));
-        return NextResponse.json({ ok: true, plan: plan.id, kind: "one_time", credits, duplicate: true });
-      }
-      // 그 외 진짜 저장 실패 — 승인된 결제(위 로그 참고)이므로 문의 시 orderId로 대사 가능
-      console.error("[payment_save_failed]", JSON.stringify({ userId, orderId, paymentKey, dbError: error }));
-      return NextResponse.json(
-        { error: "결제는 확인되었으나 처리 중 문제가 발생했습니다.", orderId, stage: "save", charged: true },
-        { status: 500 }
-      );
-    }
-    return NextResponse.json({ ok: true, plan: plan.id, kind: "one_time", credits });
+  // 이용권 발급/구독 연장은 웹훅 복구 경로와 공유한다(lib/billing/fulfill.ts).
+  const result = await fulfillPayment({ userId, planId: plan.id, orderId, paymentKey });
+  if (!result.ok) {
+    return NextResponse.json(
+      { error: "결제는 확인되었으나 처리 중 문제가 발생했습니다.", orderId, stage: "save", charged: true },
+      { status: 500 }
+    );
+  }
+  if (result.duplicate) {
+    console.log("[payment_duplicate_confirm]", JSON.stringify({ userId, orderId, paymentKey }));
   }
 
-  // 구독 활성화 (단건 → expires_at = now + plan.days)
-  const expiresAt = new Date(Date.now() + plan.days * 24 * 60 * 60 * 1000).toISOString();
-
-  // 기존 active 구독이 있으면 만료일 연장, 없으면 새로 삽입
-  const { data: existing } = await supabaseAdmin
-    .from("subscriptions")
-    .select("id, expires_at, status")
-    .eq("user_id", userId)
-    .eq("status", "active")
-    .order("expires_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (existing) {
-    // 남은 기간이 있으면 그 위에 더해 연장
-    const base = existing.expires_at && new Date(existing.expires_at).getTime() > Date.now()
-      ? new Date(existing.expires_at).getTime()
-      : Date.now();
-    const extended = new Date(base + plan.days * 24 * 60 * 60 * 1000).toISOString();
-    await supabaseAdmin
-      .from("subscriptions")
-      .update({ plan: plan.id, expires_at: extended, status: "active", order_id: orderId, payment_key: paymentKey })
-      .eq("id", existing.id);
-  } else {
-    await supabaseAdmin
-      .from("subscriptions")
-      .insert({ user_id: userId, status: "active", plan: plan.id, expires_at: expiresAt, order_id: orderId, payment_key: paymentKey });
-  }
-
-  return NextResponse.json({ ok: true, plan: plan.id, expires_at: expiresAt });
+  return NextResponse.json({ ok: true, plan: plan.id, duplicate: result.duplicate ?? false });
 }

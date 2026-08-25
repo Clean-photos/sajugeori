@@ -87,13 +87,26 @@ export function BuyClient({ planId, returnTo }: { planId: string; returnTo: stri
     if (!tossRef.current || !plan) return;
     setLoading(plan.id);
     setError("");
-    const orderId = `order_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
     const origin = window.location.origin;
     try {
+      // 주문을 서버에 먼저 남긴다. 금액·주문번호는 서버가 정한 값을 그대로 쓴다 —
+      // 이 기록이 있어야 리다이렉트가 유실돼도 웹훅으로 결제를 복구할 수 있다.
+      const res = await fetch("/api/payments/prepare", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ planId: plan.id }),
+      });
+      const prepared = await res.json();
+      if (!res.ok) {
+        setLoading(null);
+        setError(prepared?.error ?? "결제를 시작할 수 없습니다.");
+        return;
+      }
+
       await tossRef.current.requestPayment("카드", {
-        amount: plan.amount,
-        orderId,
-        orderName: plan.name,
+        amount: prepared.amount,
+        orderId: prepared.orderId,
+        orderName: prepared.orderName,
         successUrl: `${origin}/premium/success?planId=${plan.id}&next=${encodeURIComponent(returnTo)}`,
         failUrl: `${origin}/premium/fail`,
       });
