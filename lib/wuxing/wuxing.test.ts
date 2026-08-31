@@ -24,6 +24,11 @@ import {
   RELATIONS,
   relationDict,
 } from "./relation";
+import { buildSeunPrescription, classifySeunCase } from "./seun-prescription";
+import { buildDiagnosis } from "./diagnosis";
+import { wuxingBannerCopy, FILL_ARTICLE_ELEMENT } from "./banner";
+import seunCopyPoolsJson from "./seun-copy.json";
+const seunCopyPools = seunCopyPoolsJson.cases as Record<string, { status: string[]; guideline: string[] }>;
 
 let passed = 0;
 const failures: string[] = [];
@@ -378,6 +383,140 @@ for (const c of CASES) {
 
   // 관계 유형별 적용 4종 (배우자·동업자·상사·친구)
   eq("관계 유형 4종", relationDict.people.byRelationType.map((r) => r.type), ["배우자·연인", "동업자", "상사·조직", "친구"]);
+}
+
+// ── 3년 세운 처방 (§10-5) ────────────────────────────────────────────
+{
+  // 케이스 판정 순수 함수 — 우선순위 A > B > D > C > E (문서 §1-3)
+  eq("Y=L → A (직접 일치가 최우선)", classifySeunCase("水", "木", "水", ["水"]), "A");
+  eq("Y=X → B (과다와 일치)", classifySeunCase("火", "木", "水", ["火"]), "B");
+  eq("Y 생 L → C", classifySeunCase("金", "木", "水", []), "C"); // 금생수
+  eq("Y 극 L → D", classifySeunCase("土", "木", "水", []), "D"); // 토극수
+  eq("무관 → E", classifySeunCase("木", "木", "水", []), "E"); // 목은 수와 생극 무관(비겁 관계는 세운엔 해당 없음)
+  eq("primary 없음(균형형) → A/C/D 성립 불가, E로", classifySeunCase("金", "木", null, []), "E");
+  eq("primary 없음 + 과다 일치 → B는 성립", classifySeunCase("火", "木", null, ["火"]), "B");
+  // 문서 §1-3 예시: Y가 부족 오행이면서 동시에 과다 오행을 생하는 경우도 A
+  eq("Y=L 이면서 Y가 과다를 생해도 A가 우선", classifySeunCase("水", "木", "水", ["木"]), "A");
+  // 두 오행(천간·지지)이 섞인 해 — 하나만 맞아도 그 케이스
+  eq("지지만 L과 일치해도 A", classifySeunCase("金", "水", "水", []), "A");
+
+  for (const c of CASES) {
+    const chart = buildChart(c.iso, c.gender, c.hasHour);
+    const cls = classify(chart);
+    const plan = buildSeunPrescription(chart, cls, 2026);
+
+    eq(`[${c.name}] 세운 3년`, plan.years.length, 3);
+    for (const y of plan.years) {
+      check(`[${c.name}] ${y.year} 케이스는 5종 중 하나`, ["A", "B", "C", "D", "E"].includes(y.seunCase));
+      check(`[${c.name}] ${y.year} incoming 1~2개`, y.incoming.length >= 1 && y.incoming.length <= 2);
+      check(`[${c.name}] ${y.year} statusLine 존재`, y.statusLine.length > 0);
+      check(`[${c.name}] ${y.year} guidelineLine 존재`, y.guidelineLine.length > 0);
+      // 고정 풀에서만 뽑혔는지 — 임의 생성 금지(§1-8) 확인
+      const pool = seunCopyPools[y.seunCase];
+      check(`[${c.name}] ${y.year} status는 고정 풀 소속`, pool.status.includes(y.statusLine));
+      check(`[${c.name}] ${y.year} guideline은 고정 풀 소속`, pool.guideline.includes(y.guidelineLine));
+      check(`[${c.name}] ${y.year} 우선 항목 3개 이하`, y.priorityItems.length <= 3);
+      check(`[${c.name}] ${y.year} 피할 것 2개 이하`, y.avoidItems.length <= 2);
+      check(`[${c.name}] ${y.year} 우선 항목에 실행란 존재`, y.priorityItems.every((it) => !!it.action));
+    }
+    check(`[${c.name}] 대운 안내는 교체·배경 동시 성립 안 함`, !(plan.daewoonNote.background && plan.daewoonNote.transition));
+    if (plan.daewoonNote.transition) {
+      check(`[${c.name}] 전환 안내는 연도를 못 박지 않음(나이만)`, /\d+세 무렵/.test(plan.daewoonNote.transition));
+      check(`[${c.name}] 전환 안내에 4자리 연도 없음`, !/\d{4}/.test(plan.daewoonNote.transition));
+    }
+
+    // 결정성
+    const plan2 = buildSeunPrescription(chart, cls, 2026);
+    eq(`[${c.name}] 세운 처방 결정적`, JSON.stringify(plan), JSON.stringify(plan2));
+  }
+
+  // A케이스는 3년 창에서 대운이 바뀐다(37세) — 전환 안내 문구 확인
+  {
+    const chart = buildChart(CASES[0].iso, "M", true);
+    const plan = buildSeunPrescription(chart, classify(chart), 2026);
+    eq("[A] 전환 안내", plan.daewoonNote.transition, "37세 무렵 대운이 乙酉(을유)로 바뀝니다");
+  }
+  // C케이스는 3년 내내 같은 대운
+  {
+    const chart = buildChart(CASES[2].iso, "F", true);
+    const plan = buildSeunPrescription(chart, classify(chart), 2026);
+    eq("[C] 배경 안내", plan.daewoonNote.background, "지금은 戊戌(무술) 대운 안입니다");
+  }
+
+  // D케이스 우선 항목은 회피 1개를 낄 과다 오행이 없어도 항상 3개(폴백 확인)
+  {
+    const chart = buildChart(CASES[0].iso, "M", true); // A는 excessive=[]
+    const cls = classify(chart);
+    eq("[A] 과다 오행 없음(폴백 검증 전제)", cls.excessive.length, 0);
+    const plan = buildSeunPrescription(chart, cls, 2026);
+    const dYear = plan.years.find((y) => y.seunCase === "D");
+    check("[A] D케이스 연도 존재(폴백 검증 전제)", !!dYear);
+    if (dYear) eq("[A] D케이스도 우선 항목 3개(과다 오행 없어도)", dYear.priorityItems.length, 3);
+  }
+}
+
+// ── 한 줄 진단 (§10-5) ───────────────────────────────────────────────
+{
+  for (const c of CASES) {
+    const chart = buildChart(c.iso, c.gender, c.hasHour);
+    const cls = classify(chart);
+    const dx = buildDiagnosis(chart, cls);
+
+    check(`[${c.name}] 헤드라인은 굵게(** **) 감싸짐`, dx.headline.startsWith("**") && dx.headline.endsWith("**"));
+    check(`[${c.name}] facts 1개 이상`, dx.facts.length > 0);
+    eq(`[${c.name}] pattern은 classify 패턴과 대응`, dx.pattern, cls.pattern === "extreme" ? "extreme" : cls.pattern === "biased" ? "biased2" : cls.primary ? "scarce1" : "balanced");
+
+    // 결정성
+    const dx2 = buildDiagnosis(chart, cls);
+    eq(`[${c.name}] 진단 결정적`, JSON.stringify(dx), JSON.stringify(dx2));
+  }
+
+  // 극단형 헤드라인 — 표본에서 찾은 극단형 사주로 형식 확인
+  {
+    let found: { chart: ReturnType<typeof buildChart>; cls: ReturnType<typeof classify> } | null = null;
+    outer2: for (let y = 1970; y <= 2005 && !found; y++) {
+      for (let m = 1; m <= 12; m++) {
+        for (const d of [3, 11, 19, 27]) {
+          const iso = `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}T09:00:00`;
+          const chart = buildChart(iso, "M", true);
+          const cls = classify(chart);
+          if (cls.pattern === "extreme") { found = { chart, cls }; break outer2; }
+        }
+      }
+    }
+    check("극단형 표본 존재", !!found);
+    if (found) {
+      const dx = buildDiagnosis(found.chart, found.cls);
+      eq("극단형 pattern", dx.pattern, "extreme");
+      check("극단형 헤드라인에 '하나로 강하게 모인'", dx.headline.includes("하나로 강하게 모인"));
+      check("극단형 relation 존재", dx.relation !== null);
+    }
+  }
+
+  // 받침 있는 오행(목·금)의 조사가 "가/와"로 잘못 나가지 않는지 — 실측 케이스로 확인
+  // (A: primary=木 단독 → "목이", B: primary=木+secondary=火 → "목과", C: primary=金 단독 → "금이")
+  {
+    // 괄호 뒤에 조사가 붙는 형태라 "木(목)이"처럼 실제로는 "목)이"로 이어진다
+    const a = buildDiagnosis(buildChart(CASES[0].iso, "M", true), classify(buildChart(CASES[0].iso, "M", true)));
+    check("[A] 목 받침 조사 '이' 사용, '가' 없음", a.headline.includes("목)이") && !a.headline.includes("목)가"));
+    const b = buildDiagnosis(buildChart(CASES[1].iso, "F", false), classify(buildChart(CASES[1].iso, "F", false)));
+    check("[B] 목 받침 조사 '과' 사용, '와' 없음", b.headline.includes("목)과") && !b.headline.includes("목)와"));
+    const cc = buildDiagnosis(buildChart(CASES[2].iso, "F", true), classify(buildChart(CASES[2].iso, "F", true)));
+    check("[C] 금 받침 조사 '이' 사용, '가' 없음", cc.headline.includes("금)이") && !cc.headline.includes("금)가"));
+  }
+}
+
+// ── /guide/fill-* 배너 (§10-5) ───────────────────────────────────────
+{
+  eq("배너 대상 5편", Object.keys(FILL_ARTICLE_ELEMENT).sort(), ["fill-earth", "fill-fire", "fill-metal", "fill-water", "fill-wood"].sort());
+  for (const [slug, el] of Object.entries(FILL_ARTICLE_ELEMENT)) {
+    const copy = wuxingBannerCopy(el);
+    check(`[${slug}] title에 오행명 포함`, copy.title.includes(C.ELEMENT_KR[el]));
+    check(`[${slug}] body에 오행명 포함`, copy.body.includes(C.ELEMENT_KR[el]));
+    check(`[${slug}] cta 문구 확정본과 일치`, copy.cta === "내 사주로 확인하기 · 990원");
+    check(`[${slug}] subCta 확정본과 일치`, copy.subCta === "부족 여부 판정 · 3년 세운 처방 · 어떤 사람이 맞는지까지");
+    check(`[${slug}] href는 프리미엄 라우트`, copy.href.startsWith("/premium/"));
+  }
 }
 
 // ── 결과 ───────────────────────────────────────────────────────────

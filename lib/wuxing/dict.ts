@@ -124,3 +124,20 @@ export function elementItemCount(el: Element): number {
   const d = dict.elements[el];
   return AXES.reduce((s, ax) => s + d.axes[ax].length, 0);
 }
+
+const AVOID_PATTERN = /줄이기|회피|자제|피하기/;
+
+/**
+ * "~줄이기·~회피" 계열 항목만 6축 전체에서 모은다 (세운 처방 §1-6 "피할 것" 소스).
+ * 어느 오행에나 6개 안팎 있어 limit=2를 채우기에 항상 충분하다(검증됨).
+ */
+export function avoidanceItems(el: Element, limit: number): DictItem[] {
+  const out: DictItem[] = [];
+  for (const ax of AXES) {
+    for (const it of dict.elements[el].axes[ax]) {
+      if (AVOID_PATTERN.test(it.item)) out.push(it);
+      if (out.length >= limit) return out;
+    }
+  }
+  return out;
+}
