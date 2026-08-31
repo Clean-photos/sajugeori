@@ -12,6 +12,7 @@ import * as C from "../saju-engine/constants";
 import { countElements, isHiddenOnly, isTrulyAbsent } from "./count";
 import { classify, THRESHOLD, generatorOf, controllerOf } from "./classify";
 import { buildSeunPlan } from "./seun";
+import { elementDict, pickAxisItems, totalItemCount, AXES } from "./dict";
 
 let passed = 0;
 const failures: string[] = [];
@@ -189,6 +190,81 @@ for (const c of CASES) {
   const a = classify(buildChart(c.iso, c.gender, c.hasHour));
   const b = classify(buildChart(c.iso, c.gender, c.hasHour));
   check(`[${c.name}] 판정 결정적`, JSON.stringify(a) === JSON.stringify(b));
+}
+
+// ── A층 사전 (§10-2) ───────────────────────────────────────────────
+{
+  const strengthTally: Record<string, number> = { A: 0, B: 0, C: 0 };
+  let total = 0;
+
+  for (const el of C.ELEMENTS) {
+    const d = elementDict(el);
+    check(`[${el}] label 존재`, d.label.length > 0);
+    check(`[${el}] 보조 오행 = 이 오행을 생하는 오행`, C.GENERATES[d.supportElement] === el, `${d.supportElement} → ${C.GENERATES[d.supportElement]}`);
+
+    for (const ax of AXES) {
+      const items = d.axes[ax];
+      check(`[${el}.${ax}] 항목 5개 이상`, items.length >= 5, `${items.length}개`);
+      for (const it of items) {
+        total++;
+        strengthTally[it.strength]++;
+        check(`[${el}.${ax}] 항목·근거·실행 모두 있음`, !!it.item && !!it.basis && !!it.action, JSON.stringify(it));
+        check(`[${el}.${ax}] 강도는 A/B/C`, ["A", "B", "C"].includes(it.strength), it.strength);
+      }
+    }
+    // 설기
+    check(`[${el}] 설기 항목 5개`, d.drain.items.length === 5, `${d.drain.items.length}개`);
+    for (const it of d.drain.items) {
+      total++;
+      strengthTally[it.strength]++;
+      check(`[${el}] 설기 항목·근거 있음`, !!it.item && !!it.basis);
+    }
+    // 설기 방향 — self면 반드시 "이 오행이 생하는 오행"이어야 한다
+    if (d.drain.scope === "self") {
+      eq(`[${el}] 설기 방향 = ${el}이 생하는 오행`, d.drain.target, C.GENERATES[el]);
+    }
+  }
+
+  eq("사전 총 항목 수 217", totalItemCount(), 217);
+  eq("총계는 순회 합계와 일치", total, 217);
+
+  // 근거 강도 A가 40%를 넘으면 안 된다 (§3-⑤ — 전부 단정하지 않는 것이 신뢰를 만든다)
+  const aRatio = strengthTally.A / total;
+  check("강도 A 비중 40% 이하", aRatio <= 0.4, `${(aRatio * 100).toFixed(1)}%`);
+  console.log(`  사전 강도 분포: A ${strengthTally.A} / B ${strengthTally.B} / C ${strengthTally.C} (총 ${total})`);
+
+  // 결정 ① 목편 색 — 청색·청록이 1순위, 초록은 병행. "짙은 파랑"은 수편과 겹치므로 금지
+  const woodColor = elementDict("木").axes.color;
+  check("[결정①] 목 색 1순위에 청록", woodColor[0].item.includes("청록"), woodColor[0].item);
+  check("[결정①] 목 색에 '짙은 파랑' 없음 (수편 감청과 색역 충돌)", !woodColor.some((i) => i.item.includes("짙은 파랑")));
+  check("[결정①] 초록은 병행 표기", woodColor.some((i) => i.item.includes("초록") && i.item.includes("병행")));
+
+  // 결정 ② 토편 방위 — 간방 유지 + 유파 단서 병기, 강도 C
+  const earthDir = elementDict("土").axes.direction.find((i) => i.item.includes("남서"))!;
+  check("[결정②] 토 간방 항목 유지", !!earthDir);
+  check("[결정②] 유파 단서 병기", earthDir.basis.includes("유파에 따라 갈리며"), earthDir.basis);
+  eq("[결정②] 강도 C", earthDir.strength, "C");
+
+  // 결정 ③ 누락 5건 + 토편 꿀 제거
+  check("[결정③] 수 색축에 하늘색·청록 배제 안내", elementDict("水").axes.color.some((i) => i.item.includes("하늘색") && i.item.includes("수가 아니다")));
+  check("[결정③] 수 소재축에 고인 물 관리 단서", elementDict("水").axes.material.some((i) => i.basis.includes("고인 물")));
+  check("[결정③] 화 행동축에 햇볕 쬐기 신설", elementDict("火").axes.habit.some((i) => i.item.includes("햇볕")));
+  check("[결정③] 화 색축에 분홍", elementDict("火").axes.color.some((i) => i.item.includes("분홍")));
+  check("[결정③] 화 음식축에 팥", elementDict("火").axes.food.some((i) => i.item.includes("팥")));
+  check("[결정③] 금 음식축에 양파", elementDict("金").axes.food.some((i) => i.item.includes("양파")));
+  check("[결정③] 금 음식축에 백김치", elementDict("金").axes.food.some((i) => i.item.includes("백김치")));
+  check("[결정③] 토 음식축에서 꿀 제거", !elementDict("土").axes.food.some((i) => i.item.includes("꿀")));
+
+  // 수편 설기는 성격이 다르다 — "수 과다"가 아니라 "화 과다 동반" 처방임이 명시돼야 한다
+  eq("수편 설기 scope", elementDict("水").drain.scope, "companion-fire");
+  check("수편 설기에 성격 차이 명시", elementDict("水").drain.principle.includes("수가 과다할 때"));
+
+  // 압축 헬퍼 (§5 A층 1장 압축)
+  const top3 = pickAxisItems("水", "food", 3);
+  eq("압축: 기본은 원본 순서 상위 3개", top3.map((i) => i.item), elementDict("水").axes.food.slice(0, 3).map((i) => i.item));
+  const byStrength = pickAxisItems("水", "food", 3, { byStrength: true });
+  check("압축: 강도순은 A가 먼저", byStrength[0].strength === "A");
+  eq("압축: limit 초과 요청은 있는 만큼만", pickAxisItems("水", "color", 99).length, elementDict("水").axes.color.length);
 }
 
 // ── 결과 ───────────────────────────────────────────────────────────
