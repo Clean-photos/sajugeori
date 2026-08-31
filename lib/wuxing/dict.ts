@@ -42,8 +42,9 @@ export interface ElementAttributes {
 
 export interface DrainBlock {
   /**
-   * "self" = 이 오행 자체가 과다할 때의 설기.
-   * "companion-fire" = 수편 전용. 수 부족에 화 과다가 동반될 때의 처방이라 성격이 다르다.
+   * "self" = 이 오행 자체가 과다할 때의 설기. 5오행 모두 가진다.
+   * "companion-fire" = 수편 전용 `companionDrain`. 수 부족에 화 과다가 동반될 때의
+   *   처방이라 성격이 다르다 — 과다 오행 설기로 오용하면 안 된다.
    */
   scope: "self" | "companion-fire";
   target: Element;
@@ -58,7 +59,13 @@ export interface ElementDict {
   supportElement: Element;
   supportNote: string;
   axes: Record<Axis, DictItem[]>;
+  /** 이 오행이 과다할 때의 설기 — 5오행 모두 가진다 */
   drain: DrainBlock;
+  /**
+   * 수편에만 있는 별도 블록. 수 부족은 화 과다와 동반되는 경우가 많아, 채우는 것만으로는
+   * 부족할 때 쓰는 화 설기 처방이다. 수가 과다할 때 쓰는 것이 아니다.
+   */
+  companionDrain?: DrainBlock;
 }
 
 export interface WuxingDict {
