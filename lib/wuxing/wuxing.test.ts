@@ -13,6 +13,17 @@ import { countElements, isHiddenOnly, isTrulyAbsent } from "./count";
 import { classify, THRESHOLD, generatorOf, controllerOf } from "./classify";
 import { buildSeunPlan } from "./seun";
 import { elementDict, pickAxisItems, totalItemCount, AXES } from "./dict";
+import {
+  computeRelation,
+  relationEntry,
+  axisPriority,
+  peopleAxisIsPrimary,
+  adjustForStrength,
+  partnerGuide,
+  observationGuide,
+  RELATIONS,
+  relationDict,
+} from "./relation";
 
 let passed = 0;
 const failures: string[] = [];
@@ -255,9 +266,19 @@ for (const c of CASES) {
   check("[결정③] 금 음식축에 백김치", elementDict("金").axes.food.some((i) => i.item.includes("백김치")));
   check("[결정③] 토 음식축에서 꿀 제거", !elementDict("土").axes.food.some((i) => i.item.includes("꿀")));
 
-  // 수편 설기는 성격이 다르다 — "수 과다"가 아니라 "화 과다 동반" 처방임이 명시돼야 한다
-  eq("수편 설기 scope", elementDict("水").drain.scope, "companion-fire");
-  check("수편 설기에 성격 차이 명시", elementDict("水").drain.principle.includes("수가 과다할 때"));
+  // 수(水) 과다 설기 (CEO 승인 2026-08-31) — 수생목 방향, self scope
+  eq("수편 설기 scope = self", elementDict("水").drain.scope, "self");
+  eq("수편 설기 방향 = 木(수생목)", elementDict("水").drain.target, "木");
+  check("수편 설기에 '짙은 파랑' 없음 (색역 충돌 방지)", !elementDict("水").drain.items.some((i) => i.item.includes("짙은 파랑")));
+  check("수편 설기 색 항목은 청색·청록 표기", elementDict("水").drain.items.some((i) => i.item.includes("청록")));
+
+  // companionDrain은 별도 블록 — 수 과다 설기로 오용되면 안 된다
+  const companion = elementDict("水").companionDrain;
+  check("수편 companionDrain 존재", !!companion);
+  eq("companionDrain scope", companion?.scope, "companion-fire");
+  check("companionDrain에 성격 차이 명시", !!companion?.principle.includes("화 과다"), companion?.principle);
+  eq("companionDrain 항목 5개", companion?.items.length, 5);
+  check("companionDrain은 totalItemCount에 안 들어감(중복 집계 방지)", totalItemCount() === 217);
 
   // 압축 헬퍼 (§5 A층 1장 압축)
   const top3 = pickAxisItems("水", "food", 3);
@@ -265,6 +286,98 @@ for (const c of CASES) {
   const byStrength = pickAxisItems("水", "food", 3, { byStrength: true });
   check("압축: 강도순은 A가 먼저", byStrength[0].strength === "A");
   eq("압축: limit 초과 요청은 있는 만큼만", pickAxisItems("水", "color", 99).length, elementDict("水").axes.color.length);
+}
+
+// ── B층 관계 레이어 (§10-4) ─────────────────────────────────────────
+{
+  // 25조합(5×5)이 다섯 갈래로 빠짐없이 나뉜다
+  for (const d of C.ELEMENTS) {
+    for (const l of C.ELEMENTS) {
+      const rel = computeRelation(d, l);
+      check(`관계 판정은 5종 중 하나 (${d}→${l})`, RELATIONS.includes(rel), rel);
+    }
+    // 자기 자신은 항상 비겁
+    eq(`${d}→${d} = 비겁`, computeRelation(d, d), "비겁");
+  }
+
+  // 원문 예시(§5 조합 예시)와 정확히 일치해야 한다
+  eq("경금(金) 부족오행 수 → 식상", computeRelation("金", "水"), "식상");
+  eq("갑목(木) 부족오행 수 → 인성", computeRelation("木", "水"), "인성");
+  eq("병화(火) 부족오행 수 → 관성", computeRelation("火", "水"), "관성");
+  eq("임수(水) 부족오행 수 → 비겁", computeRelation("水", "水"), "비겁");
+  eq("무토(土) 부족오행 수 → 재성", computeRelation("土", "水"), "재성");
+
+  // 핸드오프 §2 예시 3종 재확인
+  eq("금 일간 + 수 = 식상(내 기운이 흘러나가는 통로)", computeRelation("金", "水"), "식상");
+  eq("목 일간 + 수 = 인성(나를 받쳐주는 기반)", computeRelation("木", "水"), "인성");
+  eq("화 일간 + 수 = 관성(나를 규율하는 틀)", computeRelation("火", "水"), "관성");
+
+  // 5관계 사전 — 4블록(결핍/증상/채워졌을 때/주의) 전부 존재
+  for (const rel of RELATIONS) {
+    const e = relationEntry(rel);
+    check(`[${rel}] deficiency 존재`, e.deficiency.length > 0);
+    check(`[${rel}] symptoms 4개`, e.symptoms.length === 4, `${e.symptoms.length}개`);
+    check(`[${rel}] whenFilled 존재`, e.whenFilled.length > 0);
+    check(`[${rel}] caution 존재`, e.caution.length > 0);
+  }
+
+  // 재성만 일간 강약 확인이 필요하다 (§2-③ 주의점)
+  eq("재성만 requiresStrengthCheck", RELATIONS.filter((r) => relationEntry(r).requiresStrengthCheck), ["재성"]);
+
+  // 축 우선순위 — 4개 반환, 중복 없음, 전부 유효한 A층 축
+  for (const rel of RELATIONS) {
+    const axes4 = axisPriority(rel, 4);
+    eq(`[${rel}] 축 4개 반환`, axes4.length, 4);
+    eq(`[${rel}] 축 중복 없음`, new Set(axes4).size, 4);
+    check(`[${rel}] 전부 유효한 A층 축`, axes4.every((a) => AXES.includes(a)));
+  }
+  // 인성·관성·비겁은 "사람"이 1순위 실행 축 — B층 사람 섹션이 크게 다뤄야 하는 관계
+  eq("사람 1순위 관계 = 인성·관성·비겁", RELATIONS.filter(peopleAxisIsPrimary).sort(), ["관성", "비겁", "인성"].sort());
+  check("식상은 사람이 1순위 아님(행동이 1순위)", !peopleAxisIsPrimary("식상"));
+
+  // 일간 강약 연동 — 재다신약이면 재성보다 비겁·인성을 먼저 세운다
+  {
+    const weak = buildChart(CASES[2].iso, "F", true); // C케이스: 신약(身弱)
+    check("[C] 신약 확인", !weak.strength.is_strong, weak.strength.verdict);
+    const adj = adjustForStrength("재성", weak.day_master_element, weak.strength);
+    check("[C] 신약+재성 → 조정 필요", adj.needed);
+    check("[C] preferFirst에 일간 오행 포함", adj.preferFirst.includes(weak.day_master_element));
+
+    const strong = buildChart(CASES[0].iso, "M", true); // A케이스: 신강
+    const adj2 = adjustForStrength("재성", strong.day_master_element, strong.strength);
+    check("[A] 신강+재성 → 조정 불필요", !adj2.needed);
+
+    // 재성이 아닌 관계는 신약이어도 조정하지 않는다
+    const adj3 = adjustForStrength("식상", weak.day_master_element, weak.strength);
+    check("[C] 신약+식상 → 조정 대상 아님(재성 전용)", !adj3.needed);
+  }
+
+  // 상대 일간 가이드 — 부족 오행을 채워 줄 상대가 나에게 어떤 관계인지
+  {
+    const g = partnerGuide("金", "水"); // 금 일간, 수 부족 → 상대가 수 일간이면 식상 관계
+    eq("금 일간의 수 부족 → 상대는 식상 관계", g.relation, "식상");
+    check("가이드에 effect·fitFor 존재", !!g.effect && !!g.fitFor);
+  }
+
+  // 관찰 블록 — 톤 규칙과 안내 문구가 항상 함께 나간다
+  {
+    const obs = observationGuide("水");
+    eq("관찰 5행", obs.rows.length, 5);
+    eq("강조 오행 1개만 true", obs.rows.filter((r) => r.emphasized).length, 1);
+    check("강조된 것은 요청한 오행(水)", obs.rows.find((r) => r.emphasized)?.element === "水");
+    check("톤 규칙 문구 항상 포함", obs.toneRule.includes("단정하지 말"));
+    check("사용 안내 문구 항상 포함", obs.mustInclude.includes("단정하지 말"));
+
+    const noHighlight = observationGuide(null);
+    eq("강조 없음 → 전부 false", noHighlight.rows.filter((r) => r.emphasized).length, 0);
+  }
+
+  // 피해야 할 조건 — "절연이 아니다" 고지가 데이터에 항상 붙어 있어야 한다
+  check("avoid.mustInclude에 절연 아님 명시", relationDict.people.avoid.mustInclude.includes("절연"));
+  eq("avoid 조건 2개", relationDict.people.avoid.conditions.length, 2);
+
+  // 관계 유형별 적용 4종 (배우자·동업자·상사·친구)
+  eq("관계 유형 4종", relationDict.people.byRelationType.map((r) => r.type), ["배우자·연인", "동업자", "상사·조직", "친구"]);
 }
 
 // ── 결과 ───────────────────────────────────────────────────────────
