@@ -12,9 +12,18 @@ import type { SajuChart } from "@/lib/saju-engine/engine";
 import { countElements, type ElementCount } from "./count";
 
 /**
- * 판정 임계값 (CEO 확정 2026-08-31). 1970~2005년 6,912개 표본 실측 빈도를 근거로 잡았다.
- * - 극단형 5개: 8글자 기준 5.2%. 4개는 28.2%라 "특수 구조" 서술이 무의미해진다
- * - 편중형 부재 2개: 15.7%
+ * 판정 임계값 (CEO 확정 2026-08-31). 1970~2005년 표본 실측 빈도를 근거로 잡았다.
+ * 표본: 8글자 6,912건 / 6글자 1,728건.
+ *
+ *            8글자    6글자
+ *   3개 이상  83.5%    50.2%   ← 흔해서 라벨 가치가 없다. "다소 많음"으로만 표기
+ *   4개 이상  28.2%    10.2%   ← 과다. 설기 처방이 붙는 구간
+ *   5개 이상   5.2%     1.1%   ← 극단형. 처방 방향 자체가 뒤집힌다
+ *
+ * 글자 수로 나누지 않고 정수 하나로 둔 이유: 강도 비례(8글자 4개=비율 0.5 ↔ 6글자 3개)를
+ * 쓰면 시간 미상의 50.2%에 과다가 붙어, 8글자에서 3개를 기각한 것과 같은 문제가 생긴다.
+ * 시주 두 글자를 모르는 상태의 3개는 시주가 붙으면 3~5개 어디로도 갈 수 있으므로,
+ * 극단형을 6글자에서 보류한 것과 같은 보수 원칙으로 4개를 쓴다.
  */
 export const THRESHOLD = {
   /** 표면 개수 0 = 부재 */
@@ -23,13 +32,12 @@ export const THRESHOLD = {
   scarce: 1,
   /** 부재 오행이 이 개수 이상이면 편중형 */
   biasedAbsentCount: 2,
-  /** 한 오행이 이 개수 이상이면 극단형 (8글자 기준) */
+  /** 이 개수면 "다소 많음" 라벨만 붙는다 — 설기 처방 없음 */
+  mildlyMany: 3,
+  /** 이 개수 이상이면 과다 — 설기 처방이 붙는다 */
+  excessive: 4,
+  /** 한 오행이 이 개수 이상이면 극단형 (시간 미상이면 판정하지 않는다) */
   extremeDominant: 5,
-  /**
-   * 과다 판정 비율 — 표면 개수 / 전체 글자 수. 8글자에서 3개(=0.375)에 해당한다.
-   * 글자 수가 다른 시간 미상(6글자)에도 같은 비율로 적용되도록 개수가 아닌 비율로 둔다.
-   */
-  excessiveRatio: 3 / 8,
 } as const;
 
 export type WuxingPattern = "balanced" | "biased" | "extreme";
@@ -46,7 +54,9 @@ export interface Classification {
   absent: Element[];
   /** 표면 1개 */
   scarce: Element[];
-  /** 표면 비율이 과다 임계 이상 */
+  /** 표면 3개 — 라벨만 붙이고 설기 처방은 하지 않는다 (8글자의 83.5%가 여기 걸린다) */
+  mildlyMany: Element[];
+  /** 표면 4개 이상 — 설기 처방 대상 */
   excessive: Element[];
   /** 극단형에서 판을 장악한 오행 */
   dominant: Element | null;
@@ -129,11 +139,12 @@ function pickPrimary(
 
 export function classify(chart: SajuChart): Classification {
   const count = countElements(chart);
-  const { surface, charCount, hasHour } = count;
+  const { surface, hasHour } = count;
 
   const absent = C.ELEMENTS.filter((el) => surface[el] === THRESHOLD.absent);
   const scarce = C.ELEMENTS.filter((el) => surface[el] === THRESHOLD.scarce);
-  const excessive = C.ELEMENTS.filter((el) => surface[el] / charCount >= THRESHOLD.excessiveRatio);
+  const mildlyMany = C.ELEMENTS.filter((el) => surface[el] === THRESHOLD.mildlyMany);
+  const excessive = C.ELEMENTS.filter((el) => surface[el] >= THRESHOLD.excessive);
 
   // 극단형 판정은 시간 미상이면 하지 않는다 (CEO 결정 ②).
   // 6글자에서는 같은 임계값이 오판정을 대량 생산하는데, 극단형은 처방 방향을 반대로
@@ -150,6 +161,7 @@ export function classify(chart: SajuChart): Classification {
       frame: "follow",
       absent,
       scarce,
+      mildlyMany,
       excessive,
       dominant,
       primary: dominant,
@@ -171,6 +183,7 @@ export function classify(chart: SajuChart): Classification {
     frame: "fill",
     absent,
     scarce,
+    mildlyMany,
     excessive,
     dominant: null,
     primary,

@@ -104,6 +104,42 @@ for (const c of CASES) {
   }
 }
 
+// 과다 3단계 — 라벨 구간이 서로 겹치지 않아야 한다 (3개=다소많음 / 4개+=과다 / 5개+=극단형)
+{
+  let n = 0, mild = 0, exc = 0, ext = 0;
+  for (let y = 1970; y <= 2005; y += 3) {
+    for (let m = 1; m <= 12; m++) {
+      for (const d of [3, 19]) {
+        const iso = `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}T09:00:00`;
+        const cl = classify(buildChart(iso, "M", true));
+        n++;
+        if (cl.mildlyMany.length > 0) mild++;
+        if (cl.excessive.length > 0) exc++;
+        if (cl.pattern === "extreme") ext++;
+
+        // 같은 오행이 두 라벨에 동시에 들어가면 안 된다
+        check("다소많음 ∩ 과다 = 공집합", cl.mildlyMany.every((el) => !cl.excessive.includes(el)));
+        check("다소많음은 정확히 3개", cl.mildlyMany.every((el) => cl.count.surface[el] === THRESHOLD.mildlyMany));
+        check("과다는 4개 이상", cl.excessive.every((el) => cl.count.surface[el] >= THRESHOLD.excessive));
+        // 극단형의 dominant는 과다에도 반드시 포함된다 (5 >= 4)
+        if (cl.dominant) check("극단형 dominant ⊂ 과다", cl.excessive.includes(cl.dominant));
+      }
+    }
+  }
+  // 실측 빈도대(8글자, 6912건): 다소많음 59.9% / 과다 28.2% / 극단형 5.2%.
+  // 다소많음은 "정확히 3개"라 "3개 이상"(83.5%)과 다른 수치다. 표본이 작아 범위로 확인한다
+  check("다소많음 빈도 50~70%", mild / n > 0.5 && mild / n < 0.7, `${(mild / n * 100).toFixed(1)}%`);
+  check("과다 빈도 15~40%", exc / n > 0.15 && exc / n < 0.4, `${(exc / n * 100).toFixed(1)}%`);
+  check("극단형 빈도 1~12%", ext / n > 0.01 && ext / n < 0.12, `${(ext / n * 100).toFixed(1)}%`);
+}
+
+// 시간 미상도 같은 정수 임계값을 쓴다 (강도 비례 아님 — 보수 원칙)
+{
+  const cl = classify(buildChart(CASES[1].iso, "F", false));
+  check("[B] 6글자도 과다 임계 4개 동일", cl.excessive.every((el) => cl.count.surface[el] >= THRESHOLD.excessive));
+  check("[B] 6글자 다소많음도 3개", cl.mildlyMany.every((el) => cl.count.surface[el] === THRESHOLD.mildlyMany));
+}
+
 // 상생·상극 헬퍼
 {
   eq("generatorOf(木) = 水", generatorOf("木"), "水");
