@@ -329,6 +329,19 @@ for (const c of CASES) {
   // 재성만 일간 강약 확인이 필요하다 (§2-③ 주의점)
   eq("재성만 requiresStrengthCheck", RELATIONS.filter((r) => relationEntry(r).requiresStrengthCheck), ["재성"]);
 
+  // caution에 집필 지침이 섞여 있으면 LLM이 그 문장 자체를 리포트에 출력할 위험이 있다
+  // (실측 발견: 관성·재성). "~할 것"/"~말 것" 같은 지시문 어미가 caution 본문에 남아있지
+  // 않은지 전 관계에서 확인한다. writerNote는 별도 필드라 이 검사에서 제외된다.
+  {
+    const directivePattern = /할 것|말 것|피한다\.?$/;
+    for (const rel of RELATIONS) {
+      const e = relationEntry(rel);
+      check(`[${rel}] caution에 집필 지침 문장 없음`, !directivePattern.test(e.caution), e.caution);
+    }
+    check("관성 writerNote로 톤 지침 이전됨", !!relationEntry("관성").writerNote?.includes("판단 톤을 피한다"));
+    check("재성 writerNote로 코드화 안내 이전됨", !!relationEntry("재성").writerNote?.includes("adjustForStrength"));
+  }
+
   // 축 우선순위 — 4개 반환, 중복 없음, 전부 유효한 A층 축
   for (const rel of RELATIONS) {
     const axes4 = axisPriority(rel, 4);

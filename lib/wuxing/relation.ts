@@ -33,8 +33,16 @@ export interface RelationEntry {
   symptoms: string[];
   /** 채워졌을 때 */
   whenFilled: string;
-  /** 주의점 */
+  /** 주의점 — 사용자에게 보여줄 문장만. 집필 지침은 writerNote로 분리했다 */
   caution: string;
+  /**
+   * 개발·프롬프트 설계용 메모. **절대 프롬프트의 "쓸 내용"으로 넘기거나 리포트에
+   * 노출하지 말 것** — LLM에게 지침과 본문을 같은 텍스트로 주면 지침 문장 자체를
+   * 리포트에 출력하는 사고가 난다(실측: 관성·재성 caution에서 발견). 여기 담긴
+   * 내용은 (a) 이미 코드로 처리됐다는 안내이거나 (b) 프롬프트 공통 RULE로 별도
+   * 전달해야 하는 톤 지침이다.
+   */
+  writerNote?: string;
   /** 원문의 우선 실행 축 서술 (사람 축 포함) */
   axisNote: string;
   /** A층 축만 추린 우선순위 — "사람"은 A층 축이 아니라 B층 사람 축 섹션이 담당한다 */
