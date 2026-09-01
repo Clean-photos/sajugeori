@@ -293,7 +293,7 @@ for (const c of CASES) {
   eq("[결정②] 강도 C", earthDir.strength, "C");
 
   // 결정 ③ 누락 5건 + 토편 꿀 제거
-  check("[결정③] 수 색축에 하늘색·청록 배제 안내", elementDict("水").axes.color.some((i) => i.item.includes("하늘색") && i.item.includes("수가 아니다")));
+  check("[결정③] 수 색축에 하늘색·청록 배제 안내", elementDict("水").axes.color.some((i) => i.item.includes("하늘색") && i.item.includes("수가 아닙니다")));
   check("[결정③] 수 소재축에 고인 물 관리 단서", elementDict("水").axes.material.some((i) => i.basis.includes("고인 물")));
   check("[결정③] 화 행동축에 햇볕 쬐기 신설", elementDict("火").axes.habit.some((i) => i.item.includes("햇볕")));
   check("[결정③] 화 색축에 분홍", elementDict("火").axes.color.some((i) => i.item.includes("분홍")));
@@ -457,14 +457,14 @@ for (const c of CASES) {
     eq("강조 오행 1개만 true", obs.rows.filter((r) => r.emphasized).length, 1);
     check("강조된 것은 요청한 오행(水)", obs.rows.find((r) => r.emphasized)?.element === "水");
     check("톤 규칙 문구 항상 포함", obs.toneRule.includes("단정하지 말"));
-    check("사용 안내 문구 항상 포함", obs.mustInclude.includes("단정하지 말"));
+    check("사용 안내 문구 항상 포함", obs.mustInclude.includes("단정하지는 마세요"));
 
     const noHighlight = observationGuide(null);
     eq("강조 없음 → 전부 false", noHighlight.rows.filter((r) => r.emphasized).length, 0);
   }
 
   // 피해야 할 조건 — "절연이 아니다" 고지가 데이터에 항상 붙어 있어야 한다
-  check("avoid.mustInclude에 절연 아님 명시", relationDict.people.avoid.mustInclude.includes("절연"));
+  check("avoid.mustInclude에 인연 단절 아님 명시", relationDict.people.avoid.mustInclude.includes("인연을 끊으라는 뜻이 아닙니다"));
   eq("avoid 조건 2개", relationDict.people.avoid.conditions.length, 2);
 
   // 관계 유형별 적용 4종 (배우자·동업자·상사·친구)
@@ -1199,7 +1199,7 @@ for (const c of CASES) {
     const people = buildPeopleSection(chart, classify(chart));
     check(`[${c.name}] intro·priorityNote 존재`, people.intro.length > 0 && people.priorityNote.length > 0);
     eq(`[${c.name}] 관찰 5행`, people.observation.rows.length, 5);
-    check(`[${c.name}] 피해야 할 조건 mustInclude(절연 아님)`, people.avoid.mustInclude.includes("절연"));
+    check(`[${c.name}] 피해야 할 조건 mustInclude(인연 단절 아님 고지)`, people.avoid.mustInclude.includes("인연을 끊으라는 뜻이 아닙니다"));
     check(`[${c.name}] 관계 유형 4종`, people.byRelationType.length === 4);
     if (people.partner) {
       eq(`[${c.name}] partner.target = fill.target`, people.partner.target, buildFillSection(chart, classify(chart)).target);
