@@ -108,6 +108,13 @@ function pickPrimary(
   chart: SajuChart,
   count: ElementCount
 ): { primary: Element | null; rule: PrimaryRule } {
+  // candidates.length===0 → primary=null(§3-⑤ "부족 없음"). 방어 코드다: 8·6글자
+  // 사주에서 5오행이 전부 표면 2개 이상이려면 최소 10글자가 필요한데(합계 항등식
+  // 상 항상 모순) 실제로는 도달 불가능이 수학적으로 증명된다(CEO 확인 2026-08-31,
+  // 표본 탐색으로도 재확인). 그래도 이 분기는 지우지 않는다 — 향후 계산 방식이
+  // 바뀌거나(예: 지장간 포함 표면 계수로 전환) 판정 임계값이 낮아지면 실제로
+  // 켜질 수 있는 안전망이다. 역으로 이게 좋은 신호이기도 하다 — 모든 유저에게
+  // 오행 보완이라는 핵심 콘텐츠가 예외 없이 발생한다는 뜻이다.
   if (candidates.length === 0) return { primary: null, rule: "none" };
   if (candidates.length === 1) return { primary: candidates[0], rule: "only" };
 
