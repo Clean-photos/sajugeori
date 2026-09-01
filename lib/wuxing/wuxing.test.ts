@@ -41,6 +41,16 @@ import {
   buildEdges,
   buildAriaSummary,
 } from "./circle-diagram";
+import {
+  largestRemainderPercents,
+  tierOf,
+  TIER_LABEL,
+  buildElementBars,
+  buildImbalanceRows,
+  buildYongsinCard,
+  buildWuxingMap,
+  PENDING_COPY,
+} from "./map-section";
 import seunCopyPoolsJson from "./seun-copy.json";
 const seunCopyPools = seunCopyPoolsJson.cases as Record<string, { status: string[]; guideline: string[] }>;
 
@@ -833,6 +843,161 @@ for (const c of CASES) {
     const balancedSummary = buildAriaSummary({ 木: 2, 火: 2, 土: 2, 金: 2, 水: 2 });
     check("전부 정상이면 '고르게' 문구", balancedSummary.includes("고르게"));
   }
+}
+
+// ── §2 오행 지도 — 분포 막대·불균형 진단표·용신 카드 ────────────────
+{
+  // 최대잔여법 — 정수 백분율 합계가 항상 정확히 100이어야 한다.
+  // 단순 반올림이면 8글자 0/2/2/3/1이 0+25+25+38+13=101%로 새어 나간다.
+  {
+    eq("8글자 0·2·2·3·1 → 합계 100", largestRemainderPercents([0, 2, 2, 3, 1]).reduce((a, b) => a + b, 0), 100);
+    eq("6글자 0·0·3·0·3 → 합계 100", largestRemainderPercents([0, 0, 3, 0, 3]).reduce((a, b) => a + b, 0), 100);
+    eq("균등 8글자 → 합계 100", largestRemainderPercents([2, 2, 2, 1, 1]).reduce((a, b) => a + b, 0), 100);
+    eq("0개는 0%", largestRemainderPercents([0, 2, 2, 3, 1])[0], 0);
+    eq("전부 0이면 전부 0%(0으로 나누기 방어)", largestRemainderPercents([0, 0, 0, 0, 0]), [0, 0, 0, 0, 0]);
+    // 실제 명식 전수 — 어떤 사주에서도 합계가 100을 벗어나면 안 된다
+    for (let y = 1970; y <= 2005; y += 4) {
+      for (let m = 1; m <= 12; m++) {
+        for (const hasHour of [true, false]) {
+          const iso = `${y}-${String(m).padStart(2, "0")}-11T09:00:00`;
+          const cnt = countElements(buildChart(iso, "M", hasHour));
+          const bars = buildElementBars(cnt);
+          const sum = bars.reduce((a, b) => a + b.percent, 0);
+          check(`백분율 합계 100 (${y}-${m}, hour=${hasHour})`, sum === 100, `${sum}%`);
+        }
+      }
+    }
+  }
+
+  // 등급 판정 — THRESHOLD와 정확히 일치, 5개 이상도 "과다"까지만(극단 라벨 누출 금지)
+  {
+    eq("0개 → 부재", tierOf(0), "absent");
+    eq("1개 → 부족", tierOf(1), "scarce");
+    eq("2개 → 적정", tierOf(2), "normal");
+    eq("3개 → 다소 많음", tierOf(THRESHOLD.mildlyMany), "mildlyMany");
+    eq("4개 → 과다", tierOf(THRESHOLD.excessive), "excessive");
+    eq("5개(극단형 후보)도 라벨은 과다", tierOf(THRESHOLD.extremeDominant), "excessive");
+    eq("7개도 과다", tierOf(7), "excessive");
+    check("등급 라벨에 '극단'이라는 표현이 없음", !Object.values(TIER_LABEL).some((l) => l.includes("극단")));
+  }
+
+  // 분포 막대 — 5행, 순서 고정, 개수는 표면 계수와 일치
+  for (const c of CASES) {
+    const cnt = countElements(buildChart(c.iso, c.gender, c.hasHour));
+    const bars = buildElementBars(cnt);
+    eq(`[${c.name}] 막대 5행`, bars.length, 5);
+    eq(`[${c.name}] 막대 순서 = 상생 순서`, bars.map((b) => b.element), CIRCLE_ORDER);
+    check(`[${c.name}] 막대 개수가 표면 계수와 일치`, bars.every((b) => b.count === cnt.surface[b.element]));
+    check(`[${c.name}] ratio는 0~1`, bars.every((b) => b.ratio >= 0 && b.ratio <= 1));
+    check(`[${c.name}] 등급 라벨 비어있지 않음`, bars.every((b) => b.tierLabel.length > 0));
+  }
+
+  // 불균형 진단표 — 빈 등급은 행을 만들지 않고, 모든 오행이 정확히 한 행에만 속한다
+  for (const c of CASES) {
+    const cnt = countElements(buildChart(c.iso, c.gender, c.hasHour));
+    const rows = buildImbalanceRows(cnt);
+    check(`[${c.name}] 빈 행 없음`, rows.every((r) => r.elements.length > 0));
+    const all = rows.flatMap((r) => r.elements);
+    eq(`[${c.name}] 5개 오행이 빠짐없이 분류됨`, all.length, 5);
+    eq(`[${c.name}] 중복 분류 없음`, new Set(all).size, 5);
+    check(`[${c.name}] elementsKr 길이 일치`, rows.every((r) => r.elements.length === r.elementsKr.length));
+  }
+
+  // 용신 카드
+  for (const c of CASES) {
+    const chart = buildChart(c.iso, c.gender, c.hasHour);
+    const cls = classify(chart);
+    const card = buildYongsinCard(chart, cls);
+
+    eq(`[${c.name}] 프레임은 classify와 동일`, card.frame, cls.frame);
+    check(`[${c.name}] 억부·조후 양쪽 트랙이 카드에 실림`, card.eokbu === chart.yongsin.eokbu_candidates && card.johu === chart.yongsin.johu_candidates);
+    check(`[${c.name}] 주 처방이 피해야 할 목록에 없음(자기모순 방지)`, card.main === null || !card.avoid.includes(card.main));
+    eq(`[${c.name}] avoidKr 길이 일치`, card.avoid.length, card.avoidKr.length);
+    check(`[${c.name}] 단정 금지 고지 항상 포함`, card.disclaimer.includes("단정하지 않고"));
+    // 문구 미승인 — 충돌이어도 안내 문구를 임의로 채우지 않는다
+    eq(`[${c.name}] conflictNote는 승인 전이라 null`, card.conflictNote, null);
+
+    // 채우기 프레임이면 희신은 "주 처방을 생하는 오행"
+    if (card.frame === "fill" && card.main && card.helper) {
+      eq(`[${c.name}] 희신이 주 처방을 생함`, C.GENERATES[card.helper], card.main);
+    }
+  }
+
+  // 트랙 관계 판정 — 교집합/충돌/단일
+  {
+    const chartA = buildChart(CASES[0].iso, "M", true); // 억부 水木 ∩ 조후 水金 = 水
+    const cardA = buildYongsinCard(chartA, classify(chartA));
+    eq("[A] 교집합 있음 → intersect", cardA.trackRelation, "intersect");
+    check("[A] 교집합에 水 포함", cardA.intersection.includes("水"));
+
+    const chartC = buildChart(CASES[2].iso, "F", true); // 억부 木火 vs 조후 水金 — 정반대
+    const cardC = buildYongsinCard(chartC, classify(chartC));
+    eq("[C] 교집합 없음 → conflict", cardC.trackRelation, "conflict");
+    eq("[C] 교집합 빈 배열", cardC.intersection, []);
+
+    // 결정 ① 도출 규칙: 교집합 > 조후 > 억부
+    eq("[A] 교집합 있으면 종합 = 교집합", cardA.yongsinByTrack, cardA.intersection);
+    eq("[C] 충돌이면 종합 = 조후", cardC.yongsinByTrack, cardC.johu);
+
+    // A케이스는 표면 부족(木)과 억부·조후 종합(水)이 갈리는 대표 사례 — 감추지 않고 플래그
+    eq("[A] 표면 부족은 木", cardA.main, "木");
+    check("[A] 억부·조후 종합에 木이 없음", !cardA.yongsinByTrack.includes("木"));
+    eq("[A] 두 판정 갈림 플래그 true", cardA.divergesFromPrimary, true);
+  }
+
+  // 갈림 플래그의 정의가 일관적인지 — main이 종합에 들어있으면 false여야 한다
+  {
+    let checked = 0;
+    for (let y = 1980; y <= 1990; y++) {
+      for (let m = 1; m <= 12; m++) {
+        const chart = buildChart(`${y}-${String(m).padStart(2, "0")}-11T09:00:00`, "M", true);
+        const cls = classify(chart);
+        const card = buildYongsinCard(chart, cls);
+        if (card.main === null || card.yongsinByTrack.length === 0) continue;
+        checked++;
+        eq(
+          `갈림 플래그 정의 일관 (${y}-${m})`,
+          card.divergesFromPrimary,
+          !card.yongsinByTrack.includes(card.main)
+        );
+      }
+    }
+    check("갈림 플래그 검사 표본 확보", checked > 50, `${checked}건`);
+  }
+
+  // 극단형 — 프레임이 뒤집히고, 희신은 설기 통로, 기신은 classify.exclude
+  {
+    let found: { chart: ReturnType<typeof buildChart>; cls: ReturnType<typeof classify> } | null = null;
+    outer3: for (let y = 1970; y <= 2005 && !found; y++) {
+      for (let m = 1; m <= 12; m++) {
+        for (const d of [3, 11, 19, 27]) {
+          const iso = `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}T09:00:00`;
+          const chart = buildChart(iso, "M", true);
+          const cls = classify(chart);
+          if (cls.pattern === "extreme") { found = { chart, cls }; break outer3; }
+        }
+      }
+    }
+    check("극단형 표본 존재", !!found);
+    if (found) {
+      const card = buildYongsinCard(found.chart, found.cls);
+      eq("극단형 → 순응 프레임", card.frame, "follow");
+      eq("극단형 주 처방 = dominant", card.main, found.cls.dominant);
+      eq("극단형 희신 = dominant가 생하는 오행(설기 통로)", card.helper, C.GENERATES[found.cls.dominant!]);
+      check("극단형 기신에 classify.exclude가 반영됨", found.cls.exclude.every((el) => card.avoid.includes(el)));
+    }
+  }
+
+  // 섹션 조립 — 승인 전 문구 슬롯이 실제로 비어 있는지(임의 생성 방지 회귀)
+  for (const c of CASES) {
+    const chart = buildChart(c.iso, c.gender, c.hasHour);
+    const data = buildWuxingMap(chart, classify(chart));
+    eq(`[${c.name}] 도입 서술은 승인 전이라 null`, data.intro, null);
+    eq(`[${c.name}] hourUnknown이 classify와 일치`, data.hourUnknown, classify(chart).hourUnknown);
+    eq(`[${c.name}] 막대 5행`, data.bars.length, 5);
+    check(`[${c.name}] 진단표 행 존재`, data.imbalance.length > 0);
+  }
+  eq("PENDING_COPY 3종 전부 미승인 상태", [PENDING_COPY.mapIntro, PENDING_COPY.yongsinConflict, PENDING_COPY.extremeFrame], [null, null, null]);
 }
 
 // ── 결과 ───────────────────────────────────────────────────────────
