@@ -27,6 +27,7 @@ import {
   buildRelationDisplayBlock,
 } from "./relation";
 import { buildSeunPrescription, classifySeunCase } from "./seun-prescription";
+import { buildSeunNarrativePrompt, validateSeunNarrative } from "./seun-narrative";
 import { buildDiagnosis } from "./diagnosis";
 import { wuxingBannerCopy, FILL_ARTICLE_ELEMENT } from "./banner";
 import seunCopyPoolsJson from "./seun-copy.json";
@@ -574,6 +575,33 @@ for (const c of CASES) {
     check(`[${slug}] subCta 확정본과 일치`, copy.subCta === "부족 여부 판정 · 3년 세운 처방 · 어떤 사람이 맞는지까지");
     check(`[${slug}] href는 프리미엄 라우트`, copy.href.startsWith("/premium/"));
   }
+}
+
+// ── 3년 흐름 한 문단 — 프롬프트 조립·검증기 (§1-4, API 호출 없이 오프라인 검증) ──
+{
+  for (const c of CASES) {
+    const chart = buildChart(c.iso, c.gender, c.hasHour);
+    const cls = classify(chart);
+    const plan = buildSeunPrescription(chart, cls, 2026);
+    const prompt = buildSeunNarrativePrompt(chart, cls, plan);
+
+    check(`[${c.name}] 프롬프트에 3년 연도 전부 포함`, plan.years.every((y) => prompt.includes(String(y.year))));
+    check(`[${c.name}] 프롬프트에 케이스 라벨 전부 포함`, plan.years.every((y) => prompt.includes(y.caseLabel)));
+    check(`[${c.name}] 프롬프트에 대운 안내 포함`, prompt.includes(plan.daewoonNote.transition ?? plan.daewoonNote.background ?? "대운 정보 없음"));
+    check(`[${c.name}] 프롬프트에 공통 RULES 포함`, prompt.includes("사건 예측 금지"));
+    check(`[${c.name}] 프롬프트에 JSON 스키마 지시 포함`, prompt.includes('{"narrative"'));
+    // scoreYear()의 사건 뉘앙스 문구(yearNotes)는 애초에 YearPrescription에 없으므로
+    // 구조적으로 새어 들어올 수 없다 — 그래도 흔한 문구가 프롬프트에 없는지 이중 확인
+    check(`[${c.name}] yearNotes류 문구 없음("주의"·"충"·"합" 단독 사건 서술)`, !prompt.includes("변동·갈등 주의") && !prompt.includes("이동·변화·건강 주의"));
+  }
+
+  // 검증기 — 프롬프트 RULES 위반을 실제로 잡아내는지 (API 호출 없이 문자열만 테스트)
+  eq("정상 존댓말 문단 → 문제 없음", validateSeunNarrative("올해는 채우기 좋은 해입니다. 내년에는 대운이 바뀌며 흐름이 달라집니다."), []);
+  check("마크다운 기호 검출", validateSeunNarrative("**중요**합니다.").includes("마크다운 기호 포함"));
+  check("금지 표현 검출", validateSeunNarrative("이 분석 시스템이 계산했습니다.").some((i) => i.includes("분석 시스템")));
+  check("평서체 종결 검출", validateSeunNarrative("올해는 채우는 해다.").some((i) => i.startsWith("존댓말 아님")));
+  check("4문장 초과 검출", validateSeunNarrative("첫째입니다. 둘째입니다. 셋째입니다. 넷째입니다. 다섯째입니다.").some((i) => i.includes("문장")));
+  check("빈 문단 검출", validateSeunNarrative("").includes("빈 문단"));
 }
 
 // ── 결과 ───────────────────────────────────────────────────────────
