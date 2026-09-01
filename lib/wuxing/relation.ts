@@ -190,3 +190,55 @@ export function observationGuide(highlight: Element | null) {
 export function isKnownAxis(a: string): a is Axis {
   return (AXES as string[]).includes(a);
 }
+
+// ── B층 노출 방식 A안 (CEO 확정 2026-08-31) ─────────────────────────
+// relation.json 5개 관계 블록을 LLM 재생성 없이 그대로 노출한다. B층은 애초에
+// "50조합 → 5가지 압축"이 설계 의도라 개인화 대상이 아니다 — 개인화는 A층 선정·
+// 3년 세운·한 줄 진단이 담당한다. 명리 용어가 섞인 문장을 LLM이 재작성하면 오행
+// 관계 자체가 틀릴 위험이 있고, 호출이 줄어 원가도 낮아진다.
+
+/**
+ * 블록 앞에 붙는 1문장 템플릿. "이며"는 오행명이 한자+한글 표기(예: "수(水)")로
+ * 끝나 받침 유무와 무관하게 항상 붙는 표준형이라 조사 분기가 필요 없다(다른 문장의
+ * "이/가"·"은/는"과 달리 "이다" 자체는 받침에 따라 형태가 바뀌지 않는다).
+ */
+export function buildRelationIntroLine(dayElement: Element, deficientElement: Element): string {
+  const rel = computeRelation(dayElement, deficientElement);
+  const deficientLabel = `${C.ELEMENT_KR[deficientElement]}(${deficientElement})`;
+  const dayLabel = `${C.ELEMENT_KR[dayElement]}(${dayElement}) 일간`;
+  return `당신에게 부족한 오행은 ${deficientLabel}이며, ${dayLabel}에게 ${rel}에 해당합니다.`;
+}
+
+/** 화면·프롬프트에 그대로 노출해도 되는 필드만 담은 블록. writerNote는 여기 없다 */
+export interface RelationDisplayBlock {
+  relation: TenGodRelation;
+  label: string;
+  keyword: string;
+  /** buildRelationIntroLine()의 1문장 */
+  intro: string;
+  deficiency: string;
+  symptoms: string[];
+  whenFilled: string;
+  caution: string;
+}
+
+/**
+ * relation.json에서 노출 가능한 필드만 골라 반환한다. **B층을 렌더링하거나 프롬프트에
+ * 넣을 때는 항상 이 함수를 거칠 것** — `relationEntry()`나 `relationDict`를 직접
+ * 스프레드(`{...entry}`)하면 writerNote가 같이 섞여 나갈 수 있다. 이 함수가 그 경로를
+ * 원천 차단한다(테스트로 writerNote 키 자체가 없는지 확인).
+ */
+export function buildRelationDisplayBlock(dayElement: Element, deficientElement: Element): RelationDisplayBlock {
+  const rel = computeRelation(dayElement, deficientElement);
+  const e = relationEntry(rel);
+  return {
+    relation: rel,
+    label: e.label,
+    keyword: e.keyword,
+    intro: buildRelationIntroLine(dayElement, deficientElement),
+    deficiency: e.deficiency,
+    symptoms: e.symptoms,
+    whenFilled: e.whenFilled,
+    caution: e.caution,
+  };
+}

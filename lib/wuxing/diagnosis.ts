@@ -16,7 +16,8 @@ import type { Element } from "@/lib/saju-engine/constants";
 import type { SajuChart } from "@/lib/saju-engine/engine";
 import { type Classification } from "./classify";
 import { countElements, isHiddenOnly } from "./count";
-import { computeRelation, relationEntry, type TenGodRelation } from "./relation";
+import { buildRelationDisplayBlock, type RelationDisplayBlock } from "./relation";
+import { josaIga, josaWaGwa, josaEunNeun } from "./josa";
 
 export type DiagnosisPattern = "scarce1" | "biased2" | "extreme" | "balanced";
 
@@ -33,32 +34,17 @@ export interface DiagnosisSkeleton {
   /**
    * LLM이 2문장(B층 관계)을 쓸 때 참고할 관계 정보. 부족 오행이 없는 균형형에서는
    * null이다 — 이때 2문장은 "채우기보다 지금 균형을 지키는 쪽"처럼 다르게 써야 한다.
+   *
+   * B층 노출 방식 A안(CEO 확정 2026-08-31) 이후: relation.json의 5블록 자체는 이미
+   * 리포트에 존댓말 그대로 노출되므로(§③ 본체), 여기서는 **그 블록과 겹치지 않는
+   * 짧은 연결 문장**을 쓰는 데 필요한 만큼만 참고자료로 넘긴다. buildRelationDisplayBlock()을
+   * 거치므로 writerNote는 구조적으로 포함될 수 없다.
    */
-  relation: {
-    element: Element;
-    relation: TenGodRelation;
-    keyword: string;
-    deficiency: string;
-  } | null;
+  relation: RelationDisplayBlock | null;
 }
 
 function elKr(el: Element): string {
   return `${el}(${C.ELEMENT_KR[el]})`;
-}
-
-// 오행 5개는 고정이라 받침 유무를 표에 직접 둔다(범용 한글 받침 판별기를 새로 짤 필요가
-// 없다). 목(木)은 ㄱ받침, 금(金)은 ㅁ받침 — 이 둘을 "가/와"로 쓰면 "목가", "금와" 같은
-// 비문이 나간다. "木(목)가" 형태로 한자 뒤에 괄호가 오지만, 조사는 괄호 안 한글(실제
-// 읽히는 소리)을 기준으로 붙여야 한다.
-const HAS_BATCHIM: Record<Element, boolean> = { 木: true, 火: false, 土: false, 金: true, 水: false };
-const josaIga = (el: Element) => (HAS_BATCHIM[el] ? "이" : "가");
-const josaWaGwa = (el: Element) => (HAS_BATCHIM[el] ? "과" : "와");
-const josaEunNeun = (el: Element) => (HAS_BATCHIM[el] ? "은" : "는");
-
-function buildRelationHint(chart: SajuChart, target: Element) {
-  const rel = computeRelation(chart.day_master_element, target);
-  const entry = relationEntry(rel);
-  return { element: target, relation: rel, keyword: entry.keyword, deficiency: entry.deficiency };
 }
 
 /**
@@ -79,7 +65,7 @@ export function buildDiagnosis(chart: SajuChart, cls: Classification): Diagnosis
       pattern: "extreme",
       headline: `**${elKr(cls.dominant)} 하나로 강하게 모인 사주**`,
       facts: buildFacts(chart, count, [cls.dominant]),
-      relation: buildRelationHint(chart, cls.dominant),
+      relation: buildRelationDisplayBlock(chart.day_master_element, cls.dominant),
     };
   }
 
@@ -95,7 +81,7 @@ export function buildDiagnosis(chart: SajuChart, cls: Classification): Diagnosis
       pattern: "biased2",
       headline: `**${elKr(L1)}${josaWaGwa(L1)} ${elKr(L2)} 두 자리가 비어 있는 사주**`,
       facts: buildFacts(chart, count, [L1, L2, ...cls.absent.filter((el) => el !== L1 && el !== L2)]),
-      relation: buildRelationHint(chart, L1),
+      relation: buildRelationDisplayBlock(chart.day_master_element, L1),
     };
   }
 
@@ -120,7 +106,7 @@ export function buildDiagnosis(chart: SajuChart, cls: Classification): Diagnosis
     pattern: "scarce1",
     headline,
     facts: buildFacts(chart, count, X ? [X, L] : [L]),
-    relation: buildRelationHint(chart, L),
+    relation: buildRelationDisplayBlock(chart.day_master_element, L),
   };
 }
 

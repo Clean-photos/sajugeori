@@ -23,6 +23,8 @@ import {
   observationGuide,
   RELATIONS,
   relationDict,
+  buildRelationIntroLine,
+  buildRelationDisplayBlock,
 } from "./relation";
 import { buildSeunPrescription, classifySeunCase } from "./seun-prescription";
 import { buildDiagnosis } from "./diagnosis";
@@ -340,6 +342,48 @@ for (const c of CASES) {
     }
     check("관성 writerNote로 톤 지침 이전됨", !!relationEntry("관성").writerNote?.includes("판단 톤을 피한다"));
     check("재성 writerNote로 코드화 안내 이전됨", !!relationEntry("재성").writerNote?.includes("adjustForStrength"));
+  }
+
+  // B층 노출 방식 A안(CEO 확정) — relation.json을 그대로 노출하되 존댓말·writerNote
+  // 배제가 실제로 지켜지는지 확인한다.
+  {
+    // 5블록 전부 존댓말 종결어미인지 — "-습니다/-입니다/-ㅂ니다" 계열만 허용.
+    // "다"로 끝나되 그 앞이 "니"가 아니면(예: "~된다", "~간다") 평서체가 남은 것이다.
+    const informalEnding = /(?<!니)다[.]?$/;
+    for (const rel of RELATIONS) {
+      const e = relationEntry(rel);
+      const sentences = [e.deficiency, e.whenFilled, e.caution, ...e.symptoms]
+        .flatMap((block) => block.split(/(?<=[.!?])\s*/))
+        .map((s) => s.trim())
+        .filter(Boolean);
+      for (const s of sentences) {
+        check(`[${rel}] 존댓말 종결 — "${s}"`, !informalEnding.test(s), s);
+      }
+    }
+
+    // buildRelationDisplayBlock — writerNote가 구조적으로 빠지는지 확인.
+    // JSON.stringify까지 훑어 문자열 형태로도 안 섞여 있는지 이중 확인한다.
+    for (const dEl of C.ELEMENTS) {
+      for (const lEl of C.ELEMENTS) {
+        const block = buildRelationDisplayBlock(dEl, lEl);
+        check(`[${dEl}→${lEl}] writerNote 키 없음`, !("writerNote" in block));
+        const dump = JSON.stringify(block);
+        check(`[${dEl}→${lEl}] 직렬화에도 writerNote 문구 없음`, !dump.includes("판단 톤을 피한다") && !dump.includes("adjustForStrength"));
+      }
+    }
+
+    // 1문장 템플릿 — CEO 확정 형태 그대로("당신에게 부족한 오행은 X이며, Y 일간에게 Z에 해당합니다.")
+    eq(
+      "인트로 템플릿(금 일간·수 부족 → 식상)",
+      buildRelationIntroLine("金", "水"),
+      "당신에게 부족한 오행은 수(水)이며, 금(金) 일간에게 식상에 해당합니다."
+    );
+    eq(
+      "인트로 템플릿(목 일간·수 부족 → 인성)",
+      buildRelationIntroLine("木", "水"),
+      "당신에게 부족한 오행은 수(水)이며, 목(木) 일간에게 인성에 해당합니다."
+    );
+    check("인트로 템플릿에 오행명·일간·관계명 전부 포함", buildRelationDisplayBlock("金", "水").intro === buildRelationIntroLine("金", "水"));
   }
 
   // 축 우선순위 — 4개 반환, 중복 없음, 전부 유효한 A층 축
