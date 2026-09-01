@@ -59,6 +59,7 @@ import {
   countFillItems,
 } from "./report";
 import seunCopyPoolsJson from "./seun-copy.json";
+import dictJsonRaw from "./dict.json";
 const seunCopyPools = seunCopyPoolsJson.cases as Record<string, { status: string[]; guideline: string[] }>;
 
 let passed = 0;
@@ -1274,6 +1275,93 @@ for (const c of CASES) {
   // 회귀 방지 핵심: ":00"을 덧붙인 형태는 반드시 Invalid Date여야 한다.
   // (이게 valid로 바뀌면 위 계약이 무의미해지므로 함께 못박는다)
   check("깨진 ISO(:00 중복)는 Invalid Date", isNaN(new Date(`${DATE}T${TIME}:00`).getTime()));
+}
+
+// ── 집필 지시문 누출 방어 ────────────────────────────────────────────
+// 실제 사고(2026-09-02): CEO 전달 문서(wuxing_dict_water.md / _relation_layer.md)에서
+// 사용자 카피와 집필 지시가 **같은 문단·같은 문장**에 섞여 있었고, 그걸 그대로 JSON에
+// 옮기면서 "…반드시 안내할 것.", "…추정하는 실용 블록.", "유저가 …쓰게 해서는 안 된다"
+// 같은 문장이 유료 화면에 노출됐다. 특히 relation_layer.md:220은 라벨이 "필수 안내 문구"
+// (= 유저에게 보여줄 것)인데 내용은 "…단정하지 말 것"(= 집필자에게 하는 말)이라
+// 라벨과 내용이 반대였다 — 라벨만 믿으면 또 샌다.
+//
+// writerNote/toneRule은 buildRelationDisplayBlock()이 구조적으로 막고 있지만, 이번에
+// 샌 필드들은 그 분류에 없었다. 그래서 여기서는 **렌더 경로를 타는 모든 텍스트 필드**를
+// 기본 검사 대상으로 두고, 렌더되지 않는 필드만 명시적으로 제외한다(fail-safe:
+// 앞으로 새 필드가 추가돼도 자동으로 검사 대상이 된다).
+{
+  // 화면에 렌더되지 않는 내부 메타데이터만 제외한다. 새 필드를 여기 추가할 때는
+  // 그 필드가 정말 렌더 경로를 타지 않는지 컴포넌트에서 확인하고 사유를 남길 것.
+  const NOT_RENDERED_KEYS = new Set([
+    "writerNote", // buildRelationDisplayBlock()이 구조적으로 차단
+    "toneRule",   // observationGuide가 노출은 하지만 PeopleSection이 렌더하지 않음
+  ]);
+  const NOT_RENDERED_PATHS = new Set([
+    ".note",                                  // 두 JSON 최상단 개발 메모
+    ".elements.水.companionDrain.principle",  // DrainSection이 자체 존댓말 카피를 씀
+  ]);
+
+  const FORBIDDEN: { label: string; re: RegExp }[] = [
+    // "~하지 말 것" / "~할 것."(마침표로 끝나는 명령). 명사구 "채워야 할 것과 …"는 통과해야
+    // 하므로 마침표·'지 말' 조건을 붙인다(실측으로 오탐 0 확인).
+    { label: "지시형(~할 것/~말 것)", re: /지\s*말\s*것|(?:할|쓸|볼|둘|갈|고를)\s*것\s*[.]/ },
+    { label: "'유저' 지칭", re: /유저/ },
+    { label: "'블록' 등 집필 용어", re: /블록/ },
+    { label: "서술 지시", re: /서술한다|서술\s*시|서술\s*금지/ },
+    { label: "집필/프롬프트 용어", re: /집필|프롬프트|LLM/ },
+    { label: "병기·명시 지시", re: /병기할|명시할|표기할/ },
+    // 유저는 자기가 읽는 글을 "상품"이라 부르지 않는다 — 기획 문서 어투의 확실한 신호
+    { label: "상품 지칭(기획 어투)", re: /이\s*상품|본\s*상품|차별점/ },
+  ];
+
+  function walkStrings(node: unknown, path: string, out: [string, string][]) {
+    if (typeof node === "string") { out.push([path, node]); return; }
+    if (Array.isArray(node)) { node.forEach((v, i) => walkStrings(v, `${path}[${i}]`, out)); return; }
+    if (node && typeof node === "object") {
+      for (const [k, v] of Object.entries(node)) {
+        if (NOT_RENDERED_KEYS.has(k)) continue;
+        walkStrings(v, `${path}.${k}`, out);
+      }
+    }
+  }
+
+  for (const [name, json] of [["relation.json", relationDict], ["dict.json", dictJsonRaw]] as const) {
+    const strings: [string, string][] = [];
+    walkStrings(json, "", strings);
+    let violations = 0;
+    for (const [path, s] of strings) {
+      if (NOT_RENDERED_PATHS.has(path)) continue;
+      for (const { label, re } of FORBIDDEN) {
+        if (re.test(s)) {
+          violations++;
+          failures.push(`[${name}] 렌더 필드에 집필 지시문 — ${label} @ ${path}: "${s.slice(0, 60)}"`);
+        }
+      }
+    }
+    eq(`${name} 렌더 필드에 집필 지시문 없음`, violations, 0);
+  }
+
+  // 검사기 자체가 살아 있는지 — 실제로 샜던 5개 원문이 전부 적발돼야 한다.
+  // (아무것도 못 잡는 검사는 통과해도 의미가 없으므로 함께 고정한다)
+  const REAL_LEAKS = [
+    "기존 사주 서비스는 두 사람 정보를 다 넣어야 궁합을 보지만, 이 상품은 찾아야 할 조건을 미리 준다.",
+    "일간은 나와 직접 생극을 맺으므로 관계의 방향을 정한다. 생년월일만 알면 확인 가능하다는 점을 반드시 안내할 것.",
+    "'피해야 한다'는 절연을 뜻하지 않는다. 거리 조절과 역할 분담의 문제임을 반드시 병기할 것. 유저가 이 리포트로 주변 사람을 나쁘게 판정하는 도구로 쓰게 해서는 안 된다.",
+    "주변 사람의 생년월일을 다 알 수는 없다. 관찰 가능한 특징으로 추정하는 실용 블록.",
+    "이 표는 추정 보조 수단이다. 정확한 판단은 상대의 생년월일로 확인하는 것이 맞으며, 이 관찰만으로 사람을 단정하지 말 것.",
+  ];
+  for (let i = 0; i < REAL_LEAKS.length; i++) {
+    check(`검사기 유효성: 과거 유출문 ${i + 1}/5 적발`, FORBIDDEN.some((f) => f.re.test(REAL_LEAKS[i])));
+  }
+  // 정상 카피가 걸리지 않는지(오탐 방지) — 명사구 제목·존댓말 안내문
+  for (const safe of [
+    "채워야 할 것과 피해야 할 것",
+    "둥근 것보다 각진 것",
+    "이 리포트는 그 판정부터 시작합니다.",
+    "어항·수반·가습기를 두되 물을 주기적으로 갈아 주세요",
+  ]) {
+    check(`오탐 방지: "${safe.slice(0, 20)}" 통과`, !FORBIDDEN.some((f) => f.re.test(safe)));
+  }
 }
 
 // ── 결과 ───────────────────────────────────────────────────────────
