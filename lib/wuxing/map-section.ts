@@ -19,25 +19,29 @@ import { countElements, type ElementCount } from "./count";
 import { CIRCLE_ORDER } from "./circle-diagram";
 
 /**
- * 승인 대기 중인 문구 슬롯. **임의로 채우지 말 것**(dev_handoff §10·§11 임의 생성 금지).
- * null인 동안 해당 UI 슬롯은 렌더되지 않는다 — 비어 보이는 편이 지어낸 문구보다 낫다.
- * 승인되면 여기만 채우면 화면에 바로 붙는다.
+ * §② 도입 서술 (docs/wuxing_pending_copy_v1.md §1, CEO 승인 2026-08-31).
+ * 고정 도입문 + 판정 결과 연결문(4갈래, 코드가 선택). "부족 없음" 행은 방어
+ * 코드로만 유지한다 — 8·6글자 사주에서 수학적으로 도달 불가능(§3-B-⑤ 확인 완료).
  */
-export const PENDING_COPY = {
-  /** 결정 ④ — §② 도입 서술("부족하다고 다 채우는 것이 아니라…"). 취지만 확정, 문구 미승인 */
-  mapIntro: null as string | null,
-  /** 억부·조후가 갈릴 때의 안내 문구(결정 ① 3단계 규칙의 서술). 문구 미승인 */
-  yongsinConflict: null as string | null,
-  /** 극단 편중형 전용 처방 문구(§3-④ "채우기가 아니라 순응하기"). 문구 미승인 */
-  extremeFrame: null as string | null,
-  /**
-   * primary(구조적 부족)와 억부·조후 용신이 갈리는 사주(실측 24.1%)에 붙일 안내.
-   * 통합 규칙(CEO 확정): §③ 채우는 법의 기준은 primary로 유지하고, 용신 카드는
-   * 별도 개념(명리학적 균형 판단)으로 명시한다. 갈릴 때 숨기지 않고 "관점이
-   * 갈리는 사주"임을 밝힌다 — 결정 ①의 억부·조후 병기와 같은 원칙. 문구 미승인.
-   */
-  primaryYongsinDivergence: null as string | null,
-};
+const MAP_INTRO_FIXED =
+  "사주에 어떤 기운이 적다고 해서 무조건 채워야 하는 것은 아닙니다. 그 사람에게 실제로 필요한 기운이 무엇인지에 따라 답이 달라지며, 이 리포트는 그 판정부터 시작합니다.";
+
+const MAP_INTRO_CONNECTOR = {
+  match:
+    "구조적으로 부족한 기운과 명리학적으로 필요한 기운이 같습니다. 아래 처방은 두 관점 모두에서 일치하는 결과입니다.",
+  mismatch:
+    "구조적으로 부족한 기운과 명리학적으로 필요한 기운이 다르게 나왔습니다. 아래 처방은 이 차이를 함께 안내합니다.",
+  extreme:
+    "이 사주는 한 기운으로 강하게 모인 구조입니다. 이런 경우 부족한 것을 채우기보다 흐름을 따르는 편이 명리학적으로 더 유효합니다.",
+  balanced: "여덟 글자에 뚜렷한 결핍이 보이지 않습니다. 아래는 채우기보다 흐름을 관리하는 처방입니다.",
+} as const;
+
+/**
+ * §2 억부·조후 충돌 안내 (docs/wuxing_pending_copy_v1.md §2, CEO 승인).
+ * 교집합이 없을 때만(trackRelation === "conflict") 노출한다.
+ */
+const YONGSIN_CONFLICT_NOTE =
+  "이 사주는 몸을 보강하는 관점(억부)과 계절의 온도를 맞추는 관점(조후)이 서로 다른 기운을 가리킵니다. 두 관점이 갈리는 것은 흔한 일이며, 이 리포트는 조후를 우선하고 억부를 보조로 함께 제시합니다.";
 
 // ── ① 오행 분포 막대 ──────────────────────────────────────────────────
 export type ElementTier = "absent" | "scarce" | "normal" | "mildlyMany" | "excessive";
@@ -191,7 +195,7 @@ export interface YongsinCardData {
    * 엔진 note("최종 용신은 격국까지 종합해 판단해야 한다")를 함께 반영한다.
    */
   disclaimer: string;
-  /** 억부·조후가 갈릴 때 띄울 안내. 문구 미승인이라 지금은 항상 null (PENDING_COPY) */
+  /** 억부·조후가 갈릴 때(trackRelation === "conflict") 띄울 안내. 그 외에는 null */
   conflictNote: string | null;
 }
 
@@ -242,7 +246,7 @@ export function buildYongsinCard(chart: SajuChart, cls: Classification): Yongsin
     yongsinByTrackKr: yongsinByTrack.map((el) => C.ELEMENT_KR[el]),
     divergesFromPrimary,
     disclaimer: YONGSIN_DISCLAIMER,
-    conflictNote: trackRelation === "conflict" ? PENDING_COPY.yongsinConflict : null,
+    conflictNote: trackRelation === "conflict" ? YONGSIN_CONFLICT_NOTE : null,
   };
 }
 
@@ -254,18 +258,30 @@ export interface WuxingMapData {
   yongsin: YongsinCardData;
   /** 시간 미상 고지 — 결정 ②. 6글자라 판정 정밀도가 떨어진다는 안내를 띄울지 */
   hourUnknown: boolean;
-  /** §② 도입 서술. 문구 미승인이라 지금은 null (PENDING_COPY) */
-  intro: string | null;
+  /** §② 도입 서술 — 고정 도입문 + 판정 결과 연결문(4갈래 중 하나) */
+  intro: string;
+}
+
+/**
+ * §1-2 연결문 4갈래 판정. 우선순위: 극단형 → 부족 없음(방어, 도달 불가 확인됨) →
+ * primary=용신 일치/불일치. 극단형은 cls.primary가 dominant와 같은 값이라(classify.ts),
+ * 이 분기를 먼저 걸지 않으면 아래 일치/불일치 분기로 잘못 빠진다.
+ */
+function pickMapIntroConnector(cls: Classification, divergesFromPrimary: boolean): string {
+  if (cls.pattern === "extreme") return MAP_INTRO_CONNECTOR.extreme;
+  if (cls.primary === null) return MAP_INTRO_CONNECTOR.balanced;
+  return divergesFromPrimary ? MAP_INTRO_CONNECTOR.mismatch : MAP_INTRO_CONNECTOR.match;
 }
 
 export function buildWuxingMap(chart: SajuChart, cls: Classification): WuxingMapData {
   const count = countElements(chart);
+  const yongsin = buildYongsinCard(chart, cls);
   return {
     count,
     bars: buildElementBars(count),
     imbalance: buildImbalanceRows(count),
-    yongsin: buildYongsinCard(chart, cls),
+    yongsin,
     hourUnknown: cls.hourUnknown,
-    intro: PENDING_COPY.mapIntro,
+    intro: `${MAP_INTRO_FIXED} ${pickMapIntroConnector(cls, yongsin.divergesFromPrimary)}`,
   };
 }

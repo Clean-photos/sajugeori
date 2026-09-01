@@ -63,8 +63,8 @@ export function YongsinCard({ data }: { data: YongsinCardData }) {
       </div>
       <p className="text-[11px] text-[#6B6661] mb-1">한난조습: {data.climate}</p>
 
-      {/* 극단형 전용 서술은 문구 미승인 상태(PENDING_COPY.extremeFrame). 임의 생성하지 않고,
-          프레임이 다르다는 사실만 중립적인 라벨로 알린다. */}
+      {/* 극단형 요약 라벨 — 상세 처방(§3-1·§3-2 승인 문구)은 §③ FillSection이 담당한다.
+          여기서는 카드 맥락에 맞는 짧은 라벨만 둔다. */}
       {isFollow && (
         <p className="text-[11.5px] leading-relaxed text-[#8A5228] bg-[#FDF0E3] border border-[#E9D9C4] rounded-xl px-3 py-2 mb-1">
           한 기운으로 강하게 모인 구조라, 부족한 것을 채우기보다 <b>강한 흐름을 따라가는 방향</b>으로 제시합니다.
@@ -124,14 +124,23 @@ export function YongsinCard({ data }: { data: YongsinCardData }) {
           </p>
         )}
 
-        {data.trackRelation === "conflict" ? (
-          // 결정 ①: 교집합이 없으면 조후를 주 처방, 억부를 보조로 병기한다는 사실을 알린다.
-          // 상세 안내 문구는 승인 전이라 붙이지 않는다(conflictNote가 채워지면 그때 노출).
-          <p className="mt-2 text-[11.5px] leading-relaxed text-[#6B6661]">
-            이 사주는 두 관점이 서로 다른 오행을 가리킵니다. 아래 처방은 조후를 우선하고 억부를 보조로 함께 제시합니다.
-            {data.conflictNote ? ` ${data.conflictNote}` : ""}
-          </p>
-        ) : null}
+        {/* 결정 ①: 교집합이 없으면 조후를 주 처방, 억부를 보조로 병기한다(승인 문구,
+            docs/wuxing_pending_copy_v1.md §2). §2-2 표 형태 병기도 함께 붙인다. */}
+        {data.trackRelation === "conflict" && data.conflictNote && (
+          <div className="mt-2">
+            <p className="text-[11.5px] leading-relaxed text-[#6B6661]">{data.conflictNote}</p>
+            {data.johuKr.length > 0 && (
+              <div className="mt-1.5 flex flex-col gap-0.5 text-[11px]">
+                <span className="text-[#41614B]">
+                  주 처방 · 조후 — <b>{data.johuKr.join("·")}</b>
+                </span>
+                <span className="text-[#6B6661]">
+                  보조 참고 · 억부 — <b>{data.eokbuKr.join("·")}</b>
+                </span>
+              </div>
+            )}
+          </div>
+        )}
 
         <p className="mt-2 text-[10.5px] leading-relaxed text-[#6B6661]">{data.disclaimer}</p>
       </div>

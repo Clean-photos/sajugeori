@@ -13,3 +13,4 @@ export const josaIga = (el: Element) => (HAS_BATCHIM[el] ? "이" : "가");
 export const josaWaGwa = (el: Element) => (HAS_BATCHIM[el] ? "과" : "와");
 export const josaEunNeun = (el: Element) => (HAS_BATCHIM[el] ? "은" : "는");
 export const josaEulReul = (el: Element) => (HAS_BATCHIM[el] ? "을" : "를");
+export const josaRoEuro = (el: Element) => (HAS_BATCHIM[el] ? "으로" : "로");

@@ -49,7 +49,6 @@ import {
   buildImbalanceRows,
   buildYongsinCard,
   buildWuxingMap,
-  PENDING_COPY,
 } from "./map-section";
 import {
   buildFillSection,
@@ -922,8 +921,11 @@ for (const c of CASES) {
     check(`[${c.name}] 주 처방이 피해야 할 목록에 없음(자기모순 방지)`, card.main === null || !card.avoid.includes(card.main));
     eq(`[${c.name}] avoidKr 길이 일치`, card.avoid.length, card.avoidKr.length);
     check(`[${c.name}] 단정 금지 고지 항상 포함`, card.disclaimer.includes("단정하지 않고"));
-    // 문구 미승인 — 충돌이어도 안내 문구를 임의로 채우지 않는다
-    eq(`[${c.name}] conflictNote는 승인 전이라 null`, card.conflictNote, null);
+    // §2 충돌 안내(승인 완료) — conflict일 때만 non-null, 그 외엔 항상 null
+    eq(`[${c.name}] conflictNote는 trackRelation과 정확히 연동`, card.conflictNote !== null, card.trackRelation === "conflict");
+    if (card.conflictNote) {
+      check(`[${c.name}] conflictNote는 승인 문구 그대로`, card.conflictNote.includes("몸을 보강하는 관점(억부)과 계절의 온도를 맞추는 관점(조후)"));
+    }
 
     // 채우기 프레임이면 희신은 "주 처방을 생하는 오행"
     if (card.frame === "fill" && card.main && card.helper) {
@@ -996,16 +998,59 @@ for (const c of CASES) {
     }
   }
 
-  // 섹션 조립 — 승인 전 문구 슬롯이 실제로 비어 있는지(임의 생성 방지 회귀)
+  // 섹션 조립
   for (const c of CASES) {
     const chart = buildChart(c.iso, c.gender, c.hasHour);
     const data = buildWuxingMap(chart, classify(chart));
-    eq(`[${c.name}] 도입 서술은 승인 전이라 null`, data.intro, null);
+    check(`[${c.name}] 도입 서술에 고정 도입문 포함`, data.intro.includes("그 판정부터 시작합니다"));
     eq(`[${c.name}] hourUnknown이 classify와 일치`, data.hourUnknown, classify(chart).hourUnknown);
     eq(`[${c.name}] 막대 5행`, data.bars.length, 5);
     check(`[${c.name}] 진단표 행 존재`, data.imbalance.length > 0);
   }
-  eq("PENDING_COPY 3종 전부 미승인 상태", [PENDING_COPY.mapIntro, PENDING_COPY.yongsinConflict, PENDING_COPY.extremeFrame], [null, null, null]);
+
+  // §1-2 연결문 4갈래 — 조건별로 정확한 연결문이 선택되는지 (docs/wuxing_pending_copy_v1.md §1)
+  {
+    const CONNECTOR_PHRASE = {
+      match: "두 관점 모두에서 일치하는 결과입니다",
+      mismatch: "이 차이를 함께 안내합니다",
+      extreme: "흐름을 따르는 편이 명리학적으로 더 유효합니다",
+      balanced: "흐름을 관리하는 처방입니다",
+    } as const;
+
+    for (const c of CASES) {
+      const chart = buildChart(c.iso, c.gender, c.hasHour);
+      const cls = classify(chart);
+      const map = buildWuxingMap(chart, cls);
+      const yongsin = buildYongsinCard(chart, cls);
+
+      const expected: keyof typeof CONNECTOR_PHRASE =
+        cls.pattern === "extreme" ? "extreme" : cls.primary === null ? "balanced" : yongsin.divergesFromPrimary ? "mismatch" : "match";
+
+      check(`[${c.name}] 연결문 = ${expected}`, map.intro.includes(CONNECTOR_PHRASE[expected]), map.intro);
+      // 나머지 3갈래 문구는 섞여 들어가면 안 된다(배타성 확인)
+      for (const [key, phrase] of Object.entries(CONNECTOR_PHRASE)) {
+        if (key === expected) continue;
+        check(`[${c.name}] 다른 연결문(${key}) 안 섞임`, !map.intro.includes(phrase));
+      }
+    }
+
+    // 극단형 표본으로 extreme 연결문도 직접 확인 (CASES 3개에 극단형이 없을 수 있어 별도 확보)
+    let extremeChart: ReturnType<typeof buildChart> | null = null;
+    outer5: for (let y = 1970; y <= 2005; y++) {
+      for (let m = 1; m <= 12; m++) {
+        for (const d of [3, 11, 19, 27]) {
+          const iso = `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}T09:00:00`;
+          const chart = buildChart(iso, "M", true);
+          if (classify(chart).pattern === "extreme") { extremeChart = chart; break outer5; }
+        }
+      }
+    }
+    check("극단형 표본 확보(§1 연결문 검증용)", !!extremeChart);
+    if (extremeChart) {
+      const map = buildWuxingMap(extremeChart, classify(extremeChart));
+      check("극단형 연결문 정확", map.intro.includes(CONNECTOR_PHRASE.extreme));
+    }
+  }
 }
 
 // ── §③④⑤⑦ 리포트 조립 (report.ts) — 통합 규칙: §③ 기준은 primary 유지 ──
@@ -1020,7 +1065,7 @@ for (const c of CASES) {
     const expectedTarget = cls.frame === "follow" ? cls.dominant : cls.primary;
     eq(`[${c.name}] fill.target = ${cls.frame === "follow" ? "dominant" : "primary"}(통합 규칙)`, fill.target, expectedTarget);
 
-    if (fill.target) {
+    if (fill.target && fill.frame === "fill") {
       check(`[${c.name}] 축 3~4개`, fill.axes.length >= 3 && fill.axes.length <= 4, `${fill.axes.length}개`);
       check(`[${c.name}] 축 중복 없음`, new Set(fill.axes.map((a) => a.axis)).size === fill.axes.length);
       check(`[${c.name}] 각 축 상위 3항목`, fill.axes.every((a) => a.items.length <= 3));
@@ -1029,6 +1074,15 @@ for (const c of CASES) {
       check(`[${c.name}] relationBlock에 writerNote 없음`, !("writerNote" in (fill.relationBlock ?? {})));
       check(`[${c.name}] supportElement가 target을 생함`, fill.supportElement === null || C.GENERATES[fill.supportElement] === fill.target);
       eq(`[${c.name}] peopleAxisPrimary는 relation과 일치`, fill.peopleAxisPrimary, fill.relation ? peopleAxisIsPrimary(fill.relation) : false);
+      check(`[${c.name}] fill 프레임엔 extremeDirection 없음`, fill.extremeDirection === null);
+      eq(`[${c.name}] fill 프레임엔 drainItems 없음`, fill.drainItems.length, 0);
+      check(`[${c.name}] divergenceNote 존재(fill은 항상 §4 안내)`, !!fill.divergenceNote);
+    } else if (fill.target && fill.frame === "follow") {
+      eq(`[${c.name}] follow 프레임엔 축 없음(§3이 대체)`, fill.axes.length, 0);
+      eq(`[${c.name}] follow 프레임엔 relationBlock 없음`, fill.relationBlock, null);
+      eq(`[${c.name}] follow 프레임엔 divergenceNote 없음`, fill.divergenceNote, null);
+      check(`[${c.name}] extremeDirection 존재`, !!fill.extremeDirection);
+      eq(`[${c.name}] drainItems = A층 사전 §7 그대로`, fill.drainItems, elementDict(fill.target).drain.items);
     } else {
       eq(`[${c.name}] target 없으면 축도 없음`, fill.axes.length, 0);
     }
@@ -1071,6 +1125,66 @@ for (const c of CASES) {
     }
   }
 
+  // §3 극단형 처방 안내(승인 문구, docs/wuxing_pending_copy_v1.md §3) — 실제 내용 검증
+  {
+    let extremeChart: ReturnType<typeof buildChart> | null = null;
+    outer6: for (let y = 1970; y <= 2005; y++) {
+      for (let m = 1; m <= 12; m++) {
+        for (const d of [3, 11, 19, 27]) {
+          const iso = `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}T09:00:00`;
+          const chart = buildChart(iso, "M", true);
+          if (classify(chart).pattern === "extreme") { extremeChart = chart; break outer6; }
+        }
+      }
+    }
+    check("§3 검증용 극단형 표본 확보", !!extremeChart);
+    if (extremeChart) {
+      const cls = classify(extremeChart);
+      const fill = buildFillSection(extremeChart, cls);
+      check("§3-1 도입문 포함", fill.intro?.includes("유난히 강하게 모인 구조입니다") ?? false);
+      check("§3-1 반발 경고 포함", fill.intro?.includes("반발이 커질 수 있습니다") ?? false);
+      // §3-2 — dominant 오행에 해당하는 방향 문구가 정확히 실렸는지(5종 중 1개)
+      const expectedDirection: Record<string, string> = {
+        木: "화(火) 방향으로 흘려보내는",
+        火: "토(土) 방향으로 흘려보내는",
+        土: "금(金) 방향으로 흘려보내는",
+        金: "수(水) 방향으로 흘려보내는",
+        水: "목(木) 방향으로 흘려보내는",
+      };
+      check("§3-2 방향 문구가 dominant와 일치", fill.extremeDirection?.includes(expectedDirection[cls.dominant!]) ?? false, fill.extremeDirection ?? "");
+      check("§3 drainItems는 정확히 5개(A층 §7)", fill.drainItems.length === 5, `${fill.drainItems.length}개`);
+    }
+
+    // §4 — 실측 A케이스(mismatch 확정 사례)로 정확한 문구가 실리는지
+    const chartA = buildChart(CASES[0].iso, "M", true);
+    const fillA = buildFillSection(chartA, classify(chartA));
+    check("[A] §4 불일치 문구 — '구조적으로 채워야 할 자리는'", fillA.divergenceNote?.includes("구조적으로 채워야 할 자리는") ?? false);
+    check("[A] §4 불일치 문구 — 용신(用神) 표기 포함", fillA.divergenceNote?.includes("용신") ?? false);
+    check("[A] §4 불일치 문구 — §② 용신 카드 참고 안내", fillA.divergenceNote?.includes("§② 용신 카드") ?? false);
+
+    // §4-2 — primary와 종합 용신이 실제로 일치하는 표본을 찾아 "일치" 문구 확인
+    let matchChart: ReturnType<typeof buildChart> | null = null;
+    outer7: for (let y = 1970; y <= 2005; y++) {
+      for (let m = 1; m <= 12; m++) {
+        for (const d of [3, 11, 19, 27]) {
+          const iso = `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}T09:00:00`;
+          const chart = buildChart(iso, "M", true);
+          const cls = classify(chart);
+          if (cls.frame === "fill" && cls.primary && !buildYongsinCard(chart, cls).divergesFromPrimary) {
+            matchChart = chart;
+            break outer7;
+          }
+        }
+      }
+    }
+    check("§4-2 검증용 일치 표본 확보", !!matchChart);
+    if (matchChart) {
+      const fillM = buildFillSection(matchChart, classify(matchChart));
+      check("[일치 표본] §4-2 문구 — '으로 일치합니다'", fillM.divergenceNote?.includes("일치합니다") ?? false);
+      check("[일치 표본] §4-2엔 '기준으로 구성되어 있으며' 없음(불일치 전용 문구)", !(fillM.divergenceNote?.includes("기준으로 구성되어 있으며") ?? false));
+    }
+  }
+
   // §④ 사람 축 — 5블록 전부, mustInclude 고지 항상 포함
   for (const c of CASES) {
     const chart = buildChart(c.iso, c.gender, c.hasHour);
@@ -1110,7 +1224,6 @@ for (const c of CASES) {
     const cls = classify(chart);
     const report = buildWuxingReport(chart, cls, {}, 2026);
     eq(`[${c.name}] narratives 비어있으면 그대로 반영`, report.narratives, {});
-    eq(`[${c.name}] pending은 PENDING_COPY와 동일 참조`, report.pending, PENDING_COPY);
     eq(`[${c.name}] 세운 3년`, report.seun.years.length, 3);
     // narratives를 채워서 넘기면 그대로 반영되는지
     const withNarrative = buildWuxingReport(chart, cls, { diagnosis: { sentence1: "a", sentence2: "b" }, seunFlow: "c" }, 2026);

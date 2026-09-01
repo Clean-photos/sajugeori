@@ -11,9 +11,8 @@ export function WuxingMapSection({ data }: { data: WuxingMapData }) {
     <section className="flex flex-col gap-3">
       <h2 className="font-serif text-lg font-bold text-[#1F3D34]">오행 지도</h2>
 
-      {/* 결정 ④ — "부족하다고 다 채우는 것이 아니라…" 도입 서술. 문구 승인 전이라
-          슬롯만 잡아두고 렌더하지 않는다. PENDING_COPY.mapIntro가 채워지면 노출된다. */}
-      {data.intro && <p className="text-sm text-[#1A1A18] leading-relaxed">{data.intro}</p>}
+      {/* 결정 ④ — "부족하다고 다 채우는 것이 아니라…" 도입 서술(승인 완료, docs/wuxing_pending_copy_v1.md §1) */}
+      <p className="text-sm text-[#1A1A18] leading-relaxed">{data.intro}</p>
 
       <ElementBars bars={data.bars} charCount={data.count.charCount} />
       <ImbalanceTable rows={data.imbalance} hourUnknown={data.hourUnknown} />

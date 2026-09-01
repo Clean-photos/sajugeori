@@ -16,7 +16,8 @@ import type { Element } from "@/lib/saju-engine/constants";
 import type { SajuChart } from "@/lib/saju-engine/engine";
 import type { Classification } from "./classify";
 import { buildDiagnosis, type DiagnosisSkeleton } from "./diagnosis";
-import { buildWuxingMap, PENDING_COPY, type WuxingMapData } from "./map-section";
+import { buildWuxingMap, buildYongsinCard, type WuxingMapData } from "./map-section";
+import { josaIga, josaRoEuro } from "./josa";
 import {
   dict,
   elementDict,
@@ -55,23 +56,62 @@ export interface FillAxisGroup {
   items: DictItem[];
 }
 
+/**
+ * §3 극단형 처방 안내 (docs/wuxing_pending_copy_v1.md §3, CEO 승인 2026-08-31).
+ * 극단형 판정 시(frame==="follow") §③ 본체 전체를 이 블록으로 **대체**한다 —
+ * B층 5블록·A층 축 항목은 렌더하지 않는다(문서 §6-3 "일반 채우기 처방 대신").
+ * 우선 항목은 신규 제작 없이 A층 사전 §7(과다 시 설기) 항목을 그대로 쓴다.
+ */
+function buildExtremeIntro(target: Element): string {
+  const kr = C.ELEMENT_KR[target];
+  return `당신의 사주는 ${kr}(${target})${josaIga(target)} 유난히 강하게 모인 구조입니다. 이런 사주는 부족한 기운을 억지로 채우기보다, 강한 흐름을 따라가는 쪽이 명리학적으로 더 안정적입니다. 넘치는 기운을 누르려 하면 오히려 반발이 커질 수 있습니다.`;
+}
+
+const EXTREME_DIRECTION: Record<Element, string> = {
+  木: "목의 흐름을 살려 화(火) 방향으로 흘려보내는 것이 유효합니다. 벌이는 일을 마무리까지 끌고 가는 데 집중해 보십시오.",
+  火: "화의 흐름을 살려 토(土) 방향으로 흘려보내는 것이 유효합니다. 발산한 것을 결과물로 남기는 데 집중해 보십시오.",
+  土: "토의 흐름을 살려 금(金) 방향으로 흘려보내는 것이 유효합니다. 쌓아온 것을 정리하고 기준을 세우는 데 집중해 보십시오.",
+  金: "금의 흐름을 살려 수(水) 방향으로 흘려보내는 것이 유효합니다. 단단한 기준을 유연하게 표현하는 데 집중해 보십시오.",
+  水: "수의 흐름을 살려 목(木) 방향으로 흘려보내는 것이 유효합니다. 생각한 것을 실제로 시작하는 데 집중해 보십시오.",
+};
+
+/**
+ * §4 primary↔용신 충돌 안내 (docs/wuxing_pending_copy_v1.md §4, CEO 승인).
+ * fill 프레임에서만 쓴다 — follow(극단형)는 §3이 본체를 통째로 대체하므로 §4가
+ * 끼어들 자리가 없다(문서 §6-4 조건과 §6-3의 "대체" 원칙이 겹치는 지점).
+ */
+function buildDivergenceNote(primary: Element, yongsinByTrack: Element[], diverges: boolean): string {
+  const primaryKr = C.ELEMENT_KR[primary];
+  if (!diverges) {
+    return `구조적으로 채워야 할 자리와 명리학적으로 필요한 기운이 ${primaryKr}(${primary})${josaRoEuro(primary)} 일치합니다. 아래 처방은 두 관점 모두에서 뒷받침되는 결과입니다.`;
+  }
+  const yongsinKr = yongsinByTrack.map((el) => C.ELEMENT_KR[el]).join("·");
+  return `구조적으로 채워야 할 자리는 ${primaryKr}(${primary})이지만, 명리학적으로 균형을 위해 필요한 기운(용신)은 ${yongsinKr}입니다. 아래 처방은 ${primaryKr}(${primary}) 기준으로 구성되어 있으며, 용신 관점은 §② 용신 카드를 함께 참고해 주십시오.`;
+}
+
 export interface FillSectionData {
   frame: "fill" | "follow";
   /** 처방 대상 오행. 채우기면 부족 오행(primary), 순응이면 강한 오행(dominant) */
   target: Element | null;
   targetKr: string | null;
-  /** "당신에게 부족한 오행은 …이며, … 일간에게 …에 해당합니다." */
+  /** 도입 문장 — fill이면 B층 인트로("부족한 오행은…"), follow면 §3-1 극단형 안내 */
   intro: string | null;
   relation: TenGodRelation | null;
-  /** B층 5블록 — LLM 재생성 없이 그대로 노출한다(A안) */
+  /** B층 5블록 — fill 프레임에서만. follow는 §3이 본체를 대체하므로 null */
   relationBlock: RelationDisplayBlock | null;
-  /** A층 압축 결과 — 관계별 우선 축 3~4개 × 상위 3항목 */
+  /** A층 압축 결과 — fill 프레임에서만. follow는 [] */
   axes: FillAxisGroup[];
-  /** 보조 오행 — 직접 채우기 어려울 때 함께 쓰면 효과가 안정적이다 */
+  /** §3-2 순응 방향 문구 — follow 프레임에서만 */
+  extremeDirection: string | null;
+  /** §3 우선 항목 — A층 사전 §7(과다 시 설기) 그대로. follow 프레임에서만 */
+  drainItems: DrainItem[];
+  /** §4 안내(일치/불일치) — fill 프레임에서만. follow는 null(§3이 대체) */
+  divergenceNote: string | null;
+  /** 보조 오행 — 직접 채우기 어려울 때 함께 쓰면 효과가 안정적이다(fill 전용) */
   supportElement: Element | null;
   supportElementKr: string | null;
   supportNote: string | null;
-  /** §9 일간 강약 연동 — 재성 부족 + 신약이면 재성보다 비겁·인성을 먼저 */
+  /** §9 일간 강약 연동 — 재성 부족 + 신약이면 재성보다 비겁·인성을 먼저(fill 전용) */
   strengthAdjustment: StrengthAdjustment;
   /** 순응 프레임에서 명시적으로 제외한 오행(§3-④ 왕신충발) */
   excluded: Element[];
@@ -92,6 +132,9 @@ export function buildFillSection(chart: SajuChart, cls: Classification): FillSec
       relation: null,
       relationBlock: null,
       axes: [],
+      extremeDirection: null,
+      drainItems: [],
+      divergenceNote: null,
       supportElement: null,
       supportElementKr: null,
       supportNote: null,
@@ -104,26 +147,56 @@ export function buildFillSection(chart: SajuChart, cls: Classification): FillSec
 
   const relation = computeRelation(chart.day_master_element, target);
   const entry = elementDict(target);
+
+  if (cls.frame === "follow") {
+    return {
+      frame: "follow",
+      target,
+      targetKr: C.ELEMENT_KR[target],
+      intro: buildExtremeIntro(target),
+      relation,
+      relationBlock: null,
+      axes: [],
+      extremeDirection: EXTREME_DIRECTION[target],
+      drainItems: entry.drain.items,
+      divergenceNote: null,
+      supportElement: null,
+      supportElementKr: null,
+      supportNote: null,
+      strengthAdjustment: { needed: false, reason: null, preferFirst: [] },
+      excluded: cls.exclude,
+      excludedKr: cls.exclude.map((el) => C.ELEMENT_KR[el]),
+      peopleAxisPrimary: peopleAxisIsPrimary(relation),
+    };
+  }
+
   const axes = axisPriority(relation, AXIS_COUNT).map((axis) => ({
     axis,
     axisLabel: dict.axisLabels[axis],
     items: pickAxisItems(target, axis, ITEMS_PER_AXIS),
   }));
 
+  // §4 — primary↔용신 갈림 여부. buildYongsinCard가 이미 이 판정을 하므로 재사용한다
+  // (같은 규칙을 두 곳에서 따로 계산하면 언젠가 어긋난다).
+  const yongsin = buildYongsinCard(chart, cls);
+
   return {
-    frame: cls.frame,
+    frame: "fill",
     target,
     targetKr: C.ELEMENT_KR[target],
     intro: buildRelationIntroLine(chart.day_master_element, target),
     relation,
     relationBlock: buildRelationDisplayBlock(chart.day_master_element, target),
     axes,
+    extremeDirection: null,
+    drainItems: [],
+    divergenceNote: buildDivergenceNote(target, yongsin.yongsinByTrack, yongsin.divergesFromPrimary),
     supportElement: entry.supportElement,
     supportElementKr: C.ELEMENT_KR[entry.supportElement],
     supportNote: entry.supportNote,
     strengthAdjustment: adjustForStrength(relation, chart.day_master_element, chart.strength),
-    excluded: cls.exclude,
-    excludedKr: cls.exclude.map((el) => C.ELEMENT_KR[el]),
+    excluded: [],
+    excludedKr: [],
     peopleAxisPrimary: peopleAxisIsPrimary(relation),
   };
 }
@@ -253,8 +326,6 @@ export interface WuxingReportData {
   seun: SeunPrescriptionPlan;
   closing: ClosingSectionData;
   narratives: WuxingNarratives;
-  /** 승인 대기 문구 슬롯 4종. 전부 null이면 해당 자리는 렌더되지 않는다 */
-  pending: typeof PENDING_COPY;
 }
 
 export function buildWuxingReport(
@@ -272,7 +343,6 @@ export function buildWuxingReport(
     seun: buildSeunPrescription(chart, cls, fromYear),
     closing: buildClosingSection(),
     narratives,
-    pending: PENDING_COPY,
   };
 }
 
