@@ -355,3 +355,32 @@ export function countFillItems(fill: FillSectionData): number {
 export function relationKeyword(relation: TenGodRelation): string {
   return relationEntry(relation).keyword;
 }
+
+/**
+ * 복사·공유·PDF 저장(SaveReportButtons)용 평문 직렬화. 구조화된 데이터를 그대로
+ * 텍스트로 눌러 담는다 — 다른 990원 리포트가 이미 이 평문 저장 경로를 쓰므로
+ * 같은 UX를 맞추기 위함이지, 화면 렌더링(WuxingReport 컴포넌트)과는 무관하다.
+ */
+export function wuxingReportToPlainText(r: WuxingReportData): string {
+  const lines: string[] = [];
+  lines.push(r.diagnosis.headline.replace(/\*\*/g, ""));
+  if (r.narratives.diagnosis) lines.push(`${r.narratives.diagnosis.sentence1} ${r.narratives.diagnosis.sentence2}`);
+  lines.push("");
+  lines.push(r.map.intro);
+  lines.push("");
+  lines.push(`[오행 분포] ${r.map.bars.map((b) => `${b.elementKr} ${b.count}개(${b.percent}%, ${b.tierLabel})`).join(" · ")}`);
+  lines.push("");
+  if (r.fill.intro) lines.push(r.fill.intro);
+  if (r.fill.divergenceNote) lines.push(r.fill.divergenceNote);
+  if (r.fill.extremeDirection) lines.push(r.fill.extremeDirection);
+  if (r.fill.relationBlock) {
+    const b = r.fill.relationBlock;
+    lines.push("", `[${b.label}] ${b.deficiency}`, ...b.symptoms.map((s) => `· ${s}`), `채워졌을 때 — ${b.whenFilled}`, `주의 — ${b.caution}`);
+  }
+  lines.push("", "[3년 처방]");
+  for (const y of r.seun.years) {
+    lines.push(`${y.year}년 ${y.ganji} (${y.caseLabel}) — ${y.statusLine} ${y.guidelineLine}`);
+  }
+  if (r.narratives.seunFlow) lines.push("", r.narratives.seunFlow);
+  return lines.filter(Boolean).join("\n");
+}
