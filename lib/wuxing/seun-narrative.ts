@@ -14,7 +14,14 @@ import * as C from "@/lib/saju-engine/constants";
 import type { SajuChart } from "@/lib/saju-engine/engine";
 import type { Classification } from "./classify";
 import type { SeunPrescriptionPlan } from "./seun-prescription";
-import { WUXING_COMMON_RULES, callWuxingJSON } from "./llm";
+import {
+  WUXING_COMMON_RULES,
+  callWuxingJSON,
+  FORBIDDEN_MARKDOWN,
+  FORBIDDEN_PHRASES,
+  INFORMAL_ENDING,
+  splitSentences,
+} from "./llm";
 
 export interface SeunNarrativeResult {
   /** 3년을 관통하는 흐름 한 문단 (2~3문장, 존댓말) */
@@ -60,11 +67,6 @@ ${WUXING_COMMON_RULES}
 JSON 스키마: {"narrative": "..."}`;
 }
 
-const FORBIDDEN_MARKDOWN = /[*#`]|(?:^|\n)\s*-\s/;
-const FORBIDDEN_PHRASES = ["엔진", "알고리즘", "분석 시스템"] as const;
-// 문장 종결이 "-니다"류가 아닌 채로 남아있으면 존댓말 규칙(WUXING_COMMON_RULES) 위반
-const INFORMAL_ENDING = /(?<!니)다[.]?\s*$/;
-
 // 대운 "전환"을 서술하는 절인지 판정하는 동사군. 절 단위로만 대운+연도 동시 등장을
 // 검사하는 이유: 한 문장 안에 세운 연도("2028년...")와 대운 배경 언급("...戊戌 대운
 // 안에서")이 콤마로 함께 섞여 나오는 게 정상 출력이라(실측: C케이스), 문장 전체를
@@ -92,7 +94,7 @@ export function validateSeunNarrative(text: string): string[] {
   if (FORBIDDEN_MARKDOWN.test(text)) issues.push("마크다운 기호 포함");
   for (const p of FORBIDDEN_PHRASES) if (text.includes(p)) issues.push(`금지 표현 포함: ${p}`);
 
-  const sentences = text.split(/(?<=[.!?])\s*/).map((s) => s.trim()).filter(Boolean);
+  const sentences = splitSentences(text);
   if (sentences.length === 0) issues.push("빈 문단");
   for (const s of sentences) {
     if (INFORMAL_ENDING.test(s)) issues.push(`존댓말 아님: "${s}"`);

@@ -24,6 +24,22 @@ export const WUXING_COMMON_RULES = `
 - 제공된 사실 외의 명리 용어(신살·격국 등)를 새로 끌어오지 말 것.
 - JSON 외 다른 텍스트 없이 JSON만 응답.`;
 
+// ── 출력 검증 공용 primitives ─────────────────────────────────────────
+// 프롬프트 RULES를 믿기만 하지 않고 출력을 다시 검사한다(diagnosis-narrative.ts·
+// seun-narrative.ts 둘 다 이 셋을 쓴다 — 중복 정의하면 규칙을 한쪽만 고치는
+// 사고가 나기 쉽다).
+export const FORBIDDEN_MARKDOWN = /[*#`]|(?:^|\n)\s*-\s/;
+export const FORBIDDEN_PHRASES = ["엔진", "알고리즘", "분석 시스템"] as const;
+/** 문장 종결이 "-니다"류가 아니면 존댓말 규칙(WUXING_COMMON_RULES) 위반 */
+export const INFORMAL_ENDING = /(?<!니)다[.]?\s*$/;
+
+export function splitSentences(text: string): string[] {
+  return text
+    .split(/(?<=[.!?])\s*/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
 /**
  * 스트리밍으로 호출해 JSON을 파싱한다.
  * @param label 로그·에러 메시지 식별용 (예: "3년 흐름 문단")

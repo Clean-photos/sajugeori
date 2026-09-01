@@ -28,7 +28,8 @@ import {
 } from "./relation";
 import { buildSeunPrescription, classifySeunCase } from "./seun-prescription";
 import { buildSeunNarrativePrompt, validateSeunNarrative } from "./seun-narrative";
-import { buildDiagnosis } from "./diagnosis";
+import { buildDiagnosis, type DiagnosisSkeleton } from "./diagnosis";
+import { buildDiagnosisNarrativePrompt, validateDiagnosisNarrative } from "./diagnosis-narrative";
 import { wuxingBannerCopy, FILL_ARTICLE_ELEMENT } from "./banner";
 import seunCopyPoolsJson from "./seun-copy.json";
 const seunCopyPools = seunCopyPoolsJson.cases as Record<string, { status: string[]; guideline: string[] }>;
@@ -635,6 +636,104 @@ for (const c of CASES) {
       validateSeunNarrative(
         "2026년 丙午(병오)년과 2027년 丁未(정미)년은 연달아 화(火)와 토(土)의 기운이 들어오는 해로, 명리학적으로 보면 당신에게 부족한 금(金)의 기운을 치는 쪽이 이어지는 구간입니다. 이 두 해 동안은 평소 약하던 부분이 유난히 드러나고 격차가 벌어지는 흐름이기에, 무리하지 않는 것이 최선입니다. 그 버티는 구간을 지나 2028년 戊申(무신)년이 되면 토(土)와 금(金)이 함께 들어오며 비어 있던 자리가 저절로 채워지는 해가 되니, 지금 戊戌(무술) 대운 안에서 미뤄두었던 것을 꺼내기에 비로소 적절한 때가 찾아옵니다."
       ),
+      []
+    );
+  }
+}
+
+// ── 한 줄 진단 보충 2문장 — 프롬프트 조립·검증기 (§2-3, API 호출 없이 오프라인 검증) ──
+{
+  for (const c of CASES) {
+    const chart = buildChart(c.iso, c.gender, c.hasHour);
+    const cls = classify(chart);
+    const dx = buildDiagnosis(chart, cls);
+    const prompt = buildDiagnosisNarrativePrompt(dx);
+
+    check(`[${c.name}] 프롬프트에 헤드라인(** 제거) 포함`, prompt.includes(dx.headline.replace(/\*\*/g, "")));
+    check(`[${c.name}] 프롬프트에 facts 전부 포함`, dx.facts.every((f) => prompt.includes(f)));
+    check(`[${c.name}] 프롬프트에 공통 RULES 포함`, prompt.includes("사건 예측 금지"));
+    check(`[${c.name}] 프롬프트에 JSON 스키마 지시 포함`, prompt.includes('{"sentence1"'));
+    if (dx.relation) {
+      check(`[${c.name}] 프롬프트에 관계 라벨 포함`, prompt.includes(dx.relation.label));
+      check(`[${c.name}] 프롬프트에 "베끼지 말 것" 경고 포함`, prompt.includes("베끼지 말 것"));
+    }
+  }
+
+  // 균형형(relation=null) 방어 경로 — 8·6글자 사주에서는 수학적으로 나올 수 없지만
+  // (5오행이 전부 표면 2개 이상이려면 최소 10글자가 필요한데 8·6글자뿐이라 모순),
+  // classify.ts가 방어적으로 만들어 둔 값이라 프롬프트 조립도 안전한지는 확인해 둔다.
+  {
+    const fakeBalanced: DiagnosisSkeleton = {
+      pattern: "balanced",
+      headline: "**다섯 기운이 고르게 갖춰진 사주**",
+      facts: ["월지는 오(午)다", "일간은 甲(갑) — 木(목) 오행이다"],
+      relation: null,
+    };
+    const prompt = buildDiagnosisNarrativePrompt(fakeBalanced);
+    check("균형형 프롬프트에 '고르게 갖춰져' 대체 문구 포함", prompt.includes("고르게 갖춰져"));
+    check("균형형 프롬프트는 relation 라벨을 요구하지 않음", !prompt.includes("undefined"));
+  }
+
+  // 검증기 — RULES 위반을 실제로 잡아내는지
+  eq("정상 2문장 → 문제 없음", validateDiagnosisNarrative({ pattern: "scarce1", headline: "", facts: [], relation: null }, {
+    sentence1: "일간은 경(庚)입니다.",
+    sentence2: "이것은 식상에 해당합니다.",
+  }), []);
+  check("마크다운 검출", validateDiagnosisNarrative({ pattern: "scarce1", headline: "", facts: [], relation: null }, {
+    sentence1: "**중요**합니다.", sentence2: "그렇습니다.",
+  }).some((i) => i.includes("마크다운")));
+  check("금지 표현 검출", validateDiagnosisNarrative({ pattern: "scarce1", headline: "", facts: [], relation: null }, {
+    sentence1: "이 알고리즘이 계산했습니다.", sentence2: "그렇습니다.",
+  }).some((i) => i.includes("알고리즘")));
+  check("평서체 종결 검출", validateDiagnosisNarrative({ pattern: "scarce1", headline: "", facts: [], relation: null }, {
+    sentence1: "그렇다.", sentence2: "그렇습니다.",
+  }).some((i) => i.includes("존댓말 아님")));
+  check("문장 수 초과 검출", validateDiagnosisNarrative({ pattern: "scarce1", headline: "", facts: [], relation: null }, {
+    sentence1: "첫째입니다. 둘째입니다.", sentence2: "그렇습니다.",
+  }).some((i) => i.includes("문장")));
+
+  // B층 원문 통째 복사 검출
+  {
+    const dxWithRelation: DiagnosisSkeleton = {
+      pattern: "scarce1",
+      headline: "",
+      facts: [],
+      relation: buildRelationDisplayBlock("金", "水"),
+    };
+    const copied = validateDiagnosisNarrative(dxWithRelation, {
+      sentence1: "설명입니다.",
+      sentence2: dxWithRelation.relation!.deficiency, // 원문 그대로 복사
+    });
+    check("B층 원문 그대로 복사 시 검출", copied.some((i) => i.includes("복사")));
+
+    const paraphrased = validateDiagnosisNarrative(dxWithRelation, {
+      sentence1: "설명입니다.",
+      sentence2: "이 부분은 뒤에서 더 자세히 다룹니다.",
+    });
+    eq("정상 요약(원문 아님)은 통과", paraphrased, []);
+  }
+
+  // 실제 API 결과(2026-08-31 실측) 회귀 고정 — 오탐 없이 통과해야 한다
+  {
+    const chartA = buildChart(CASES[0].iso, CASES[0].gender, CASES[0].hasHour);
+    const dxA = buildDiagnosis(chartA, classify(chartA));
+    eq(
+      "실측 A케이스(scarce1) — 오탐 없음",
+      validateDiagnosisNarrative(dxA, {
+        sentence1: "여덟 글자의 표면 어디에도 木(목)이 드러나지 않고, 辰(진) 지지 속 乙(을)에만 숨어 있어 당신의 사주에서 木은 사실상 비어 있는 오행입니다.",
+        sentence2: "명리학적으로 보면 庚(경) 일간에게 木은 재성에 해당하는데, 이것이 비어 있다는 것이 당신에게 무엇을 뜻하는지는 아래 풀이에서 자세히 설명합니다.",
+      }),
+      []
+    );
+
+    const chartB = buildChart(CASES[1].iso, CASES[1].gender, CASES[1].hasHour);
+    const dxB = buildDiagnosis(chartB, classify(chartB));
+    eq(
+      "실측 B케이스(biased2) — 오탐 없음",
+      validateDiagnosisNarrative(dxB, {
+        sentence1: "명리학적으로 보면, 여덟 글자 표면에서 木(목)과 火(화)가 보이지 않고 — 목은 辰(진) 지지 안에 乙(을)이 숨어 있을 뿐이며 화는 표면과 지장간 어디에도 존재하지 않아 — 당신의 사주는 두 오행이 구조적으로 비어 있는 형태입니다.",
+        sentence2: "이 빈자리 중에서도 특히 식상에 해당하는 오행의 부재는, 당신 안에 무엇이 쌓이고 무엇이 막히는가를 이해하는 핵심 열쇠가 되며, 그 의미는 뒤쪽에서 더 깊이 다루겠습니다.",
+      }),
       []
     );
   }
