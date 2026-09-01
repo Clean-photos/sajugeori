@@ -603,6 +603,14 @@ for (const c of CASES) {
     check(`[${slug}] subCta 확정본과 일치`, copy.subCta === "부족 여부 판정 · 3년 세운 처방 · 어떤 사람이 맞는지까지");
     check(`[${slug}] href는 프리미엄 라우트`, copy.href.startsWith("/premium/"));
   }
+
+  // josa 회귀 방지 — 목(木)·금(金)은 받침 있어 "를"/"가"를 쓰면 비문이 된다(실측으로 발견)
+  eq("[목] title 조사 = 을", wuxingBannerCopy("木").title, "이 글은 목(木)을 채우는 일반적인 방법입니다");
+  eq("[금] title 조사 = 을", wuxingBannerCopy("金").title, "이 글은 금(金)을 채우는 일반적인 방법입니다");
+  eq("[수] title 조사 = 를(받침 없음)", wuxingBannerCopy("水").title, "이 글은 수(水)를 채우는 일반적인 방법입니다");
+  check("[목] body 조사 = 이", wuxingBannerCopy("木").body.startsWith("당신에게 정말 목(木)이 부족한지"));
+  check("[금] body 조사 = 이", wuxingBannerCopy("金").body.startsWith("당신에게 정말 금(金)이 부족한지"));
+  check("[화] body 조사 = 가(받침 없음)", wuxingBannerCopy("火").body.startsWith("당신에게 정말 화(火)가 부족한지"));
 }
 
 // ── 3년 흐름 한 문단 — 프롬프트 조립·검증기 (§1-4, API 호출 없이 오프라인 검증) ──

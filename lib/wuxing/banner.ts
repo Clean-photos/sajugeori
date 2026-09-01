@@ -8,6 +8,7 @@
  */
 import * as C from "@/lib/saju-engine/constants";
 import type { Element } from "@/lib/saju-engine/constants";
+import { josaIga, josaEulReul } from "./josa";
 
 export interface WuxingBannerCopy {
   /** "이 글은 수(水)를 채우는 일반적인 방법입니다" */
@@ -17,11 +18,7 @@ export interface WuxingBannerCopy {
   cta: string;
   /** 버튼 아래 작은 글씨 — §3-3, 5편 공통 고정 */
   subCta: string;
-  /**
-   * 리포트 라우트. ⚠️ `/premium/wuxing`은 아직 존재하지 않는다(§10 순서상 결제 연결이
-   * 마지막 단계) — 라우트가 생기기 전에 이 배너를 실제 페이지에 노출하면 클릭 시
-   * 404가 난다. 라우트 생성 전까지는 컴포넌트만 준비해 두고 페이지 삽입은 보류할 것.
-   */
+  /** 리포트 라우트. §10-9(결제 연결)로 /premium/wuxing이 실제 페이지로 존재한다 */
   href: string;
 }
 
@@ -32,8 +29,8 @@ const WUXING_ROUTE = "/premium/wuxing";
 export function wuxingBannerCopy(el: Element): WuxingBannerCopy {
   const label = `${C.ELEMENT_KR[el]}(${el})`;
   return {
-    title: `이 글은 ${label}를 채우는 일반적인 방법입니다`,
-    body: `당신에게 정말 ${label}가 부족한지, 부족하다면 올해 무엇부터 해야 하는지는 생년월일이 있어야 알 수 있습니다.`,
+    title: `이 글은 ${label}${josaEulReul(el)} 채우는 일반적인 방법입니다`,
+    body: `당신에게 정말 ${label}${josaIga(el)} 부족한지, 부족하다면 올해 무엇부터 해야 하는지는 생년월일이 있어야 알 수 있습니다.`,
     cta: CTA_LABEL,
     subCta: SUB_CTA,
     href: WUXING_ROUTE,

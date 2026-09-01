@@ -5,6 +5,8 @@ import { BottomTabBar } from "@/components/layout/BottomTabBar";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { OhaengCycle } from "@/components/diagrams/OhaengCycle";
 import { FourPillars } from "@/components/diagrams/FourPillars";
+import { WuxingBanner } from "@/components/wuxing/WuxingBanner";
+import { FILL_ARTICLE_ELEMENT } from "@/lib/wuxing/banner";
 import { ARTICLES, getArticle } from "../articles";
 
 export function generateStaticParams() {
@@ -28,6 +30,8 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
   if (!article) notFound();
 
   const others = ARTICLES.filter((a) => a.slug !== slug).slice(0, 3);
+  // /guide/fill-* 5편 전용 배너 — 확정 문구(§3, docs/wuxing_seun_diagnosis_banner_v1.md)
+  const wuxingElement = FILL_ARTICLE_ELEMENT[slug];
 
   return (
     <div className="flex flex-col min-h-screen pb-24 bg-[#F6F1E7]">
@@ -63,6 +67,8 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
           );
         })}
       </article>
+
+      {wuxingElement && <WuxingBanner element={wuxingElement} />}
 
       {article.cta && (
         <div className="px-5 mb-4">
