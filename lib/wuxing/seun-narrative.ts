@@ -52,7 +52,7 @@ ${daewoonLine(plan)}
 
 작성 지침:
 - 위 3년의 케이스·상태·지침을 그대로 사실로 삼아, 그 흐름을 관통하는 문단 하나를 써라(2~3문장).
-- 대운 문장은 위에 주어진 표현을 그대로 인용하라(특정 연도를 새로 지어내지 말 것 — 근사식이라 나이로만 표기돼 있다).
+- 대운 문장은 위에 주어진 표현을 그대로 인용하라(특정 연도를 새로 지어내지 말 것 — 근사식이라 나이로만 표기돼 있다). "2027년에 대운이 바뀝니다"처럼 대운 전환에 확정 연도를 붙이지 말 것 — "OO세 무렵" 형식만 허용된다.
 - 세 해의 케이스가 다르면 그 변화를("올해는 ~, 내년은 ~") 짚고, 같으면 그 지속성을 짚어라.
 - 예시 구조(참고용, 그대로 베끼지 말 것): "2026~2027은 화토가 이어져 버티는 구간이고, 2028년 무신년에 금수가 들어오며 그동안 준비한 것이 작동하기 시작합니다."
 ${WUXING_COMMON_RULES}
@@ -64,6 +64,22 @@ const FORBIDDEN_MARKDOWN = /[*#`]|(?:^|\n)\s*-\s/;
 const FORBIDDEN_PHRASES = ["엔진", "알고리즘", "분석 시스템"] as const;
 // 문장 종결이 "-니다"류가 아닌 채로 남아있으면 존댓말 규칙(WUXING_COMMON_RULES) 위반
 const INFORMAL_ENDING = /(?<!니)다[.]?\s*$/;
+
+// 대운 "전환"을 서술하는 절인지 판정하는 동사군. 절 단위로만 대운+연도 동시 등장을
+// 검사하는 이유: 한 문장 안에 세운 연도("2028년...")와 대운 배경 언급("...戊戌 대운
+// 안에서")이 콤마로 함께 섞여 나오는 게 정상 출력이라(실측: C케이스), 문장 전체를
+// 기준으로 "대운"과 "20XX년"의 단순 동시 등장만 보면 오탐이 난다. 대운이 "바뀐다"고
+// 실제로 주장하는 절에서만 연도를 확인해야 §1-7이 막으려는 사고와 정확히 겹친다.
+const DAEWOON_TRANSITION_VERB = /바뀌|바뀐|바뀝|전환|교체|시작/;
+// 끝에 \b를 두면 안 된다 — "년" 뒤에 "에"처럼 한글이 바로 이어지면 둘 다 \w가 아니라서
+// 그 경계가 \b로 인식되지 않는다("2027년에"에서 년→에 사이는 word-boundary가 아님).
+// 앞쪽 \b(숫자 직전)만으로도 "20XX년" 패턴을 구분하는 데는 충분하다.
+const CALENDAR_YEAR = /\b(19|20)\d{2}\s*년/;
+const AGE_BUFFER = /무렵/;
+
+function clauses(text: string): string[] {
+  return text.split(/[,，、.!?]/).map((s) => s.trim()).filter(Boolean);
+}
 
 /**
  * LLM 출력이 프롬프트 RULES를 실제로 지켰는지 가볍게 이중 확인한다. 프롬프트만
@@ -82,6 +98,16 @@ export function validateSeunNarrative(text: string): string[] {
     if (INFORMAL_ENDING.test(s)) issues.push(`존댓말 아님: "${s}"`);
   }
   if (sentences.length > 4) issues.push(`2~3문장 요청인데 ${sentences.length}문장`);
+
+  // §1-7 완충 표기 위반 — "대운이 바뀐다"고 말하는 절에 확정 연도가 박혀 있고
+  // "OO세 무렵" 형태의 완충 표현이 없으면, approxDaewoonStart()의 ±1~2년 오차를
+  // 특정 연도로 단정한 것이다("2027년에 대운이 바뀝니다" 같은 서술).
+  for (const clause of clauses(text)) {
+    const assertsTransition = clause.includes("대운") && DAEWOON_TRANSITION_VERB.test(clause);
+    if (assertsTransition && CALENDAR_YEAR.test(clause) && !AGE_BUFFER.test(clause)) {
+      issues.push(`대운 전환에 확정 연도 서술(§1-7 위반, "OO세 무렵" 형식이어야 함): "${clause}"`);
+    }
+  }
 
   return issues;
 }
