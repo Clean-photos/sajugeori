@@ -48,7 +48,7 @@ const MENU_CARDS = [
     subtitle: "이사·개업·계약 좋은 날",
   },
   {
-    href: "/premium/wuxing",
+    href: "/premium/ohang",
     icon: "行",
     title: "오행 보완 리포트",
     subtitle: "부족한 기운을 무엇으로, 언제 채울지",

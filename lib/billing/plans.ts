@@ -37,7 +37,7 @@ export const REPORT_PRODUCTS = [
   { key: "taekil", productId: "taekil_one", label: "프리미엄 택일", path: "/premium/taekil", bundleEligible: true },
   { key: "yearly", productId: "yearly_one", label: "프리미엄 연운세", path: "/premium/yearly", bundleEligible: true },
   { key: "salpuri", productId: "salpuri_one", label: "프리미엄 살풀이", path: "/premium/salpuri", bundleEligible: true },
-  { key: "wuxing", productId: "wuxing_one", label: "오행 보완 리포트", path: "/premium/wuxing", bundleEligible: false },
+  { key: "wuxing", productId: "wuxing_one", label: "오행 보완 리포트", path: "/premium/ohang", bundleEligible: false },
 ] as const;
 
 export const ONE_REPORT_PRICE = 990;

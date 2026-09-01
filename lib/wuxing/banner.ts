@@ -18,13 +18,13 @@ export interface WuxingBannerCopy {
   cta: string;
   /** 버튼 아래 작은 글씨 — §3-3, 5편 공통 고정 */
   subCta: string;
-  /** 리포트 라우트. §10-9(결제 연결)로 /premium/wuxing이 실제 페이지로 존재한다 */
+  /** 리포트 라우트. §10-9(결제 연결)로 /premium/ohang이 실제 페이지로 존재한다 */
   href: string;
 }
 
 const CTA_LABEL = "내 사주로 확인하기 · 990원";
 const SUB_CTA = "부족 여부 판정 · 3년 세운 처방 · 어떤 사람이 맞는지까지";
-const WUXING_ROUTE = "/premium/wuxing";
+const WUXING_ROUTE = "/premium/ohang";
 
 export function wuxingBannerCopy(el: Element): WuxingBannerCopy {
   const label = `${C.ELEMENT_KR[el]}(${el})`;

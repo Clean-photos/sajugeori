@@ -67,7 +67,7 @@ export async function POST() {
 
   const session = await auth();
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "login_required", redirect: "/login?redirect=/premium/wuxing" }, { status: 401 });
+    return NextResponse.json({ error: "login_required", redirect: "/login?redirect=/premium/ohang" }, { status: 401 });
   }
   const userId = session.user.id;
 
