@@ -4,6 +4,10 @@ import { supabaseAdmin } from "@/lib/db/client";
 import { checkReportAccess, consumeOneTimePass } from "@/lib/billing/access";
 import { startAttempt, finishAttemptDone, finishAttemptFailed, discardAttempt } from "@/lib/billing/attempts";
 import { reportExpiresAtIso, notExpiredFilter } from "@/lib/billing/report-ttl";
+import {
+  parseTargetBody, resolveTarget, readAdhocCache, writeAdhocCache,
+  ensureOwnProfileId, isoOf, timeKeyOf, loadOwnProfile, sameAsProfile,
+} from "@/lib/billing/report-target";
 import { buildChart } from "@/lib/saju-engine/engine";
 import { classify } from "@/lib/wuxing/classify";
 import { buildDiagnosis } from "@/lib/wuxing/diagnosis";
@@ -57,10 +61,11 @@ async function buildFullReport(chart: ReturnType<typeof buildChart>) {
 }
 
 /**
- * POST /api/premium/wuxing — 로그인+프리미엄 필수. 등록된 내 사주로 생성.
- * 다른 990원 리포트(yearly 등)와 동일 패턴: 캐시 → 게이트 → 생성 → 소진 → 캐시 저장.
+ * POST /api/premium/wuxing — 로그인+프리미엄 필수.
+ * body: { birth_date, birth_time|null, gender, calendar? } — 화면에서 확정한 대상 사주.
+ * 흐름: 대상 확정 → 캐시 → 게이트 → 생성 → 이용권 소진 → 캐시 저장.
  */
-export async function POST() {
+export async function POST(req: NextRequest) {
   if (!isEnabled()) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
@@ -71,58 +76,54 @@ export async function POST() {
   }
   const userId = session.user.id;
 
-  const { data: profile } = await supabaseAdmin
-    .from("saju_profiles")
-    .select("id, birth_date, birth_time, calendar, gender")
-    .eq("user_id", userId).eq("label", "본인")
-    .order("created_at", { ascending: false }).limit(1).maybeSingle();
-
-  if (!profile?.birth_date) {
-    return NextResponse.json({ error: "profile_required", redirect: "/onboarding" }, { status: 403 });
+  // 대상 사주는 화면에서 확정해 보낸다(생성 직전 컨펌). 예전처럼 "마지막에 등록한
+  // 본인 사주"를 말없이 쓰지 않는다 — 가족 사주를 볼 방법이 없던 원인이었다.
+  const parsed = parseTargetBody(await req.json().catch(() => ({})));
+  if (!parsed.ok) {
+    return NextResponse.json({ error: parsed.error }, { status: 400 });
   }
-  if (profile.calendar === "lunar") {
+  const input = parsed.input;
+  if (input.calendar === "lunar") {
     return NextResponse.json({ error: "음력 사주는 아직 지원하지 않습니다." }, { status: 400 });
   }
 
-  // 캐시 조회 — 이미 결제해서 만든 리포트가 있으면 재생성·재과금 없이 그대로 반환.
-  try {
-    const { data: cached } = await supabaseAdmin
-      .from("premium_wuxing_reports").select("content")
-      .eq("saju_profile_id", profile.id).or(notExpiredFilter()).limit(1).maybeSingle();
-    if (cached?.content) {
-      return NextResponse.json({ report: cached.content, cached: true });
-    }
-  } catch { /* 테이블 없음(마이그레이션 미적용) → 생성으로 진행 */ }
+  const { ownProfile, isAdhoc } = await resolveTarget(userId, input);
 
-  const started = await startAttempt(userId, PRODUCT_ID, undefined, { saju_profile_id: profile.id });
+  // 캐시를 게이트보다 먼저 본다. 이용권은 생성 성공 시 소진되므로, 게이트를 먼저
+  // 통과시키면 이미 결제해 만든 리포트를 다시 열지 못한다.
+  if (isAdhoc) {
+    const cached = await readAdhocCache(userId, PRODUCT_ID, input);
+    if (cached) return NextResponse.json({ report: cached, cached: true, adhoc: true });
+  } else if (ownProfile?.id) {
+    try {
+      const { data: cached } = await supabaseAdmin
+        .from("premium_wuxing_reports").select("content")
+        .eq("saju_profile_id", ownProfile.id).or(notExpiredFilter()).limit(1).maybeSingle();
+      if (cached?.content) return NextResponse.json({ report: cached.content, cached: true });
+    } catch { /* 테이블 없음(마이그레이션 미적용) → 생성으로 진행 */ }
+  }
+
+  // 대상이 다르면 다른 생성 시도다 — 입력값을 그대로 기록해 두면 실패 원인 추적이 쉽다.
+  const started = await startAttempt(userId, PRODUCT_ID, undefined, {
+    birth_date: input.birthDate, birth_time: timeKeyOf(input.birthTime), gender: input.gender,
+  });
   if (!started.ok) {
     return NextResponse.json({ error: started.error }, { status: started.status });
   }
 
-  // 구독자 또는 990원 1회 이용권 보유자만 신규 생성 가능
   const { allowed, passId } = await checkReportAccess(userId, PRODUCT_ID);
   if (!allowed) {
     await discardAttempt(started.attemptId);
     return NextResponse.json({ error: "premium_required", redirect: "/premium/buy?product=wuxing_one" }, { status: 402 });
   }
 
-  // birth_time은 Postgres time 컬럼이라 이미 초 단위까지 포함된 문자열("HH:MM:SS")로
-  // 넘어온다. 여기에 ":00"을 덧붙이면 "...T14:30:00:00"처럼 깨진 ISO 문자열이 되어
-  // new Date()가 Invalid Date를 반환하고, 이후 buildChart 내부 계산이 전부 NaN으로
-  // 조용히 무너진다(예외 없이 stem/branch가 undefined로 채워짐 — 실제 발생 버그였음).
-  // 다른 990원 리포트(yearly/salpuri 등)와 동일하게 그대로 이어붙인다.
-  const hasHour = !!profile.birth_time;
-  const iso = hasHour ? `${profile.birth_date}T${profile.birth_time}` : `${profile.birth_date}T00:00:00`;
   let chart: ReturnType<typeof buildChart>;
   try {
-    chart = buildChart(iso, profile.gender, hasHour);
+    chart = buildChart(isoOf(input), input.gender, !!input.birthTime);
   } catch (e) {
     // discardAttempt(시도 기록 자체를 삭제)는 "생성 시도로 볼 수 없는 조기 반환"
     // 전용이다(예: 이용권 부족). 사주 계산 실패는 실제 생성 시도가 실패한 것이므로
-    // finishAttemptFailed로 error_message를 남겨야 사후 조회(premium_generation_attempts)로
-    // 원인 파악이 가능하다 — discardAttempt를 쓰면 증거가 그대로 사라진다(실제 발생 버그).
-    // 다른 990원 리포트(yearly 등)와 동일 패턴: 원문 예외는 console.error로만 남기고
-    // DB·클라이언트에는 고정된 한국어 메시지만 전달한다(예외 메시지가 영문/내부용일 수 있어서).
+    // finishAttemptFailed로 error_message를 남겨야 사후 조회로 원인 파악이 가능하다.
     console.error("wuxing [사주 계산 실패]:", e);
     await finishAttemptFailed(started.attemptId, "사주 계산 오류");
     return NextResponse.json({ error: "사주 계산 오류" }, { status: 400 });
@@ -140,35 +141,66 @@ export async function POST() {
   if (passId) await consumeOneTimePass(passId);
   await finishAttemptDone(started.attemptId);
 
-  // 캐시 저장 (테이블 없으면 무시 — 다음 조회 때 다시 생성되지만 결제는 이미 끝난 뒤라 무료로 재생성됨은 아님)
-  try {
-    await supabaseAdmin.from("premium_wuxing_reports").upsert(
-      { saju_profile_id: profile.id, user_id: userId, content: report, expires_at: reportExpiresAtIso() },
-      { onConflict: "saju_profile_id" }
-    );
-  } catch { /* noop */ }
+  if (isAdhoc) {
+    // 1회성 — 본인 프로필도, 본인 리포트 캐시도 건드리지 않는다.
+    await writeAdhocCache(userId, PRODUCT_ID, input, report);
+    return NextResponse.json({ report, cached: false, adhoc: true });
+  }
 
-  return NextResponse.json({ report, cached: false });
+  // 본인 케이스. 등록된 사주가 없던 사람이면 이 입력이 본인 프로필로 저장된다(016 규칙).
+  const profileId = await ensureOwnProfileId(userId, input, ownProfile);
+  if (profileId) {
+    try {
+      await supabaseAdmin.from("premium_wuxing_reports").upsert(
+        { saju_profile_id: profileId, user_id: userId, content: report, expires_at: reportExpiresAtIso() },
+        { onConflict: "saju_profile_id" }
+      );
+    } catch { /* noop */ }
+  }
+
+  return NextResponse.json({ report, cached: false, savedProfile: !ownProfile });
 }
 
-// DELETE /api/premium/wuxing — 로그인 필수. 사용자가 자기 결과를 직접 삭제.
-export async function DELETE() {
+/**
+ * DELETE /api/premium/wuxing — 로그인 필수. 사용자가 자기 결과를 직접 삭제.
+ * query: birth_date/birth_time/gender — 지금 화면에 띄운 리포트의 대상.
+ *
+ * 대상을 받지 않으면 가족 사주로 만든 리포트를 지우려다 **본인 리포트가 지워진다**.
+ * 대상이 본인 사주와 같으면 기존 캐시에서, 다르면 1회성 캐시에서 지운다.
+ */
+export async function DELETE(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: "login_required" }, { status: 401 });
   }
   const userId = session.user.id;
 
-  const { data: profile } = await supabaseAdmin
-    .from("saju_profiles").select("id")
-    .eq("user_id", userId).eq("label", "본인")
-    .order("created_at", { ascending: false }).limit(1).maybeSingle();
-  if (!profile?.id) {
-    return NextResponse.json({ error: "profile_required" }, { status: 403 });
+  const q = req.nextUrl.searchParams;
+  const parsed = parseTargetBody({
+    birth_date: q.get("birth_date"), birth_time: q.get("birth_time"), gender: q.get("gender"),
+  });
+
+  const ownProfile = await loadOwnProfile(userId);
+
+  // 대상이 안 왔으면(구버전 클라이언트 등) 예전처럼 본인 리포트를 지운다.
+  if (!parsed.ok) {
+    if (!ownProfile?.id) return NextResponse.json({ error: "profile_required" }, { status: 403 });
+    await supabaseAdmin.from("premium_wuxing_reports").delete()
+      .eq("saju_profile_id", ownProfile.id).eq("user_id", userId);
+    return NextResponse.json({ ok: true });
   }
 
-  await supabaseAdmin.from("premium_wuxing_reports").delete()
-    .eq("saju_profile_id", profile.id).eq("user_id", userId);
+  const input = parsed.input;
+  if (ownProfile && !sameAsProfile(input, ownProfile)) {
+    await supabaseAdmin.from("premium_adhoc_reports").delete()
+      .eq("user_id", userId).eq("product_id", PRODUCT_ID)
+      .eq("birth_date", input.birthDate).eq("birth_time", timeKeyOf(input.birthTime))
+      .eq("gender", input.gender).eq("variant", "");
+    return NextResponse.json({ ok: true });
+  }
 
+  if (!ownProfile?.id) return NextResponse.json({ error: "profile_required" }, { status: 403 });
+  await supabaseAdmin.from("premium_wuxing_reports").delete()
+    .eq("saju_profile_id", ownProfile.id).eq("user_id", userId);
   return NextResponse.json({ ok: true });
 }

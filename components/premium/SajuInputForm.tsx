@@ -24,15 +24,31 @@ export function SajuInputForm({
   saved,
   busy,
   onSubmit,
+  confirmMode = false,
+  submitLabel,
+  busyLabel,
 }: {
   saved: SavedSaju;
   busy: boolean;
   onSubmit: (v: { birth_date: string; birth_time: string | null; gender: string }) => void;
+  /**
+   * 생성 직전 "이 사주가 맞는지" 확정하는 화면으로 쓸 때 true.
+   * 등록된 사주가 있으면 체크박스가 켜진 채로 값이 채워져 나오고, 유저는 확인만
+   * 하면 된다. 체크를 풀면 빈 폼이 되어 가족·친구 사주를 직접 넣을 수 있다.
+   * (기본 false — 기존 프리미엄 사주 화면의 "불러오기 버튼" 동작을 그대로 둔다)
+   */
+  confirmMode?: boolean;
+  submitLabel?: string;
+  busyLabel?: string;
 }) {
-  const [birthDate, setBirthDate] = useState("");
-  const [birthTime, setBirthTime] = useState("");
-  const [noTime, setNoTime] = useState(false);
-  const [gender, setGender] = useState("");
+  // confirmMode에서는 등록된 사주를 처음부터 채워 둔다("생성 직전 컨펌" 구조).
+  const prefill = confirmMode && saved;
+  const savedTime = saved?.birth_time ? saved.birth_time.slice(0, 5) : "";
+  const [birthDate, setBirthDate] = useState(prefill ? saved.birth_date : "");
+  const [birthTime, setBirthTime] = useState(prefill ? savedTime : "");
+  const [noTime, setNoTime] = useState(prefill ? !savedTime : false);
+  const [gender, setGender] = useState(prefill ? saved.gender : "");
+  const [useOwn, setUseOwn] = useState(!!prefill);
 
   const canSubmit = birthDate.length === 10 && !!gender && !busy;
 
@@ -46,19 +62,60 @@ export function SajuInputForm({
     setGender(saved.gender);
   }
 
+  // 체크박스 토글 — 켜면 등록된 사주를 불러오고, 끄면 빈 폼으로 되돌린다.
+  function toggleUseOwn() {
+    const next = !useOwn;
+    setUseOwn(next);
+    if (next) { useSaved(); return; }
+    setBirthDate(""); setBirthTime(""); setNoTime(false); setGender("");
+  }
+
+  // 값을 직접 고치면 "등록한 내 사주"가 더 이상 아니므로 체크를 자동으로 푼다.
+  function edited() {
+    if (useOwn) setUseOwn(false);
+  }
+
   return (
     <div className="px-4 py-6 flex flex-col gap-5">
       <div className="bg-[#FBF8F2] border border-[#E5DFD4] rounded-2xl p-5 flex flex-col gap-4">
         <div>
-          <p className="text-sm font-semibold text-[#1F3D34]">사주 정보</p>
+          <p className="text-sm font-semibold text-[#1F3D34]">
+            {confirmMode ? "누구의 사주로 볼까요?" : "사주 정보"}
+          </p>
           <p className="text-xs text-[#6B6661] mt-1 leading-relaxed">
-            {saved
-              ? "등록된 사주를 불러오거나, 다른 분의 사주를 입력해 보실 수 있어요."
-              : "입력하신 사주는 내 사주로 저장되어 다음부터 다시 입력하지 않아도 됩니다."}
+            {confirmMode
+              ? "이 정보로 리포트를 만듭니다. 다른 분의 사주를 보시려면 아래 체크를 풀고 직접 입력해 주세요."
+              : saved
+                ? "등록된 사주를 불러오거나, 다른 분의 사주를 입력해 보실 수 있어요."
+                : "입력하신 사주는 내 사주로 저장되어 다음부터 다시 입력하지 않아도 됩니다."}
           </p>
         </div>
 
-        {saved && (
+        {/* 확정 화면에서는 체크박스, 기존 화면에서는 불러오기 버튼 */}
+        {saved && confirmMode && (
+          <label
+            onClick={toggleUseOwn}
+            className="flex items-start gap-2.5 text-sm text-[#1A1A18] cursor-pointer select-none bg-white border border-[#E5DFD4] rounded-xl px-3.5 py-3"
+          >
+            <div className={`mt-0.5 w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 transition-all ${useOwn ? "bg-[#1F3D34] border-[#1F3D34]" : "border-[#E5DFD4] bg-white"}`}>
+              {useOwn && (
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                  <path d="M2 5l2 2 4-4" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              )}
+            </div>
+            <span>
+              등록한 내 사주 사용하기
+              <span className="block text-xs text-[#6B6661] mt-0.5">
+                {saved.birth_date}
+                {saved.birth_time ? ` · ${saved.birth_time.slice(0, 5)}` : " · 시각 모름"}
+                {" · "}{saved.gender === "M" ? "남성" : "여성"}
+              </span>
+            </span>
+          </label>
+        )}
+
+        {saved && !confirmMode && (
           <button
             type="button"
             onClick={useSaved}
@@ -81,6 +138,7 @@ export function SajuInputForm({
               if (v.length > 4) v = v.slice(0, 4) + "-" + v.slice(4);
               if (v.length > 7) v = v.slice(0, 7) + "-" + v.slice(7);
               setBirthDate(v.slice(0, 10));
+              edited();
             }}
             onBlur={() => {
               if (birthDate.length === 10 && birthDate > maxBirthDate()) {
@@ -105,11 +163,12 @@ export function SajuInputForm({
               let v = e.target.value.replace(/[^0-9]/g, "");
               if (v.length > 2) v = v.slice(0, 2) + ":" + v.slice(2);
               setBirthTime(v.slice(0, 5));
+              edited();
             }}
             className="w-full border border-[#E5DFD4] rounded-xl px-4 py-3.5 text-sm bg-white disabled:opacity-40 focus:outline-none focus:border-[#1F3D34] tracking-widest"
           />
           <label
-            onClick={() => { setNoTime(!noTime); setBirthTime(""); }}
+            onClick={() => { setNoTime(!noTime); setBirthTime(""); edited(); }}
             className="flex items-center gap-2.5 mt-2.5 text-sm text-[#6B6661] cursor-pointer select-none"
           >
             <div className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-all ${noTime ? "bg-[#1F3D34] border-[#1F3D34]" : "border-[#E5DFD4] bg-white"}`}>
@@ -130,7 +189,7 @@ export function SajuInputForm({
               <button
                 key={val}
                 type="button"
-                onClick={() => setGender(val)}
+                onClick={() => { setGender(val); edited(); }}
                 className={`flex-1 py-3 rounded-xl border text-sm font-medium transition-all ${
                   gender === val
                     ? "bg-[#1F3D34] text-white border-[#1F3D34] shadow-md"
@@ -150,7 +209,7 @@ export function SajuInputForm({
           className="w-full flex items-center justify-center gap-2 bg-[#C8743A] text-white rounded-xl py-3.5 font-semibold text-sm disabled:opacity-40 active:scale-[0.97] transition-all shadow-md"
         >
           {busy && <Spinner />}
-          {busy ? "풀이 생성 중..." : "이 사주로 풀이 보기"}
+          {busy ? (busyLabel ?? "풀이 생성 중...") : (submitLabel ?? "이 사주로 풀이 보기")}
         </button>
       </div>
     </div>
