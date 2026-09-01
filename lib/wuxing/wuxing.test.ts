@@ -1248,6 +1248,34 @@ for (const c of CASES) {
   }
 }
 
+// ── 라우트 입력 계약: birth_date/birth_time → ISO 문자열 ─────────────
+// 실제 발생 버그(2026-09-02, /premium/ohang): 라우트가 Postgres time 컬럼값
+// ("HH:MM:SS")에 ":00"을 한 번 더 붙여 "...T14:30:00:00"을 만들었고, new Date()가
+// Invalid Date를 반환해 buildChart 내부가 전부 NaN/undefined로 조용히 무너졌다
+// (예외 없이 stem/branch가 undefined → "HIDDEN_STEMS에 없는 branch 값").
+// 라우트 코드 자체는 이 테스트 파일 범위 밖이라, 여기서는 buildChart가 요구하는
+// ISO 문자열 형태를 계약으로 못박아 같은 실수가 재발하면 바로 드러나게 한다.
+{
+  const DATE = "1988-05-14";
+  const TIME = "14:30:00"; // Postgres time 컬럼이 돌려주는 형태
+
+  const good = `${DATE}T${TIME}`;
+  check("시간 있음 ISO: Date로 파싱 가능", !isNaN(new Date(good).getTime()));
+  const chart = buildChart(good, "M", true);
+  check("시간 있음 ISO: 일간이 정상 계산됨", typeof chart.day_master === "string" && chart.day_master.length > 0);
+  check("시간 있음 ISO: 시지가 undefined가 아님", chart.pillars.hour?.branch !== undefined);
+
+  const noHour = `${DATE}T00:00:00`;
+  check("시간 미상 ISO: Date로 파싱 가능", !isNaN(new Date(noHour).getTime()));
+  const chartNoHour = buildChart(noHour, "M", false);
+  check("시간 미상 ISO: 일간이 정상 계산됨", typeof chartNoHour.day_master === "string" && chartNoHour.day_master.length > 0);
+  eq("시간 미상 ISO: 시주 없음", chartNoHour.pillars.hour, null);
+
+  // 회귀 방지 핵심: ":00"을 덧붙인 형태는 반드시 Invalid Date여야 한다.
+  // (이게 valid로 바뀌면 위 계약이 무의미해지므로 함께 못박는다)
+  check("깨진 ISO(:00 중복)는 Invalid Date", isNaN(new Date(`${DATE}T${TIME}:00`).getTime()));
+}
+
 // ── 결과 ───────────────────────────────────────────────────────────
 console.log(`\n통과 ${passed}건 / 실패 ${failures.length}건`);
 if (failures.length > 0) {

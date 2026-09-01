@@ -106,8 +106,13 @@ export async function POST() {
     return NextResponse.json({ error: "premium_required", redirect: "/premium/buy?product=wuxing_one" }, { status: 402 });
   }
 
+  // birth_time은 Postgres time 컬럼이라 이미 초 단위까지 포함된 문자열("HH:MM:SS")로
+  // 넘어온다. 여기에 ":00"을 덧붙이면 "...T14:30:00:00"처럼 깨진 ISO 문자열이 되어
+  // new Date()가 Invalid Date를 반환하고, 이후 buildChart 내부 계산이 전부 NaN으로
+  // 조용히 무너진다(예외 없이 stem/branch가 undefined로 채워짐 — 실제 발생 버그였음).
+  // 다른 990원 리포트(yearly/salpuri 등)와 동일하게 그대로 이어붙인다.
   const hasHour = !!profile.birth_time;
-  const iso = hasHour ? `${profile.birth_date}T${profile.birth_time}:00` : `${profile.birth_date}T00:00:00`;
+  const iso = hasHour ? `${profile.birth_date}T${profile.birth_time}` : `${profile.birth_date}T00:00:00`;
   let chart: ReturnType<typeof buildChart>;
   try {
     chart = buildChart(iso, profile.gender, hasHour);
