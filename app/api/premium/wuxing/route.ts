@@ -112,14 +112,22 @@ export async function POST() {
   try {
     chart = buildChart(iso, profile.gender, hasHour);
   } catch (e) {
-    await discardAttempt(started.attemptId);
-    return NextResponse.json({ error: e instanceof Error ? e.message : "사주 계산 오류" }, { status: 400 });
+    // discardAttempt(시도 기록 자체를 삭제)는 "생성 시도로 볼 수 없는 조기 반환"
+    // 전용이다(예: 이용권 부족). 사주 계산 실패는 실제 생성 시도가 실패한 것이므로
+    // finishAttemptFailed로 error_message를 남겨야 사후 조회(premium_generation_attempts)로
+    // 원인 파악이 가능하다 — discardAttempt를 쓰면 증거가 그대로 사라진다(실제 발생 버그).
+    // 다른 990원 리포트(yearly 등)와 동일 패턴: 원문 예외는 console.error로만 남기고
+    // DB·클라이언트에는 고정된 한국어 메시지만 전달한다(예외 메시지가 영문/내부용일 수 있어서).
+    console.error("wuxing [사주 계산 실패]:", e);
+    await finishAttemptFailed(started.attemptId, "사주 계산 오류");
+    return NextResponse.json({ error: "사주 계산 오류" }, { status: 400 });
   }
 
   let report: Awaited<ReturnType<typeof buildFullReport>>;
   try {
     report = await buildFullReport(chart);
   } catch (e) {
+    console.error("wuxing [리포트 조립 실패]:", e);
     await finishAttemptFailed(started.attemptId, e instanceof Error ? e.message : "생성 실패");
     return NextResponse.json({ error: "생성에 실패했습니다. 잠시 후 다시 시도해주세요." }, { status: 500 });
   }
