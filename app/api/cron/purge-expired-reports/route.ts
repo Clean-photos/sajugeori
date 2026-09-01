@@ -16,6 +16,7 @@ const TABLES = [
   "premium_pet_reports",
   "premium_compatibility_reports",
   "premium_taekil_reports",
+  "premium_wuxing_reports",
 ] as const;
 
 export async function GET(req: NextRequest) {

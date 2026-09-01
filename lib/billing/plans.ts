@@ -19,19 +19,25 @@ export const PREMIUM_MONTHLY: Plan = {
 };
 
 /**
- * 프리미엄 리포트 6종. 각각 990원 단건 이용권으로 판매한다.
+ * 프리미엄 리포트 7종. 각각 990원 단건 이용권으로 판매한다.
  *
  * 사주는 한 번 보면 끝나는 소비라 월 구독과 궁합이 나쁘다. 반면 궁합·반려동물·
- * 택일·연운세는 대상이나 시기가 바뀌면 다시 볼 이유가 생기므로 단건이 맞다.
+ * 택일·연운세·오행 보완은 대상이나 시기가 바뀌면 다시 볼 이유가 생기므로 단건이 맞다.
  * productId는 one_time_purchases.product_id에 그대로 저장된다.
+ *
+ * bundleEligible: false면 BUNDLE_ALL(전체 열람권) 산정에서 빠진다. 오행 보완은
+ * 여기서 빠진다(§10-9 결정③, D47) — 묶음권 자체가 이미 폐지 결정된 상품(판매
+ * 실적 0, 진입점만 막아 둔 상태)이라 "6종" 이름·가격을 그대로 둔다. 묶음권을
+ * 실제로 정리할 때(BUNDLE_ALL·BUNDLE_CREDITS 자체를 없앨 때) 함께 처리한다.
  */
 export const REPORT_PRODUCTS = [
-  { key: "saju", productId: "saju_one", label: "프리미엄 사주", path: "/premium" },
-  { key: "compatibility", productId: "compatibility_one", label: "프리미엄 궁합", path: "/premium/compatibility" },
-  { key: "pet", productId: "pet_one", label: "반려동물 궁합", path: "/premium/pet" },
-  { key: "taekil", productId: "taekil_one", label: "프리미엄 택일", path: "/premium/taekil" },
-  { key: "yearly", productId: "yearly_one", label: "프리미엄 연운세", path: "/premium/yearly" },
-  { key: "salpuri", productId: "salpuri_one", label: "프리미엄 살풀이", path: "/premium/salpuri" },
+  { key: "saju", productId: "saju_one", label: "프리미엄 사주", path: "/premium", bundleEligible: true },
+  { key: "compatibility", productId: "compatibility_one", label: "프리미엄 궁합", path: "/premium/compatibility", bundleEligible: true },
+  { key: "pet", productId: "pet_one", label: "반려동물 궁합", path: "/premium/pet", bundleEligible: true },
+  { key: "taekil", productId: "taekil_one", label: "프리미엄 택일", path: "/premium/taekil", bundleEligible: true },
+  { key: "yearly", productId: "yearly_one", label: "프리미엄 연운세", path: "/premium/yearly", bundleEligible: true },
+  { key: "salpuri", productId: "salpuri_one", label: "프리미엄 살풀이", path: "/premium/salpuri", bundleEligible: true },
+  { key: "wuxing", productId: "wuxing_one", label: "오행 보완 리포트", path: "/premium/wuxing", bundleEligible: false },
 ] as const;
 
 export const ONE_REPORT_PRICE = 990;
@@ -71,10 +77,10 @@ export const BUNDLE_ALL: Plan = {
   days: 0,
 };
 
-/** 묶음권이 부여하는 이용권 장수 */
+/** 묶음권이 부여하는 이용권 장수. BUNDLE_ALL은 bundleEligible 상품만 센다(§10-9 결정③) */
 export const BUNDLE_CREDITS: Record<string, number> = {
   [BUNDLE_3.id]: 3,
-  [BUNDLE_ALL.id]: REPORT_PRODUCTS.length,
+  [BUNDLE_ALL.id]: REPORT_PRODUCTS.filter((p) => p.bundleEligible).length,
 };
 
 /**

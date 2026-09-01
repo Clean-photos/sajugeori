@@ -17,6 +17,7 @@ const SOURCES: { table: string; label: string; href: string }[] = [
   { table: "premium_yearly_reports", label: "프리미엄 연운세", href: "/premium/yearly" },
   { table: "premium_pet_reports", label: "반려동물 궁합", href: "/premium/pet" },
   { table: "premium_saju_adhoc_reports", label: "프리미엄 사주 (직접 입력)", href: "/premium" },
+  { table: "premium_wuxing_reports", label: "오행 보완 리포트", href: "/premium/wuxing" },
   { table: "blueprint_reports", label: "운명 설계도", href: "/premium/destiny" },
 ];
 

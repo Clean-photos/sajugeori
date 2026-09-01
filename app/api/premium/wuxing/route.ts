@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { runSajuEngine } from "@/lib/saju-engine";
+import { supabaseAdmin } from "@/lib/db/client";
+import { checkReportAccess, consumeOneTimePass } from "@/lib/billing/access";
+import { startAttempt, finishAttemptDone, finishAttemptFailed, discardAttempt } from "@/lib/billing/attempts";
+import { reportExpiresAtIso, notExpiredFilter } from "@/lib/billing/report-ttl";
+import { buildChart } from "@/lib/saju-engine/engine";
 import { classify } from "@/lib/wuxing/classify";
 import { buildDiagnosis } from "@/lib/wuxing/diagnosis";
 import { generateDiagnosisNarrative } from "@/lib/wuxing/diagnosis-narrative";
@@ -9,75 +13,149 @@ import { generateSeunNarrative } from "@/lib/wuxing/seun-narrative";
 import { buildWuxingReport, type WuxingNarratives } from "@/lib/wuxing/report";
 
 // LLM 호출 2곳(§① 보충 문장·§⑥ 흐름 문단)이 병렬이라 개별 실측(6~14초)보다 여유 있게 잡는다.
+// 실측(2026-08-31, claude-sonnet-5): 평균 9.2초, 최대 12.0초 — 60초 상한에 여유 충분.
 export const maxDuration = 60;
 
+const PRODUCT_ID = "wuxing_one";
+
 /**
- * POST /api/premium/wuxing — 오행 보완 리포트 생성.
- *
- * ⚠️ §13 작업 규칙: "개발은 진행하되 판매 노출 시점은 별도 지시". 이 라우트는 결제·
- * 상품 등록(lib/billing/plans.ts REPORT_PRODUCTS) 전이라 아직 팔 수 있는 상품이
- * 아니다. checkReportAccess()를 재사용하면 활성 구독자는 product_id 등록 여부와
- * 무관하게 즉시 통과되므로(isPremiumUser 체크가 앞선다), 이 라우트가 배포되는
- * 순간 미가격·미공지 기능이 기존 구독자에게 조용히 열리는 문제가 있다.
- *
- * 그래서 결제 게이트 대신 명시적 기능 플래그(WUXING_ENABLED)로 잠가 둔다 — 값이
- * "1"이 아니면 로그인 여부와 무관하게 404. Vercel에는 아직 설정하지 않았으니
- * 배포되어도 프로덕션에서는 비활성 상태다. 로컬 실측에는 .env.local에서만 켠다.
- * §10 9단계(결제 연결)에서 checkReportAccess/consumeOneTimePass로 교체한다.
+ * ⚠️ §13 작업 규칙: "개발은 진행하되 판매 노출 시점은 별도 지시". §10-9(결제 연결)로
+ * checkReportAccess/consumeOneTimePass 정식 게이트를 붙였지만, WUXING_ENABLED
+ * 플래그는 CEO 판단(2026-08-31)에 따라 **운영 킬스위치로 유지**한다 — 이유:
+ *   ① 토스 카드사 심사가 아직 진행 중이라, 심사 완료 전까지는 실제 결제 버튼이
+ *      뜨는 시점 자체를 코드 배포와 분리해 둘 필요가 있다
+ *   ② 결제 게이트가 정상 작동해도, 생성 로직 버그가 나중에 발견되면 재배포 없이
+ *      즉시 끌 수 있는 수단이 하나 더 있는 편이 안전하다(다른 990원 리포트에는
+ *      없는 이중 안전장치이지만, 신규 상품 초기 안정화 기간에는 정당하다)
+ * 값이 "1"이 아니면 로그인·결제 여부와 무관하게 404. Vercel에는 아직 미설정이라
+ * 이번 배포로도 프로덕션은 비활성 상태 그대로다. 결제·노출 시점이 되면 CEO가
+ * Vercel 환경변수만 켜면 된다(코드 변경 불필요).
  */
-export async function POST(req: NextRequest) {
-  if (process.env.WUXING_ENABLED !== "1") {
-    return NextResponse.json({ error: "not_found" }, { status: 404 });
-  }
+function isEnabled(): boolean {
+  return process.env.WUXING_ENABLED === "1";
+}
 
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "login_required" }, { status: 401 });
-  }
-
-  const body = await req.json();
-  const { birth_date, birth_time, calendar, gender } = body;
-
-  if (!birth_date || !gender || !calendar) {
-    return NextResponse.json({ error: "birth_date, gender, calendar are required" }, { status: 400 });
-  }
-  if (!["M", "F"].includes(gender)) {
-    return NextResponse.json({ error: "gender must be M or F" }, { status: 400 });
-  }
-
-  let chart: ReturnType<typeof runSajuEngine>["saju_raw"];
-  try {
-    chart = runSajuEngine({ birth_date, birth_time: birth_time ?? null, calendar, gender }).saju_raw;
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : "Engine error";
-    return NextResponse.json({ error: msg }, { status: 400 });
-  }
-
+async function buildFullReport(chart: ReturnType<typeof buildChart>) {
   const cls = classify(chart);
   const diagnosis = buildDiagnosis(chart, cls);
   const seunPlan = buildSeunPrescription(chart, cls);
 
-  // LLM 호출 2곳은 서로 무관한 입력을 쓰므로 병렬로 돌린다 — 원가 실측(2026-08-31)에서
-  // 단독 6.3~14.2초였으니 순차로 돌리면 최대 28초까지 늘어난다. 하나가 실패해도 나머지
-  // 응답은 살리고, 실패한 자리는 "준비하고 있습니다" 폴백으로 컴포넌트가 자체 처리한다
-  // (지어낸 문구를 채우지 않는다는 이 상품 전체의 원칙).
+  // 서로 무관한 입력이라 병렬로 돌린다. 하나가 실패해도 나머지는 살리고,
+  // 실패한 자리는 컴포넌트의 "준비하고 있습니다" 폴백이 자체 처리한다.
   const [diagnosisResult, seunFlowResult] = await Promise.allSettled([
     generateDiagnosisNarrative(diagnosis),
     generateSeunNarrative(chart, cls, seunPlan),
   ]);
 
   const narratives: WuxingNarratives = {};
-  if (diagnosisResult.status === "fulfilled") {
-    narratives.diagnosis = diagnosisResult.value;
-  } else {
-    console.error("wuxing [한 줄 진단 보충 문장] 실패:", diagnosisResult.reason);
-  }
-  if (seunFlowResult.status === "fulfilled") {
-    narratives.seunFlow = seunFlowResult.value;
-  } else {
-    console.error("wuxing [3년 흐름 문단] 실패:", seunFlowResult.reason);
+  if (diagnosisResult.status === "fulfilled") narratives.diagnosis = diagnosisResult.value;
+  else console.error("wuxing [한 줄 진단 보충 문장] 실패:", diagnosisResult.reason);
+  if (seunFlowResult.status === "fulfilled") narratives.seunFlow = seunFlowResult.value;
+  else console.error("wuxing [3년 흐름 문단] 실패:", seunFlowResult.reason);
+
+  return buildWuxingReport(chart, cls, narratives);
+}
+
+/**
+ * POST /api/premium/wuxing — 로그인+프리미엄 필수. 등록된 내 사주로 생성.
+ * 다른 990원 리포트(yearly 등)와 동일 패턴: 캐시 → 게이트 → 생성 → 소진 → 캐시 저장.
+ */
+export async function POST() {
+  if (!isEnabled()) {
+    return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
-  const report = buildWuxingReport(chart, cls, narratives);
-  return NextResponse.json({ report });
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "login_required", redirect: "/login?redirect=/premium/wuxing" }, { status: 401 });
+  }
+  const userId = session.user.id;
+
+  const { data: profile } = await supabaseAdmin
+    .from("saju_profiles")
+    .select("id, birth_date, birth_time, calendar, gender")
+    .eq("user_id", userId).eq("label", "본인")
+    .order("created_at", { ascending: false }).limit(1).maybeSingle();
+
+  if (!profile?.birth_date) {
+    return NextResponse.json({ error: "profile_required", redirect: "/onboarding" }, { status: 403 });
+  }
+  if (profile.calendar === "lunar") {
+    return NextResponse.json({ error: "음력 사주는 아직 지원하지 않습니다." }, { status: 400 });
+  }
+
+  // 캐시 조회 — 이미 결제해서 만든 리포트가 있으면 재생성·재과금 없이 그대로 반환.
+  try {
+    const { data: cached } = await supabaseAdmin
+      .from("premium_wuxing_reports").select("content")
+      .eq("saju_profile_id", profile.id).or(notExpiredFilter()).limit(1).maybeSingle();
+    if (cached?.content) {
+      return NextResponse.json({ report: cached.content, cached: true });
+    }
+  } catch { /* 테이블 없음(마이그레이션 미적용) → 생성으로 진행 */ }
+
+  const started = await startAttempt(userId, PRODUCT_ID, undefined, { saju_profile_id: profile.id });
+  if (!started.ok) {
+    return NextResponse.json({ error: started.error }, { status: started.status });
+  }
+
+  // 구독자 또는 990원 1회 이용권 보유자만 신규 생성 가능
+  const { allowed, passId } = await checkReportAccess(userId, PRODUCT_ID);
+  if (!allowed) {
+    await discardAttempt(started.attemptId);
+    return NextResponse.json({ error: "premium_required", redirect: "/premium/buy?product=wuxing_one" }, { status: 402 });
+  }
+
+  const hasHour = !!profile.birth_time;
+  const iso = hasHour ? `${profile.birth_date}T${profile.birth_time}:00` : `${profile.birth_date}T00:00:00`;
+  let chart: ReturnType<typeof buildChart>;
+  try {
+    chart = buildChart(iso, profile.gender, hasHour);
+  } catch (e) {
+    await discardAttempt(started.attemptId);
+    return NextResponse.json({ error: e instanceof Error ? e.message : "사주 계산 오류" }, { status: 400 });
+  }
+
+  let report: Awaited<ReturnType<typeof buildFullReport>>;
+  try {
+    report = await buildFullReport(chart);
+  } catch (e) {
+    await finishAttemptFailed(started.attemptId, e instanceof Error ? e.message : "생성 실패");
+    return NextResponse.json({ error: "생성에 실패했습니다. 잠시 후 다시 시도해주세요." }, { status: 500 });
+  }
+
+  if (passId) await consumeOneTimePass(passId);
+  await finishAttemptDone(started.attemptId);
+
+  // 캐시 저장 (테이블 없으면 무시 — 다음 조회 때 다시 생성되지만 결제는 이미 끝난 뒤라 무료로 재생성됨은 아님)
+  try {
+    await supabaseAdmin.from("premium_wuxing_reports").upsert(
+      { saju_profile_id: profile.id, user_id: userId, content: report, expires_at: reportExpiresAtIso() },
+      { onConflict: "saju_profile_id" }
+    );
+  } catch { /* noop */ }
+
+  return NextResponse.json({ report, cached: false });
+}
+
+// DELETE /api/premium/wuxing — 로그인 필수. 사용자가 자기 결과를 직접 삭제.
+export async function DELETE() {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "login_required" }, { status: 401 });
+  }
+  const userId = session.user.id;
+
+  const { data: profile } = await supabaseAdmin
+    .from("saju_profiles").select("id")
+    .eq("user_id", userId).eq("label", "본인")
+    .order("created_at", { ascending: false }).limit(1).maybeSingle();
+  if (!profile?.id) {
+    return NextResponse.json({ error: "profile_required" }, { status: 403 });
+  }
+
+  await supabaseAdmin.from("premium_wuxing_reports").delete()
+    .eq("saju_profile_id", profile.id).eq("user_id", userId);
+
+  return NextResponse.json({ ok: true });
 }
