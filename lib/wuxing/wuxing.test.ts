@@ -31,6 +31,16 @@ import { buildSeunNarrativePrompt, validateSeunNarrative } from "./seun-narrativ
 import { buildDiagnosis, type DiagnosisSkeleton } from "./diagnosis";
 import { buildDiagnosisNarrativePrompt, validateDiagnosisNarrative } from "./diagnosis-narrative";
 import { wuxingBannerCopy, FILL_ARTICLE_ELEMENT } from "./banner";
+import {
+  CIRCLE_ORDER,
+  ELEMENT_COLOR,
+  buildCircleLayout,
+  edgeEndpoints,
+  edgeStyleFor,
+  nodeStyleFor,
+  buildEdges,
+  buildAriaSummary,
+} from "./circle-diagram";
 import seunCopyPoolsJson from "./seun-copy.json";
 const seunCopyPools = seunCopyPoolsJson.cases as Record<string, { status: string[]; guideline: string[] }>;
 
@@ -736,6 +746,92 @@ for (const c of CASES) {
       }),
       []
     );
+  }
+}
+
+// ── 오행 상생상극 원형도 (§2 오행 지도, 순수 로직만 — JSX는 여기서 검증 안 함) ──
+{
+  // 팔레트 — dataviz 스킬 검증기(all-pairs, light) 통과 확인은 별도로 실행했다.
+  // 여기서는 5개 오행 전부 색이 있고, 하드코딩 순서가 상생 순서와 일치하는지만 확인
+  eq("원 배치 순서 = 상생 순서", CIRCLE_ORDER, ["木", "火", "土", "金", "水"]);
+  for (const el of C.ELEMENTS) {
+    check(`[${el}] 팔레트 색상 존재`, /^#[0-9a-fA-F]{6}$/.test(ELEMENT_COLOR[el]));
+  }
+  eq("팔레트 5색 전부 다름", new Set(Object.values(ELEMENT_COLOR)).size, 5);
+
+  // 레이아웃 — 5개 노드가 중심에서 등거리, 서로 다른 위치
+  {
+    const layout = buildCircleLayout();
+    const positions = CIRCLE_ORDER.map((el) => layout.positions[el]);
+    for (const p of positions) {
+      const dist = Math.hypot(p.x - layout.cx, p.y - layout.cy);
+      check("노드는 중심에서 반지름만큼 떨어짐", Math.abs(dist - layout.radius) < 0.01, `${dist} vs ${layout.radius}`);
+    }
+    const uniqueX = new Set(positions.map((p) => Math.round(p.x * 100)));
+    check("5개 노드 위치가 서로 다름", uniqueX.size >= 4); // 정오각형이라 x좌표 일부 대칭 가능, 완전 유일성은 y까지 봐야 함
+    const uniqueXY = new Set(positions.map((p) => `${Math.round(p.x)},${Math.round(p.y)}`));
+    eq("5개 노드 위치 전부 유일(x,y 쌍)", uniqueXY.size, 5);
+  }
+
+  // 엣지 스타일 — 4단계가 THRESHOLD와 정확히 일치
+  {
+    eq("0개 → absent(점선·최소)", edgeStyleFor(0), { tier: "absent", dashed: true, strokeWidth: 1, opacity: 0.35 });
+    eq("1개 → scarce(점선·중간)", edgeStyleFor(1), { tier: "scarce", dashed: true, strokeWidth: 1.4, opacity: 0.55 });
+    eq("2개 → normal(실선)", edgeStyleFor(2), { tier: "normal", dashed: false, strokeWidth: 2.2, opacity: 1 });
+    eq("3개 → normal(실선, mildlyMany 경계)", edgeStyleFor(THRESHOLD.mildlyMany), { tier: "normal", dashed: false, strokeWidth: 2.2, opacity: 1 });
+    eq("4개 → excessive(실선·굵게)", edgeStyleFor(THRESHOLD.excessive), { tier: "excessive", dashed: false, strokeWidth: 3.2, opacity: 1 });
+    eq("7개 → excessive 그대로(상한 없음)", edgeStyleFor(7).tier, "excessive");
+    // 절대 실선이면서 점선 플래그가 true인 모순은 없어야 한다
+    for (let n = 0; n <= 8; n++) {
+      const s = edgeStyleFor(n);
+      check(`n=${n} dashed/실선 모순 없음`, s.dashed === (s.tier === "absent" || s.tier === "scarce"));
+    }
+  }
+
+  // 노드 스타일 — 같은 4단계 어휘, absent만 dashed
+  {
+    eq("0개 → 노드도 점선", nodeStyleFor(0).dashed, true);
+    eq("1개 → 노드도 점선", nodeStyleFor(1).dashed, true);
+    eq("2개 → 노드는 실선", nodeStyleFor(2).dashed, false);
+    eq("4개 → 노드 링이 가장 굵음", nodeStyleFor(4).strokeWidth, 4);
+  }
+
+  // buildEdges — 상생 5 + 상극 5 = 10개, 전부 CIRCLE_ORDER 안의 원소끼리만 연결
+  {
+    const surface = { 木: 0, 火: 3, 土: 2, 金: 1, 水: 5 };
+    const edges = buildEdges(surface);
+    eq("엣지 총 10개(상생5+상극5)", edges.length, 10);
+    eq("상생 5개", edges.filter((e) => e.kind === "생").length, 5);
+    eq("상극 5개", edges.filter((e) => e.kind === "극").length, 5);
+    check("모든 엣지의 from/to가 CIRCLE_ORDER 안에 있음", edges.every((e) => CIRCLE_ORDER.includes(e.from) && CIRCLE_ORDER.includes(e.to)));
+    check("자기 자신으로 가는 엣지 없음", edges.every((e) => e.from !== e.to));
+    // 木이 0개(부재)이므로 木에서 나가는 엣지(생·극 각 1개=2개)는 dashed
+    const fromMok = edges.filter((e) => e.from === "木");
+    eq("木(0개)에서 나가는 엣지 2개", fromMok.length, 2);
+    check("木에서 나가는 엣지는 전부 점선", fromMok.every((e) => e.style.dashed));
+    // 水가 5개(과다)이므로 水에서 나가는 엣지는 굵은 실선
+    const fromSu = edges.filter((e) => e.from === "水");
+    check("水(5개)에서 나가는 엣지는 전부 굵은 실선", fromSu.every((e) => e.style.tier === "excessive" && !e.style.dashed));
+  }
+
+  // edgeEndpoints — 노드 반지름만큼 물려서 시작·끝점이 노드 중심과 겹치지 않음
+  {
+    const layout = buildCircleLayout();
+    const p = edgeEndpoints(layout, "木", "火");
+    const startDist = Math.hypot(p.x1 - layout.positions["木"].x, p.y1 - layout.positions["木"].y);
+    const endDist = Math.hypot(p.x2 - layout.positions["火"].x, p.y2 - layout.positions["火"].y);
+    check("시작점이 노드 중심에서 반지름 이상 떨어짐", startDist >= layout.nodeRadius);
+    check("끝점이 노드 중심에서 반지름 이상 떨어짐(화살촉 여유 포함)", endDist >= layout.nodeRadius);
+  }
+
+  // ARIA 요약 — 부재·과다 오행이 실제로 언급되는지
+  {
+    const summary = buildAriaSummary({ 木: 0, 火: 3, 土: 2, 金: 1, 水: 5 });
+    check("아리아 요약에 부재 오행(목) 언급", summary.includes("목"));
+    check("아리아 요약에 과다 오행(수) 언급", summary.includes("수"));
+
+    const balancedSummary = buildAriaSummary({ 木: 2, 火: 2, 土: 2, 金: 2, 水: 2 });
+    check("전부 정상이면 '고르게' 문구", balancedSummary.includes("고르게"));
   }
 }
 
