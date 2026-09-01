@@ -51,6 +51,14 @@ import {
   buildWuxingMap,
   PENDING_COPY,
 } from "./map-section";
+import {
+  buildFillSection,
+  buildPeopleSection,
+  buildDrainSection,
+  buildClosingSection,
+  buildWuxingReport,
+  countFillItems,
+} from "./report";
 import seunCopyPoolsJson from "./seun-copy.json";
 const seunCopyPools = seunCopyPoolsJson.cases as Record<string, { status: string[]; guideline: string[] }>;
 
@@ -998,6 +1006,125 @@ for (const c of CASES) {
     check(`[${c.name}] 진단표 행 존재`, data.imbalance.length > 0);
   }
   eq("PENDING_COPY 3종 전부 미승인 상태", [PENDING_COPY.mapIntro, PENDING_COPY.yongsinConflict, PENDING_COPY.extremeFrame], [null, null, null]);
+}
+
+// ── §③④⑤⑦ 리포트 조립 (report.ts) — 통합 규칙: §③ 기준은 primary 유지 ──
+{
+  // §③ 채우는 법 — target은 항상 primary(채우기) 또는 dominant(순응), classify.frame과 일치
+  for (const c of CASES) {
+    const chart = buildChart(c.iso, c.gender, c.hasHour);
+    const cls = classify(chart);
+    const fill = buildFillSection(chart, cls);
+
+    eq(`[${c.name}] fill.frame = cls.frame`, fill.frame, cls.frame);
+    const expectedTarget = cls.frame === "follow" ? cls.dominant : cls.primary;
+    eq(`[${c.name}] fill.target = ${cls.frame === "follow" ? "dominant" : "primary"}(통합 규칙)`, fill.target, expectedTarget);
+
+    if (fill.target) {
+      check(`[${c.name}] 축 3~4개`, fill.axes.length >= 3 && fill.axes.length <= 4, `${fill.axes.length}개`);
+      check(`[${c.name}] 축 중복 없음`, new Set(fill.axes.map((a) => a.axis)).size === fill.axes.length);
+      check(`[${c.name}] 각 축 상위 3항목`, fill.axes.every((a) => a.items.length <= 3));
+      check(`[${c.name}] A층 항목 총 ${fill.axes.length * 3}개 이하`, countFillItems(fill) <= fill.axes.length * 3, `${countFillItems(fill)}개`);
+      check(`[${c.name}] intro 문장 존재`, !!fill.intro && fill.intro.length > 0);
+      check(`[${c.name}] relationBlock에 writerNote 없음`, !("writerNote" in (fill.relationBlock ?? {})));
+      check(`[${c.name}] supportElement가 target을 생함`, fill.supportElement === null || C.GENERATES[fill.supportElement] === fill.target);
+      eq(`[${c.name}] peopleAxisPrimary는 relation과 일치`, fill.peopleAxisPrimary, fill.relation ? peopleAxisIsPrimary(fill.relation) : false);
+    } else {
+      eq(`[${c.name}] target 없으면 축도 없음`, fill.axes.length, 0);
+    }
+
+    // 순응 프레임에서는 exclude가 classify.exclude와 정확히 일치해야 한다
+    if (cls.frame === "follow") {
+      eq(`[${c.name}] fill.excluded = cls.exclude`, fill.excluded, cls.exclude);
+    } else {
+      eq(`[${c.name}] 채우기 프레임에서는 excluded 없음`, fill.excluded, []);
+    }
+  }
+
+  // A케이스(재성 부족 + 신강이므로 조정 불필요) vs C케이스(재성 아닌 부족)로 §9 연동 확인
+  {
+    const chartA = buildChart(CASES[0].iso, "M", true);
+    const fillA = buildFillSection(chartA, classify(chartA));
+    eq("[A] relation = 재성(木, 庚 일간)", fillA.relation, "재성");
+    check("[A] 신강이므로 조정 불필요", !fillA.strengthAdjustment.needed);
+
+    // 재성 부족 + 신약 표본을 찾아 조정이 실제로 걸리는지 확인
+    let weakJaeseong: ReturnType<typeof buildChart> | null = null;
+    outer4: for (let y = 1970; y <= 2005; y++) {
+      for (let m = 1; m <= 12; m++) {
+        for (const d of [3, 11, 19, 27]) {
+          const iso = `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}T09:00:00`;
+          const chart = buildChart(iso, "M", true);
+          const cls = classify(chart);
+          if (cls.frame === "fill" && cls.primary && computeRelation(chart.day_master_element, cls.primary) === "재성" && !chart.strength.is_strong) {
+            weakJaeseong = chart;
+            break outer4;
+          }
+        }
+      }
+    }
+    check("재성 부족 + 신약 표본 존재", !!weakJaeseong);
+    if (weakJaeseong) {
+      const fillW = buildFillSection(weakJaeseong, classify(weakJaeseong));
+      check("재성 부족 + 신약 → 조정 필요", fillW.strengthAdjustment.needed);
+      check("조정 사유 문구 존재", !!fillW.strengthAdjustment.reason);
+    }
+  }
+
+  // §④ 사람 축 — 5블록 전부, mustInclude 고지 항상 포함
+  for (const c of CASES) {
+    const chart = buildChart(c.iso, c.gender, c.hasHour);
+    const people = buildPeopleSection(chart, classify(chart));
+    check(`[${c.name}] intro·priorityNote 존재`, people.intro.length > 0 && people.priorityNote.length > 0);
+    eq(`[${c.name}] 관찰 5행`, people.observation.rows.length, 5);
+    check(`[${c.name}] 피해야 할 조건 mustInclude(절연 아님)`, people.avoid.mustInclude.includes("절연"));
+    check(`[${c.name}] 관계 유형 4종`, people.byRelationType.length === 4);
+    if (people.partner) {
+      eq(`[${c.name}] partner.target = fill.target`, people.partner.target, buildFillSection(chart, classify(chart)).target);
+    }
+  }
+
+  // §⑤ 넘치는 기운 — 과다 없으면 groups 비고, DrainSection이 null 반환(컴포넌트 레벨 확인은 별도)
+  for (const c of CASES) {
+    const chart = buildChart(c.iso, c.gender, c.hasHour);
+    const cls = classify(chart);
+    const drain = buildDrainSection(cls);
+    eq(`[${c.name}] drain.groups 개수 = 과다 오행 개수`, drain.groups.length, cls.excessive.length);
+    check(`[${c.name}] 각 group의 target은 해당 오행이 생하는 오행`, drain.groups.every((g) => C.GENERATES[g.element] === g.target));
+    // companion은 수 부족 + 화 과다일 때만
+    const waterDeficient = cls.absent.includes("水") || cls.scarce.includes("水");
+    const fireExcessive = cls.excessive.includes("火");
+    eq(`[${c.name}] companion 조건 일치`, drain.companion !== null, waterDeficient && fireExcessive);
+  }
+
+  // §⑦ 마무리 — 고정 데이터라 결정적
+  {
+    const closing = buildClosingSection();
+    eq("강도 범례 3단계(A/B/C)", Object.keys(closing.strengthLegend).sort(), ["A", "B", "C"]);
+    check("개운법 고지 존재", closing.disclaimer.length > 0);
+  }
+
+  // 전체 조립 — buildWuxingReport
+  for (const c of CASES) {
+    const chart = buildChart(c.iso, c.gender, c.hasHour);
+    const cls = classify(chart);
+    const report = buildWuxingReport(chart, cls, {}, 2026);
+    eq(`[${c.name}] narratives 비어있으면 그대로 반영`, report.narratives, {});
+    eq(`[${c.name}] pending은 PENDING_COPY와 동일 참조`, report.pending, PENDING_COPY);
+    eq(`[${c.name}] 세운 3년`, report.seun.years.length, 3);
+    // narratives를 채워서 넘기면 그대로 반영되는지
+    const withNarrative = buildWuxingReport(chart, cls, { diagnosis: { sentence1: "a", sentence2: "b" }, seunFlow: "c" }, 2026);
+    eq(`[${c.name}] narratives 채워 넘기면 반영`, withNarrative.narratives.diagnosis?.sentence1, "a");
+  }
+
+  // 결정성
+  for (const c of CASES) {
+    const chart = buildChart(c.iso, c.gender, c.hasHour);
+    const cls = classify(chart);
+    const r1 = buildWuxingReport(chart, cls, {}, 2026);
+    const r2 = buildWuxingReport(chart, cls, {}, 2026);
+    eq(`[${c.name}] 리포트 조립 결정적`, JSON.stringify(r1), JSON.stringify(r2));
+  }
 }
 
 // ── 결과 ───────────────────────────────────────────────────────────

@@ -12,3 +12,4 @@ const HAS_BATCHIM: Record<Element, boolean> = { 木: true, 火: false, 土: fals
 export const josaIga = (el: Element) => (HAS_BATCHIM[el] ? "이" : "가");
 export const josaWaGwa = (el: Element) => (HAS_BATCHIM[el] ? "과" : "와");
 export const josaEunNeun = (el: Element) => (HAS_BATCHIM[el] ? "은" : "는");
+export const josaEulReul = (el: Element) => (HAS_BATCHIM[el] ? "을" : "를");

@@ -30,6 +30,13 @@ export const PENDING_COPY = {
   yongsinConflict: null as string | null,
   /** 극단 편중형 전용 처방 문구(§3-④ "채우기가 아니라 순응하기"). 문구 미승인 */
   extremeFrame: null as string | null,
+  /**
+   * primary(구조적 부족)와 억부·조후 용신이 갈리는 사주(실측 24.1%)에 붙일 안내.
+   * 통합 규칙(CEO 확정): §③ 채우는 법의 기준은 primary로 유지하고, 용신 카드는
+   * 별도 개념(명리학적 균형 판단)으로 명시한다. 갈릴 때 숨기지 않고 "관점이
+   * 갈리는 사주"임을 밝힌다 — 결정 ①의 억부·조후 병기와 같은 원칙. 문구 미승인.
+   */
+  primaryYongsinDivergence: null as string | null,
 };
 
 // ── ① 오행 분포 막대 ──────────────────────────────────────────────────
