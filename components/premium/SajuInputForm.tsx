@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Spinner } from "@/components/ui/Spinner";
+import { toSolar, type CalendarKind } from "@/lib/calendar/convert";
 
 export type SavedSaju = { birth_date: string; birth_time: string | null; gender: string } | null;
 
@@ -30,7 +31,13 @@ export function SajuInputForm({
 }: {
   saved: SavedSaju;
   busy: boolean;
-  onSubmit: (v: { birth_date: string; birth_time: string | null; gender: string }) => void;
+  onSubmit: (v: {
+    birth_date: string;
+    birth_time: string | null;
+    gender: string;
+    /** 항상 양력으로 변환해 보낸다. 서버·엔진은 양력만 다룬다. */
+    calendar: "solar";
+  }) => void;
   /**
    * 생성 직전 "이 사주가 맞는지" 확정하는 화면으로 쓸 때 true.
    * 등록된 사주가 있으면 체크박스가 켜진 채로 값이 채워져 나오고, 유저는 확인만
@@ -49,11 +56,22 @@ export function SajuInputForm({
   const [noTime, setNoTime] = useState(prefill ? !savedTime : false);
   const [gender, setGender] = useState(prefill ? saved.gender : "");
   const [useOwn, setUseOwn] = useState(!!prefill);
+  // 저장된 사주는 이미 양력으로 정규화돼 있으므로 불러올 때는 항상 양력이다.
+  const [calendar, setCalendar] = useState<CalendarKind>("solar");
 
-  const canSubmit = birthDate.length === 10 && !!gender && !busy;
+  // 입력한 날짜를 양력으로 정규화한다. 결과를 화면에 바로 보여 줘서 "제대로
+  // 넣었는지"를 확인시키는 게 핵심이다 — 이 한 줄이 오입력을 크게 줄인다.
+  const conv = useMemo(
+    () => (birthDate.length === 10 ? toSolar(birthDate, calendar) : null),
+    [birthDate, calendar]
+  );
+  const convError = conv && !conv.ok ? conv.error : null;
+
+  const canSubmit = birthDate.length === 10 && !!gender && !busy && !!conv?.ok;
 
   function useSaved() {
     if (!saved) return;
+    setCalendar("solar");
     setBirthDate(saved.birth_date);
     // DB의 TIME은 "HH:MM:SS"로 내려오므로 앞 5글자만 쓴다.
     const t = saved.birth_time ? saved.birth_time.slice(0, 5) : "";
@@ -67,7 +85,7 @@ export function SajuInputForm({
     const next = !useOwn;
     setUseOwn(next);
     if (next) { useSaved(); return; }
-    setBirthDate(""); setBirthTime(""); setNoTime(false); setGender("");
+    setBirthDate(""); setBirthTime(""); setNoTime(false); setGender(""); setCalendar("solar");
   }
 
   // 값을 직접 고치면 "등록한 내 사주"가 더 이상 아니므로 체크를 자동으로 푼다.
@@ -148,6 +166,41 @@ export function SajuInputForm({
             }}
             className="w-full border border-[#E5DFD4] rounded-xl px-4 py-3.5 text-sm bg-white focus:outline-none focus:border-[#1F3D34] tracking-widest"
           />
+
+          {/* 역법 선택 — 음력 생일을 쓰는 분이 그대로 넣으면 사주가 통째로 달라진다.
+              평달/윤달까지 나누는 이유는, 같은 음력 날짜라도 윤달이면 다른 날이기 때문이다. */}
+          <div className="grid grid-cols-3 gap-1.5 mt-2">
+            {([
+              ["solar", "양력"],
+              ["lunar", "음력(평달)"],
+              ["lunar-leap", "음력(윤달)"],
+            ] as const).map(([val, label]) => (
+              <button
+                key={val}
+                type="button"
+                onClick={() => { setCalendar(val); edited(); }}
+                className={`py-2.5 rounded-xl border text-xs font-medium transition-all ${
+                  calendar === val
+                    ? "bg-[#1F3D34] text-white border-[#1F3D34]"
+                    : "bg-white text-[#6B6661] border-[#E5DFD4]"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {/* 변환 결과 즉시 표시 — 사용자가 "제대로 넣었나"를 스스로 확인할 수 있어야 한다. */}
+          {convError && (
+            <p className="mt-2 text-[11.5px] text-[#C0392B] leading-relaxed">{convError}</p>
+          )}
+          {conv?.ok && (
+            <p className="mt-2 text-[11.5px] text-[#41614B] leading-relaxed">
+              {calendar === "solar"
+                ? `음력으로는 ${conv.lunar}${conv.isLeap ? " (윤달)" : ""}입니다`
+                : `양력으로는 ${conv.solar}입니다 · 이 날짜로 계산합니다`}
+            </p>
+          )}
         </div>
 
         <div>
@@ -180,6 +233,12 @@ export function SajuInputForm({
             </div>
             시각 모름 (시주 제외)
           </label>
+          {noTime && (
+            <p className="mt-1.5 text-[11.5px] text-[#8A5228] leading-relaxed">
+              시각을 모르면 여덟 글자 중 두 글자가 비어, 배우자·말년과 관련된 해석의
+              정밀도가 떨어집니다.
+            </p>
+          )}
         </div>
 
         <div>
@@ -204,7 +263,16 @@ export function SajuInputForm({
 
         <button
           type="button"
-          onClick={() => onSubmit({ birth_date: birthDate, birth_time: noTime ? null : birthTime || null, gender })}
+          onClick={() =>
+            conv?.ok &&
+            onSubmit({
+              // 엔진은 양력만 받는다. 음력으로 입력했더라도 여기서 변환해 보낸다.
+              birth_date: conv.solar,
+              birth_time: noTime ? null : birthTime || null,
+              gender,
+              calendar: "solar",
+            })
+          }
           disabled={!canSubmit}
           className="w-full flex items-center justify-center gap-2 bg-[#C8743A] text-white rounded-xl py-3.5 font-semibold text-sm disabled:opacity-40 active:scale-[0.97] transition-all shadow-md"
         >
