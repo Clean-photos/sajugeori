@@ -6,6 +6,8 @@ import { AdGate } from "../AdGate";
 import { ReadingIntro } from "../ReadingIntro";
 import { cleanReportText } from "@/lib/report-format";
 import { Spinner } from "@/components/ui/Spinner";
+import { CalendarField } from "../CalendarField";
+import { toSolar, type CalendarKind } from "@/lib/calendar/convert";
 
 type Step = "form" | "ad" | "loading" | "result";
 
@@ -40,6 +42,10 @@ export default function FreeTaekilPage() {
     range_from: range.from,
     range_to: range.to,
   });
+  // 입력 역법. 제출 직전에 양력으로 변환해 서버로 보낸다(엔진은 양력만 받는다).
+  const [calendar, setCalendar] = useState<CalendarKind>("solar");
+  const conv = form.birth_date.length === 10 ? toSolar(form.birth_date, calendar) : null;
+  const solarBirthDate = conv?.ok ? conv.solar : "";
   const [result, setResult] = useState("");
 
   function watchAd() {
@@ -50,13 +56,13 @@ export default function FreeTaekilPage() {
     const res = await fetch("/api/free/taekil", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...form, ad_token: adToken }),
+      body: JSON.stringify({ ...form, birth_date: solarBirthDate, ad_token: adToken }),
     });
     setResult(cleanReportText(await res.text()));
     setStep("result");
   }
 
-  const canSubmit = form.birth_date && form.gender;
+  const canSubmit = solarBirthDate && form.gender;
 
   if (step === "form") {
     return (
@@ -84,6 +90,7 @@ export default function FreeTaekilPage() {
                 setForm({ ...form, birth_date: v.slice(0, 10) });
               }}
               className="w-full border border-[#E5DFD4] rounded-xl px-4 py-3.5 text-sm bg-[#FBF8F2] focus:outline-none focus:border-[#1F3D34] tracking-widest" />
+            <CalendarField birthDate={form.birth_date} calendar={calendar} onChange={setCalendar} />
           </div>
 
           <div>

@@ -6,6 +6,8 @@ import { AdGate } from "../AdGate";
 import { ReadingIntro } from "../ReadingIntro";
 import { cleanReportText } from "@/lib/report-format";
 import { Spinner } from "@/components/ui/Spinner";
+import { CalendarField } from "../CalendarField";
+import { toSolar, type CalendarKind } from "@/lib/calendar/convert";
 
 type Step = "form" | "ad" | "loading" | "result";
 
@@ -29,6 +31,13 @@ export default function FreeCompatibilityPage() {
     context: "romance",
   });
   const [result, setResult] = useState("");
+  // 두 사람이므로 역법도 각각 고른다. 제출 직전 양력으로 변환해 보낸다.
+  const [myCalendar, setMyCalendar] = useState<CalendarKind>("solar");
+  const [otherCalendar, setOtherCalendar] = useState<CalendarKind>("solar");
+  const myConv = form.my_birth.length === 10 ? toSolar(form.my_birth, myCalendar) : null;
+  const otherConv = form.other_birth.length === 10 ? toSolar(form.other_birth, otherCalendar) : null;
+  const mySolar = myConv?.ok ? myConv.solar : "";
+  const otherSolar = otherConv?.ok ? otherConv.solar : "";
 
   function watchAd() {
     setStep("ad");
@@ -38,13 +47,13 @@ export default function FreeCompatibilityPage() {
     const res = await fetch("/api/free/compatibility", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...form, ad_token: adToken }),
+      body: JSON.stringify({ ...form, my_birth: mySolar, other_birth: otherSolar, ad_token: adToken }),
     });
     setResult(cleanReportText(await res.text()));
     setStep("result");
   }
 
-  const canSubmit = form.my_birth && form.my_gender && form.other_birth && form.other_gender;
+  const canSubmit = mySolar && form.my_gender && otherSolar && form.other_gender;
 
   if (step === "form") {
     return (
@@ -87,6 +96,7 @@ export default function FreeCompatibilityPage() {
                   setForm({ ...form, my_birth: v.slice(0, 10) });
                 }}
                 className="w-full border border-[#E5DFD4] rounded-xl px-4 py-3 text-sm bg-[#FBF8F2] focus:outline-none focus:border-[#1F3D34] tracking-widest" />
+              <CalendarField birthDate={form.my_birth} calendar={myCalendar} onChange={setMyCalendar} />
               <div className="flex gap-2">
                 {[["M", "남성 ♂"], ["F", "여성 ♀"]].map(([v, l]) => (
                   <button key={v} onClick={() => setForm({ ...form, my_gender: v })}
@@ -111,6 +121,7 @@ export default function FreeCompatibilityPage() {
                   setForm({ ...form, other_birth: v.slice(0, 10) });
                 }}
                 className="w-full border border-[#E5DFD4] rounded-xl px-4 py-3 text-sm bg-[#FBF8F2] focus:outline-none focus:border-[#1F3D34] tracking-widest" />
+              <CalendarField birthDate={form.other_birth} calendar={otherCalendar} onChange={setOtherCalendar} />
               <div className="flex gap-2">
                 {[["M", "남성 ♂"], ["F", "여성 ♀"]].map(([v, l]) => (
                   <button key={v} onClick={() => setForm({ ...form, other_gender: v })}

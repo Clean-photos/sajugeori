@@ -6,6 +6,8 @@ import { AdGate } from "../AdGate";
 import { ReadingIntro } from "../ReadingIntro";
 import { cleanReportText } from "@/lib/report-format";
 import { Spinner } from "@/components/ui/Spinner";
+import { CalendarField } from "../CalendarField";
+import { toSolar, type CalendarKind } from "@/lib/calendar/convert";
 
 type Step = "form" | "ad" | "loading" | "result";
 
@@ -18,6 +20,10 @@ function maxBirthDate() {
 export default function FreeSajuPage() {
   const [step, setStep] = useState<Step>("form");
   const [form, setForm] = useState({ birth_date: "", birth_time: "", no_time: false, gender: "" });
+  // 입력 역법. 제출 직전에 양력으로 변환해 서버로 보낸다(엔진은 양력만 받는다).
+  const [calendar, setCalendar] = useState<CalendarKind>("solar");
+  const conv = form.birth_date.length === 10 ? toSolar(form.birth_date, calendar) : null;
+  const solarBirthDate = conv?.ok ? conv.solar : "";
   const [result, setResult] = useState<string>("");
 
   function watchAd() {
@@ -33,7 +39,7 @@ export default function FreeSajuPage() {
         kind: "saju",
         ad_token: adToken,
         extra: {
-          birth_date: form.birth_date,
+          birth_date: solarBirthDate,
           birth_time: form.no_time ? null : form.birth_time,
           gender: form.gender,
         },
@@ -87,6 +93,7 @@ export default function FreeSajuPage() {
               }}
               className="w-full border border-[#E5DFD4] rounded-xl px-4 py-3.5 text-sm bg-[#FBF8F2] focus:outline-none focus:border-[#1F3D34] focus:ring-2 focus:ring-[#1F3D34]/10 transition-all tracking-widest"
             />
+            <CalendarField birthDate={form.birth_date} calendar={calendar} onChange={setCalendar} />
           </div>
 
           {/* Birth Time */}
@@ -149,7 +156,7 @@ export default function FreeSajuPage() {
           <div className="mt-auto pt-2">
             <button
               onClick={watchAd}
-              disabled={!form.birth_date || !form.gender}
+              disabled={!solarBirthDate || !form.gender}
               className="w-full bg-[#C8743A] text-white rounded-xl py-4 font-semibold text-base disabled:opacity-40 active:scale-[0.97] transition-all duration-200 shadow-lg shadow-[#C8743A]/25"
             >
               광고 보고 무료로 확인하기
