@@ -148,32 +148,6 @@ export function BuyClient({ planId, returnTo }: { planId: string; returnTo: stri
           {plan.amount.toLocaleString()}원
           <span className="text-sm font-normal text-[#6B6661]"> / 1회</span>
         </p>
-        <button
-          onClick={pay}
-          disabled={!ready || loading !== null || !agreed}
-          className="mt-3 w-full flex items-center justify-center gap-2 bg-[#C8743A] text-white rounded-xl py-3.5 font-semibold text-sm disabled:opacity-40 active:scale-[0.97] transition-all shadow-md"
-        >
-          {(loading === plan.id || !ready) && <Spinner />}
-          {loading === plan.id ? "결제창 여는 중..." : ready ? `${plan.amount.toLocaleString()}원 결제하고 보기` : "준비 중..."}
-        </button>
-
-        {/* 동의 전에는 버튼이 비활성이라 눌러도 아무 반응이 없다.
-            이유를 안 알려주면 "결제가 안 된다"로 오해하기 쉬워 안내를 띄운다. */}
-        {ready && !agreed && loading === null && (
-          <p className="mt-2 text-xs text-[#C0392B] text-center">
-            아래 청약철회 제한 동의에 체크하시면 결제가 진행됩니다.
-          </p>
-        )}
-
-        {notice && (
-          <>
-            <div className="mt-3 rounded-xl bg-[#1F3D34]/5 border border-[#1F3D34]/15 px-4 py-3">
-              <p className="text-sm font-medium text-[#1F3D34]">결제 시스템 준비 중입니다</p>
-              <p className="text-xs text-[#6B6661] mt-1 leading-relaxed">9월 중 오픈 예정입니다. 조금만 기다려 주세요.</p>
-            </div>
-            <LaunchNotifyForm />
-          </>
-        )}
       </div>
 
       {/* 쿠폰은 990원 리포트 6종 전용. 결제창을 타지 않으므로 오픈 전에도 쓸 수 있다. */}
@@ -197,6 +171,34 @@ export function BuyClient({ planId, returnTo }: { planId: string; returnTo: stri
           제한됨을 확인했습니다.
         </span>
       </label>
+
+      {/* 결제 버튼은 동의 체크박스 **아래**에 둔다. 위에 있으면 누를 수 없는 버튼이
+          먼저 보여서, 눌러 보고 → 실패하고 → 아래로 내려가 체크하고 → 다시 올라오는
+          동선을 강요하게 된다. 비활성 이유는 별도 경고문 대신 버튼 문구로 알린다. */}
+      <button
+        onClick={pay}
+        disabled={!ready || loading !== null || !agreed}
+        className="w-full flex items-center justify-center gap-2 bg-[#C8743A] text-white rounded-xl py-3.5 font-semibold text-sm disabled:opacity-40 active:scale-[0.97] transition-all shadow-md"
+      >
+        {(loading === plan.id || !ready) && <Spinner />}
+        {loading === plan.id
+          ? "결제창 여는 중..."
+          : !ready
+            ? "준비 중..."
+            : !agreed
+              ? "동의 후 결제할 수 있어요"
+              : `${plan.amount.toLocaleString()}원 결제하고 보기`}
+      </button>
+
+      {notice && (
+        <>
+          <div className="rounded-xl bg-[#1F3D34]/5 border border-[#1F3D34]/15 px-4 py-3">
+            <p className="text-sm font-medium text-[#1F3D34]">결제 시스템 준비 중입니다</p>
+            <p className="text-xs text-[#6B6661] mt-1 leading-relaxed">9월 중 오픈 예정입니다. 조금만 기다려 주세요.</p>
+          </div>
+          <LaunchNotifyForm />
+        </>
+      )}
 
       <p className="text-center text-[11px] text-[#6B6661] leading-relaxed mt-1">
         결제 시 <Link href="/terms" className="underline">이용약관</Link> 및{" "}
