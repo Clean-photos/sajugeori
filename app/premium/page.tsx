@@ -6,6 +6,7 @@ import { supabaseAdmin } from "@/lib/db/client";
 import { isPremiumUser, findUnusedOneTimePass } from "@/lib/billing/access";
 import { ONE_REPORT_PRICE } from "@/lib/billing/plans";
 import { SAMPLE_REPORTS } from "@/lib/sample-reports";
+import { SampleStickyCta } from "./SampleStickyCta";
 import { SamplePreview } from "@/components/premium/SamplePreview";
 import { PremiumReport } from "./PremiumReport";
 
@@ -65,6 +66,11 @@ export default async function PremiumPage() {
           서로 다른 사주를 가리켰다 — 사주를 아는 사람은 바로 이상함을 느낀다.
           결제 후 자기 리포트를 볼 때는 기존 표기가 맞으므로 그대로 둔다. */}
       <header className="px-5 pt-6 pb-4 bg-[#1B3A4B] text-white">
+        {/* 이 화면까지 온 경로가 메뉴뿐인데 돌아갈 링크가 없었다. */}
+        <Link href="/premium/menu" className="inline-flex items-center gap-1.5 text-xs opacity-70 mb-2 w-fit">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+          프리미엄
+        </Link>
         <p className="text-xs opacity-70 mb-1">프리미엄 사주</p>
         {canView ? (
           <>
@@ -101,6 +107,25 @@ export default async function PremiumPage() {
           <div className="px-4 pt-3 pb-4">
             <SamplePreview sample={SAMPLE_REPORTS.saju} />
           </div>
+
+          {/* 샘플을 끝까지 읽고 사고 싶어진 사람이 맨 위로 되돌아가지 않도록,
+              같은 CTA를 샘플 끝에도 둔다. */}
+          <div className="px-4 pb-2">
+            <Link
+              href={loggedIn ? "/premium/buy?product=saju_one" : "/login?redirect=/premium"}
+              className="block rounded-2xl bg-[#C8743A] text-white px-5 py-4 text-center"
+            >
+              <p className="text-sm font-semibold">전체 풀이 열람하기</p>
+              <p className="text-xs opacity-80 mt-0.5">
+                {ONE_REPORT_PRICE.toLocaleString()}원 · 1회 결제
+              </p>
+            </Link>
+          </div>
+
+          <SampleStickyCta
+            href={loggedIn ? "/premium/buy?product=saju_one" : "/login?redirect=/premium"}
+            price={ONE_REPORT_PRICE}
+          />
         </>
       )}
 
