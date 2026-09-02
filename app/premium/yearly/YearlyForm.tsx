@@ -7,24 +7,30 @@ import { SaveReportButtons } from "@/components/premium/SaveReportButtons";
 import { DeleteReportButton } from "@/components/premium/DeleteReportButton";
 import { WaitingCards } from "@/components/premium/WaitingCards";
 import { ReportBody } from "@/components/premium/ReportBody";
+import { SajuInputForm, type SavedSaju } from "@/components/premium/SajuInputForm";
 
 type Step = "form" | "loading" | "result" | "deleted";
 
-export function YearlyForm() {
+type Target = { birth_date: string; birth_time: string | null; gender: string };
+
+export function YearlyForm({ saved }: { saved: SavedSaju }) {
   const thisYear = new Date().getFullYear();
   const [step, setStep] = useState<Step>("form");
   const [year, setYear] = useState(thisYear);
   const [report, setReport] = useState("");
   const [error, setError] = useState("");
+  // 어떤 대상으로 만든 리포트인지 — 삭제할 때 같은 대상을 지워야 한다.
+  const [target, setTarget] = useState<Target | null>(null);
 
-  async function submit() {
+  async function submit(v: Target) {
     setStep("loading");
     setError("");
+    setTarget(v);
     try {
       const res = await fetch("/api/premium/yearly", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ year }),
+        body: JSON.stringify({ year, ...v }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -44,7 +50,9 @@ export function YearlyForm() {
     const res = await fetch("/api/premium/yearly", {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ year }),
+      // 대상 정보를 함께 보낸다 — 가족 사주로 만든 리포트를 지울 때 본인 리포트가
+      // 지워지면 안 된다.
+      body: JSON.stringify({ year, ...(target ?? {}) }),
     });
     if (!res.ok) throw new Error("delete failed");
     setStep("deleted");
@@ -95,7 +103,8 @@ export function YearlyForm() {
   }
 
   return (
-    <div className="flex-1 px-5 py-6 flex flex-col gap-5">
+    <>
+    <div className="flex-1 px-5 pt-6 flex flex-col gap-5">
       <div>
         <label className="block text-xs font-medium text-[#6B6661] uppercase tracking-wider mb-2">조회할 연도</label>
         <div className="flex gap-2">
@@ -109,14 +118,17 @@ export function YearlyForm() {
       </div>
 
       {error && <p className="text-xs text-[#C0392B] px-1">{error}</p>}
-
-      <div className="mt-auto pt-2">
-        <button onClick={submit}
-          className="w-full bg-[#C8743A] text-white rounded-xl py-4 font-semibold text-base active:scale-[0.97] transition-all shadow-lg shadow-[#C8743A]/25">
-          {year}년 운세 보기
-        </button>
-        <p className="text-center text-xs text-[#6B6661] mt-3">등록된 내 사주로 세운·월별 흐름을 분석합니다</p>
-      </div>
     </div>
+
+      {/* 생성 직전 대상 확정 — 등록된 사주가 있으면 채워진 채로 뜨고, 체크를 풀면
+          가족·친구 사주를 직접 넣을 수 있다. */}
+      <SajuInputForm
+        saved={saved}
+        busy={false}
+        confirmMode
+        onSubmit={submit}
+        submitLabel={`이 사주로 ${year}년 운세 보기`}
+      />
+    </>
   );
 }

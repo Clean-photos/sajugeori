@@ -4,6 +4,10 @@ import { supabaseAdmin } from "@/lib/db/client";
 import { checkReportAccess, consumeOneTimePass } from "@/lib/billing/access";
 import { startAttempt, finishAttemptDone, finishAttemptFailed } from "@/lib/billing/attempts";
 import { reportExpiresAtIso, notExpiredFilter } from "@/lib/billing/report-ttl";
+import {
+  parseTargetBody, resolveTarget, readAdhocCache, writeAdhocCache,
+  ensureOwnProfileId, isoOf, timeKeyOf, loadOwnProfile, sameAsProfile,
+} from "@/lib/billing/report-target";
 import { buildChart, scoreYear } from "@/lib/saju-engine";
 import { generateYearlyReport } from "@/lib/premium/yearly-generate";
 
@@ -27,40 +31,46 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "premium_required", redirect: "/premium/buy?product=yearly_one" }, { status: 402 });
   }
 
-  const { data: profile } = await supabaseAdmin
-    .from("saju_profiles").select("id, birth_date, birth_time, gender")
-    .eq("user_id", userId).eq("label", "본인")
-    .order("created_at", { ascending: false }).limit(1).single();
-
-  if (!profile?.birth_date) {
-    return NextResponse.json({ error: "profile_required", redirect: "/onboarding" }, { status: 403 });
-  }
-
-  const body = await req.json();
+  const body = await req.json().catch(() => ({}));
   const year = parseInt(body.year) || new Date().getFullYear();
 
-  // 캐시 조회 (premium_yearly_reports — 없으면 조용히 무시)
-  try {
-    const { data: cached } = await supabaseAdmin
-      .from("premium_yearly_reports").select("content")
-      .eq("saju_profile_id", profile.id).eq("year", year).or(notExpiredFilter()).limit(1).single();
-    if (cached?.content) {
-      return NextResponse.json({ report: cached.content, year, cached: true });
-    }
-  } catch { /* 테이블 없음 → 생성 진행 */ }
+  // 대상 사주는 화면에서 확정해 보낸다(생성 직전 컨펌). 예전처럼 "마지막에 등록한
+  // 본인 사주"를 말없이 쓰지 않는다 — 가족 사주를 볼 방법이 없던 원인이었다.
+  const parsed = parseTargetBody(body);
+  if (!parsed.ok) {
+    return NextResponse.json({ error: parsed.error }, { status: 400 });
+  }
+  const input = parsed.input;
+  const { ownProfile, isAdhoc } = await resolveTarget(userId, input);
+  // 같은 대상이라도 연도가 다르면 다른 리포트다.
+  const variant = String(year);
+
+  // 캐시 조회 (테이블 없으면 조용히 무시)
+  if (isAdhoc) {
+    const cached = await readAdhocCache(userId, PRODUCT_ID, input, variant);
+    if (cached) return NextResponse.json({ report: cached, year, cached: true, adhoc: true });
+  } else if (ownProfile?.id) {
+    try {
+      const { data: cached } = await supabaseAdmin
+        .from("premium_yearly_reports").select("content")
+        .eq("saju_profile_id", ownProfile.id).eq("year", year).or(notExpiredFilter()).limit(1).maybeSingle();
+      if (cached?.content) {
+        return NextResponse.json({ report: cached.content, year, cached: true });
+      }
+    } catch { /* 테이블 없음 → 생성 진행 */ }
+  }
 
   // 동시 중복 생성(더블클릭 레이스) 차단
-  const started = await startAttempt(userId, PRODUCT_ID, undefined, { saju_profile_id: profile.id, year });
+  const started = await startAttempt(userId, PRODUCT_ID, undefined, {
+    birth_date: input.birthDate, birth_time: timeKeyOf(input.birthTime), gender: input.gender, year,
+  });
   if (!started.ok) {
     return NextResponse.json({ error: started.error }, { status: started.status });
   }
 
   let yr;
   try {
-    const iso = profile.birth_time
-      ? `${profile.birth_date}T${profile.birth_time}`
-      : `${profile.birth_date}T00:00:00`;
-    const chart = buildChart(iso, profile.gender ?? "M", !!profile.birth_time);
+    const chart = buildChart(isoOf(input), input.gender, !!input.birthTime);
     yr = scoreYear(chart, year);
   } catch (e) {
     console.error("premium yearly engine error:", e);
@@ -72,12 +82,21 @@ export async function POST(req: NextRequest) {
     const report = await generateYearlyReport(yr, year);
 
     // 캐시 저장 (테이블 없으면 무시)
-    try {
-      await supabaseAdmin.from("premium_yearly_reports").upsert(
-        { saju_profile_id: profile.id, user_id: userId, year, content: report, expires_at: reportExpiresAtIso() },
-        { onConflict: "saju_profile_id,year" }
-      );
-    } catch { /* noop */ }
+    if (isAdhoc) {
+      // 1회성 — 본인 프로필도, 본인 리포트 캐시도 건드리지 않는다.
+      await writeAdhocCache(userId, PRODUCT_ID, input, report, variant);
+    } else {
+      // 등록된 사주가 없던 사람이면 이 입력이 본인 프로필로 저장된다(016 규칙).
+      const profileId = await ensureOwnProfileId(userId, input, ownProfile);
+      if (profileId) {
+        try {
+          await supabaseAdmin.from("premium_yearly_reports").upsert(
+            { saju_profile_id: profileId, user_id: userId, year, content: report, expires_at: reportExpiresAtIso() },
+            { onConflict: "saju_profile_id,year" }
+          );
+        } catch { /* noop */ }
+      }
+    }
 
     // 이용권 사용자는 생성 성공 시점에 소진 (실패 시 이용권 보존)
     if (access.passId) await consumeOneTimePass(access.passId);
@@ -91,7 +110,11 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// DELETE /api/premium/yearly — 로그인 필수. 사용자가 자기 연운세 결과(연도별)를 직접 삭제.
+/**
+ * DELETE /api/premium/yearly — 로그인 필수. 사용자가 자기 연운세 결과(연도별)를 직접 삭제.
+ * body: { year, birth_date, birth_time|null, gender } — 지금 화면에 띄운 리포트의 대상.
+ * 대상을 받지 않으면 가족 리포트를 지우려다 본인 리포트가 지워진다.
+ */
 export async function DELETE(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.id) {
@@ -101,17 +124,23 @@ export async function DELETE(req: NextRequest) {
 
   const body = await req.json().catch(() => ({}));
   const year = parseInt(body.year) || new Date().getFullYear();
+  const parsed = parseTargetBody(body);
+  const ownProfile = await loadOwnProfile(userId);
 
-  const { data: profile } = await supabaseAdmin
-    .from("saju_profiles").select("id")
-    .eq("user_id", userId).eq("label", "본인")
-    .order("created_at", { ascending: false }).limit(1).single();
-  if (!profile?.id) {
-    return NextResponse.json({ error: "profile_required" }, { status: 403 });
+  if (parsed.ok && ownProfile && !sameAsProfile(parsed.input, ownProfile)) {
+    const input = parsed.input;
+    await supabaseAdmin.from("premium_adhoc_reports").delete()
+      .eq("user_id", userId).eq("product_id", PRODUCT_ID)
+      .eq("birth_date", input.birthDate).eq("birth_time", timeKeyOf(input.birthTime))
+      .eq("gender", input.gender).eq("variant", String(year));
+    return NextResponse.json({ ok: true });
   }
 
+  if (!ownProfile?.id) {
+    return NextResponse.json({ error: "profile_required" }, { status: 403 });
+  }
   await supabaseAdmin.from("premium_yearly_reports").delete()
-    .eq("saju_profile_id", profile.id).eq("user_id", userId).eq("year", year);
+    .eq("saju_profile_id", ownProfile.id).eq("user_id", userId).eq("year", year);
 
   return NextResponse.json({ ok: true });
 }

@@ -9,6 +9,7 @@ import { SaveReportButtons } from "@/components/premium/SaveReportButtons";
 import { DeleteReportButton } from "@/components/premium/DeleteReportButton";
 import { WaitingCards } from "@/components/premium/WaitingCards";
 import { ReportBody } from "@/components/premium/ReportBody";
+import { SajuInputForm, type SavedSaju } from "@/components/premium/SajuInputForm";
 
 type Step = "form" | "loading" | "result" | "deleted";
 type DetectedSal = { name: string; where: string[] };
@@ -18,20 +19,25 @@ function slugForSal(name: string): string | undefined {
   return TERMS.find((t) => t.term === name)?.slug;
 }
 
-export function SalpuriForm() {
+type Target = { birth_date: string; birth_time: string | null; gender: string };
+
+export function SalpuriForm({ saved }: { saved: SavedSaju }) {
   const [step, setStep] = useState<Step>("form");
   const [report, setReport] = useState("");
   const [sal, setSal] = useState<DetectedSal[]>([]);
   const [error, setError] = useState("");
+  // 어떤 대상으로 만든 리포트인지 — 삭제할 때 같은 대상을 지워야 한다.
+  const [target, setTarget] = useState<Target | null>(null);
 
-  async function submit() {
+  async function submit(v: Target) {
     setStep("loading");
     setError("");
+    setTarget(v);
     try {
       const res = await fetch("/api/premium/salpuri", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
+        body: JSON.stringify(v),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -49,7 +55,15 @@ export function SalpuriForm() {
   }
 
   async function handleDelete() {
-    const res = await fetch("/api/premium/salpuri", { method: "DELETE" });
+    // 대상 정보를 함께 보낸다 — 가족 사주로 만든 리포트를 지울 때 본인 리포트가
+    // 지워지면 안 된다.
+    const q = new URLSearchParams();
+    if (target) {
+      q.set("birth_date", target.birth_date);
+      if (target.birth_time) q.set("birth_time", target.birth_time);
+      q.set("gender", target.gender);
+    }
+    const res = await fetch(`/api/premium/salpuri?${q.toString()}`, { method: "DELETE" });
     if (!res.ok) throw new Error("delete failed");
     setStep("deleted");
   }
@@ -129,12 +143,13 @@ export function SalpuriForm() {
   }
 
   return (
-    <div className="flex-1 px-5 py-6 flex flex-col gap-5">
+    <>
+    <div className="flex-1 px-5 pt-6 flex flex-col gap-5">
       <div className="bg-[#FBF8F2] border border-[#E5DFD4] rounded-2xl p-5">
         <p className="text-[16px] text-[#1A1A18] leading-[1.85]">
           살(殺)은 사주의 여덟 글자가 특정한 조합을 이룰 때 붙는 이름입니다.
           도화살·역마살처럼 널리 알려진 것부터 천을귀인·금여 같은 길신까지,
-          사주 엔진이 등록된 내 사주에서 실제로 검출한 살을 하나씩 짚어 풀이해 드립니다.
+          사주 엔진이 아래에서 확정한 사주로 실제 검출한 살을 하나씩 짚어 풀이해 드립니다.
         </p>
         <p className="text-[13px] text-[#6B6661] leading-relaxed mt-3">
           살이 어느 자리에 있는지에 따라 작용하는 영역이 달라집니다.
@@ -143,14 +158,17 @@ export function SalpuriForm() {
       </div>
 
       {error && <p className="text-xs text-[#C0392B] px-1">{error}</p>}
-
-      <div className="mt-auto pt-2">
-        <button onClick={submit}
-          className="w-full bg-[#C8743A] text-white rounded-xl py-4 font-semibold text-base active:scale-[0.97] transition-all shadow-lg shadow-[#C8743A]/25">
-          내 살풀이 보기
-        </button>
-        <p className="text-center text-xs text-[#6B6661] mt-3">등록된 내 사주로 신살을 실제 계산해 분석합니다</p>
-      </div>
     </div>
+
+      {/* 생성 직전 대상 확정 — 등록된 사주가 있으면 채워진 채로 뜨고, 체크를 풀면
+          가족·친구 사주를 직접 넣을 수 있다. */}
+      <SajuInputForm
+        saved={saved}
+        busy={false}
+        confirmMode
+        onSubmit={submit}
+        submitLabel="이 사주로 살풀이 보기"
+      />
+    </>
   );
 }

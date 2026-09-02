@@ -4,6 +4,10 @@ import { supabaseAdmin } from "@/lib/db/client";
 import { isPremiumUser, findUnusedOneTimePass, consumeOneTimePass } from "@/lib/billing/access";
 import { startAttempt, finishAttemptDone, finishAttemptFailed } from "@/lib/billing/attempts";
 import { reportExpiresAtIso, notExpiredFilter } from "@/lib/billing/report-ttl";
+import {
+  parseTargetBody, resolveTarget, readAdhocCache, writeAdhocCache,
+  ensureOwnProfileId, isoOf, timeKeyOf, loadOwnProfile, sameAsProfile,
+} from "@/lib/billing/report-target";
 import { SALPURI_ONE } from "@/lib/billing/plans";
 import { buildChart, stemBranchKr } from "@/lib/saju-engine";
 import { generateSalpuriReport } from "@/lib/premium/salpuri-generate";
@@ -14,29 +18,29 @@ export const maxDuration = 60;
 
 const PRODUCT_ID = "salpuri_one";
 
-// POST /api/premium/salpuri — 로그인+프리미엄 필수. 등록된 내 사주의 신살을 실계산해 풀이.
-export async function POST(_req: NextRequest) {
+/**
+ * POST /api/premium/salpuri — 로그인+프리미엄 필수.
+ * body: { birth_date, birth_time|null, gender, calendar? } — 화면에서 확정한 대상 사주.
+ */
+export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: "login_required", redirect: "/login?redirect=/premium/salpuri" }, { status: 401 });
   }
   const userId = session.user.id;
 
-  const { data: profile } = await supabaseAdmin
-    .from("saju_profiles").select("id, birth_date, birth_time, gender")
-    .eq("user_id", userId).eq("label", "본인")
-    .order("created_at", { ascending: false }).limit(1).single();
-
-  if (!profile?.birth_date) {
-    return NextResponse.json({ error: "profile_required", redirect: "/onboarding" }, { status: 403 });
+  // 대상 사주는 화면에서 확정해 보낸다(생성 직전 컨펌). 예전처럼 "마지막에 등록한
+  // 본인 사주"를 말없이 쓰지 않는다 — 가족 사주를 볼 방법이 없던 원인이었다.
+  const parsed = parseTargetBody(await req.json().catch(() => ({})));
+  if (!parsed.ok) {
+    return NextResponse.json({ error: parsed.error }, { status: 400 });
   }
+  const input = parsed.input;
+  const { ownProfile, isAdhoc } = await resolveTarget(userId, input);
 
   let chart;
   try {
-    const iso = profile.birth_time
-      ? `${profile.birth_date}T${profile.birth_time}`
-      : `${profile.birth_date}T00:00:00`;
-    chart = buildChart(iso, profile.gender ?? "M", !!profile.birth_time);
+    chart = buildChart(isoOf(input), input.gender, !!input.birthTime);
   } catch (e) {
     console.error("premium salpuri engine error:", e);
     return NextResponse.json({ error: "사주 계산 오류" }, { status: 500 });
@@ -54,14 +58,19 @@ export async function POST(_req: NextRequest) {
 
   // 캐시를 게이트보다 먼저 본다. 990원 이용권으로 이미 본 사용자는 이용권이 소진된 뒤라
   // 게이트를 먼저 통과시키면 자기 결과를 다시 열지 못한다. 본인 것만 조회하므로 안전하다.
-  try {
-    const { data: cached } = await supabaseAdmin
-      .from("premium_salpuri_reports").select("content")
-      .eq("saju_profile_id", profile.id).or(notExpiredFilter()).limit(1).single();
-    if (cached?.content) {
-      return NextResponse.json({ report: cached.content, sal: salList, cached: true });
-    }
-  } catch { /* 테이블 없음 또는 미저장 → 생성 진행 */ }
+  if (isAdhoc) {
+    const cached = await readAdhocCache(userId, PRODUCT_ID, input);
+    if (cached) return NextResponse.json({ report: cached, sal: salList, cached: true, adhoc: true });
+  } else if (ownProfile?.id) {
+    try {
+      const { data: cached } = await supabaseAdmin
+        .from("premium_salpuri_reports").select("content")
+        .eq("saju_profile_id", ownProfile.id).or(notExpiredFilter()).limit(1).maybeSingle();
+      if (cached?.content) {
+        return NextResponse.json({ report: cached.content, sal: salList, cached: true });
+      }
+    } catch { /* 테이블 없음 또는 미저장 → 생성 진행 */ }
+  }
 
   // 구독자 또는 990원 1회 이용권 보유자만 신규 생성 가능
   const premium = await isPremiumUser(userId);
@@ -71,7 +80,9 @@ export async function POST(_req: NextRequest) {
   }
 
   // 동시 중복 생성(더블클릭 레이스) 차단
-  const started = await startAttempt(userId, PRODUCT_ID, undefined, { saju_profile_id: profile.id });
+  const started = await startAttempt(userId, PRODUCT_ID, undefined, {
+    birth_date: input.birthDate, birth_time: timeKeyOf(input.birthTime), gender: input.gender,
+  });
   if (!started.ok) {
     return NextResponse.json({ error: started.error }, { status: started.status });
   }
@@ -107,12 +118,21 @@ ${salSection}`.trim();
     const report = await generateSalpuriReport(engineSummary, isDense);
 
     // 캐시 저장 (테이블 없으면 무시). 저장돼야 이용권 사용자가 재열람할 수 있다.
-    try {
-      await supabaseAdmin.from("premium_salpuri_reports").upsert(
-        { saju_profile_id: profile.id, user_id: userId, content: report, expires_at: reportExpiresAtIso() },
-        { onConflict: "saju_profile_id" }
-      );
-    } catch { /* noop */ }
+    if (isAdhoc) {
+      // 1회성 — 본인 프로필도, 본인 리포트 캐시도 건드리지 않는다.
+      await writeAdhocCache(userId, PRODUCT_ID, input, report);
+    } else {
+      // 등록된 사주가 없던 사람이면 이 입력이 본인 프로필로 저장된다(016 규칙).
+      const profileId = await ensureOwnProfileId(userId, input, ownProfile);
+      if (profileId) {
+        try {
+          await supabaseAdmin.from("premium_salpuri_reports").upsert(
+            { saju_profile_id: profileId, user_id: userId, content: report, expires_at: reportExpiresAtIso() },
+            { onConflict: "saju_profile_id" }
+          );
+        } catch { /* noop */ }
+      }
+    }
 
     // 이용권 사용자는 생성 성공 시점에 소진 (실패 시 이용권 보존)
     if (passId) await consumeOneTimePass(passId);
@@ -126,24 +146,38 @@ ${salSection}`.trim();
   }
 }
 
-// DELETE /api/premium/salpuri — 로그인 필수. 사용자가 자기 살풀이 결과를 직접 삭제.
-export async function DELETE() {
+/**
+ * DELETE /api/premium/salpuri — 로그인 필수. 사용자가 자기 살풀이 결과를 직접 삭제.
+ * query: birth_date/birth_time/gender — 지금 화면에 띄운 리포트의 대상.
+ * 대상을 받지 않으면 가족 리포트를 지우려다 본인 리포트가 지워진다.
+ */
+export async function DELETE(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: "login_required" }, { status: 401 });
   }
   const userId = session.user.id;
 
-  const { data: profile } = await supabaseAdmin
-    .from("saju_profiles").select("id")
-    .eq("user_id", userId).eq("label", "본인")
-    .order("created_at", { ascending: false }).limit(1).single();
-  if (!profile?.id) {
-    return NextResponse.json({ error: "profile_required" }, { status: 403 });
+  const q = req.nextUrl.searchParams;
+  const parsed = parseTargetBody({
+    birth_date: q.get("birth_date"), birth_time: q.get("birth_time"), gender: q.get("gender"),
+  });
+  const ownProfile = await loadOwnProfile(userId);
+
+  if (parsed.ok && ownProfile && !sameAsProfile(parsed.input, ownProfile)) {
+    const input = parsed.input;
+    await supabaseAdmin.from("premium_adhoc_reports").delete()
+      .eq("user_id", userId).eq("product_id", PRODUCT_ID)
+      .eq("birth_date", input.birthDate).eq("birth_time", timeKeyOf(input.birthTime))
+      .eq("gender", input.gender).eq("variant", "");
+    return NextResponse.json({ ok: true });
   }
 
+  if (!ownProfile?.id) {
+    return NextResponse.json({ error: "profile_required" }, { status: 403 });
+  }
   await supabaseAdmin.from("premium_salpuri_reports").delete()
-    .eq("saju_profile_id", profile.id).eq("user_id", userId);
+    .eq("saju_profile_id", ownProfile.id).eq("user_id", userId);
 
   return NextResponse.json({ ok: true });
 }
