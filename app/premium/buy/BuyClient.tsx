@@ -136,10 +136,9 @@ export function BuyClient({ planId, returnTo }: { planId: string; returnTo: stri
     <div className="flex-1 px-5 py-7 max-w-sm mx-auto w-full flex flex-col gap-4">
       {/* 선택한 단품 */}
       <div className="bg-[#FBF8F2] border-2 border-[#C8743A] rounded-2xl p-5">
-        <div className="flex items-baseline justify-between mb-3">
-          <p className="text-sm font-semibold text-[#1A1A18]">{label}</p>
-          <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-[#C8743A]/15 text-[#8A5228]">선택함</span>
-        </div>
+        {/* "선택함" 배지를 뺐다. 이 화면에는 카드가 한 장뿐이라 정보가 없을 뿐 아니라,
+            다른 선택지가 있는 것처럼 읽혀 오해를 만든다. */}
+        <p className="text-sm font-semibold text-[#1A1A18] mb-3">{label}</p>
         <ul className="flex flex-col gap-1.5 text-sm text-[#6B6661]">
           {benefits.map((b) => <li key={b}>· {b}</li>)}
           <li>· 결제 후 열람하며, 같은 결과는 언제든 다시 볼 수 있어요</li>

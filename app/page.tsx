@@ -14,9 +14,19 @@ import { KakaoAdFitBanner } from "@/components/ads/KakaoAdFitBanner";
  * (원래 이 자리에 애드센스 배너가 있었으나 슬롯 미발급 상태라 늘 빈 채였고,
  *  애드센스를 포기했으므로 애드핏 구좌로 대체한다.)
  */
-const ADFIT_TOP_50 = process.env.NEXT_PUBLIC_ADFIT_UNIT_HOME_TOP_50 ?? "";
+/*
+ * 애드핏 광고 단위 ID는 비밀이 아니다 — 렌더된 HTML의 data-ad-unit 속성에 그대로
+ * 노출되는 공개 값이다. 그래서 발급받은 값을 코드에 기본값으로 두고, 환경변수가
+ * 있으면 그쪽을 우선한다. 이러면 배포 즉시 광고가 뜨고, 나중에 구좌를 바꿔야 할 때는
+ * 코드 수정 없이 환경변수로 덮을 수 있다.
+ *
+ * ⚠️ 환경변수로 덮을 때는 반드시 NEXT_PUBLIC_ 접두사를 붙여야 한다. 접두사가 없으면
+ * Next.js가 브라우저 번들에 주입하지 않아 클라이언트에서 늘 빈 값이 되고, 광고가
+ * 조용히 사라진다(값이 비어 있으면 아무것도 그리지 않으므로 에러도 안 난다).
+ */
+const ADFIT_TOP_50 = process.env.NEXT_PUBLIC_ADFIT_UNIT_HOME_TOP_50 || "DAN-VpxPHTPwXLn4jngj";
 const ADFIT_HOME_BANNER = process.env.NEXT_PUBLIC_ADFIT_UNIT_HOME_BANNER ?? "";
-const ADFIT_MID_250 = process.env.NEXT_PUBLIC_ADFIT_UNIT_HOME_MID_250 ?? "";
+const ADFIT_MID_250 = process.env.NEXT_PUBLIC_ADFIT_UNIT_HOME_MID_250 || "DAN-8EnKwOX0icpAPeH5";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { ARTICLES } from "./guide/articles";
 import { pickDaily } from "@/lib/daily-pick";
