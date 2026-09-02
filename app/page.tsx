@@ -2,8 +2,21 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { BottomTabBar } from "@/components/layout/BottomTabBar";
-import { BannerAd } from "@/components/ads/BannerAd";
 import { KakaoAdFitBanner } from "@/components/ads/KakaoAdFitBanner";
+
+/*
+ * 홈 광고 구좌 — 첫 화면에서는 입력 유도가 광고보다 앞서야 하므로 상단은 작게,
+ * 무료 카드를 지난 뒤에 큰 배너를 둔다(애드센스 심사 포기로 배치 제약이 풀렸다).
+ *
+ * 상단은 320x50 구좌가 생기면 그쪽을 쓰고, 없으면 기존 320x100 구좌를 그대로
+ * 쓴다 — 새 구좌를 기다리는 동안 광고가 아예 사라져 수익이 0이 되는 걸 막는다.
+ * 무료 카드 아래 300x250은 구좌가 생기기 전까지 아무것도 그리지 않는다.
+ * (원래 이 자리에 애드센스 배너가 있었으나 슬롯 미발급 상태라 늘 빈 채였고,
+ *  애드센스를 포기했으므로 애드핏 구좌로 대체한다.)
+ */
+const ADFIT_TOP_50 = process.env.NEXT_PUBLIC_ADFIT_UNIT_HOME_TOP_50 ?? "";
+const ADFIT_HOME_BANNER = process.env.NEXT_PUBLIC_ADFIT_UNIT_HOME_BANNER ?? "";
+const ADFIT_MID_250 = process.env.NEXT_PUBLIC_ADFIT_UNIT_HOME_MID_250 ?? "";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { ARTICLES } from "./guide/articles";
 import { pickDaily } from "@/lib/daily-pick";
@@ -81,9 +94,13 @@ export default async function HomePage() {
         </p>
       </header>
 
-      {/* Kakao AdFit 320x100 */}
+      {/* 상단 배너 — 첫 화면을 광고가 차지하지 않도록 작은 규격을 우선한다. */}
       <section className="px-4 mb-5 flex justify-center animate-fade-up" style={{animationDelay:'0.05s'}}>
-        <KakaoAdFitBanner />
+        {ADFIT_TOP_50 ? (
+          <KakaoAdFitBanner unit={ADFIT_TOP_50} width={320} height={50} />
+        ) : (
+          <KakaoAdFitBanner unit={ADFIT_HOME_BANNER} width={320} height={100} />
+        )}
       </section>
 
       {/*
@@ -165,9 +182,9 @@ export default async function HomePage() {
         ))}
       </section>
 
-      {/* Banner Ad */}
-      <section className="px-4 mb-4">
-        <BannerAd />
+      {/* 무료 4종 카드 아래 — 여기서부터는 큰 배너를 써도 진입 동선을 막지 않는다. */}
+      <section className="px-4 mb-4 flex justify-center">
+        <KakaoAdFitBanner unit={ADFIT_MID_250} width={300} height={250} />
       </section>
 
       {/* Divider */}
