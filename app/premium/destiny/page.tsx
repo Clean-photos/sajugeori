@@ -23,14 +23,19 @@ export default async function DestinyPage() {
   const premium = userId ? await isPremiumUser(userId) : false;
 
   let subtitle = "운명 설계도";
+  // 확정 화면에 채워 넣을 등록된 내 사주(없으면 null → 빈 폼).
+  let saved: { birth_date: string; birth_time: string | null; gender: string } | null = null;
   let hasProfile = false;
   let hasReport = false;
   let eligibleForUpgrade = false;
   if (userId) {
     const { data: p } = await supabaseAdmin
-      .from("saju_profiles").select("id, saju_json")
+      .from("saju_profiles").select("id, saju_json, birth_date, birth_time, gender")
       .eq("user_id", userId).eq("label", "본인")
       .order("created_at", { ascending: false }).limit(1).single();
+    if (p?.birth_date) {
+      saved = { birth_date: p.birth_date, birth_time: p.birth_time, gender: p.gender };
+    }
     if (p?.id) {
       try {
         const { count } = await supabaseAdmin
@@ -59,16 +64,11 @@ export default async function DestinyPage() {
         <p className="text-xs opacity-60 mt-1">{subtitle}</p>
       </header>
 
+      {/* 등록된 사주가 없어도 확정 화면에서 직접 입력할 수 있다(016 규칙대로 그
+          입력이 본인 프로필로 저장된다). 그래서 "사주를 등록하세요" 안내로
+          막지 않는다 — 결제까지 마친 사람을 다른 페이지로 보내면 흐름이 끊긴다. */}
       {canView ? (
-        hasProfile ? (
-          <DestinyReport />
-        ) : (
-          <div className="px-4 pt-6">
-            <Link href="/onboarding?next=%2Fpremium%2Fdestiny" className="block rounded-2xl bg-[#1F3D34] text-white px-5 py-4 text-center text-sm font-semibold">
-              풀이를 보려면 사주를 등록하세요
-            </Link>
-          </div>
-        )
+        <DestinyReport saved={saved} />
       ) : (
         <div className="px-4 pt-4 flex flex-col gap-3">
           {eligibleForUpgrade && (

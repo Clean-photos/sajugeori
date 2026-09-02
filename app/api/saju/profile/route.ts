@@ -13,9 +13,12 @@ export async function DELETE() {
   }
   const userId = session.user.id;
 
+  // label 조건 없이 이 사용자의 사주 행을 전부 지운다.
+  // 예전에는 "본인" 행만 지워서, 가족·친구 사주로 리포트를 본 적이 있으면
+  // 그 생년월일이 label="대상" 행으로 남았다 — 삭제 요청의 취지에 어긋난다.
   const { error } = await supabaseAdmin
     .from("saju_profiles").delete()
-    .eq("user_id", userId).eq("label", "본인");
+    .eq("user_id", userId);
 
   if (error) {
     console.error("saju profile deletion error:", error);

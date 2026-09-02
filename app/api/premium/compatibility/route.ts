@@ -4,6 +4,10 @@ import { supabaseAdmin } from "@/lib/db/client";
 import { checkReportAccess, consumeOneTimePass } from "@/lib/billing/access";
 import { startAttempt, finishAttemptDone, finishAttemptFailed, discardAttempt } from "@/lib/billing/attempts";
 import { reportExpiresAtIso, notExpiredFilter } from "@/lib/billing/report-ttl";
+import {
+  parseTargetBody, resolveTarget, readAdhocCache, writeAdhocCache,
+  ensureOwnProfileId, isoOf, timeKeyOf, loadOwnProfile, sameAsProfile,
+} from "@/lib/billing/report-target";
 import { buildChart, mutualAnalysis } from "@/lib/saju-engine";
 import { generateCompatibilityReport } from "@/lib/premium/compat-generate";
 
@@ -38,15 +42,16 @@ export async function POST(req: NextRequest) {
   }
   const input = started.input;
 
-  const { data: profile } = await supabaseAdmin
-    .from("saju_profiles").select("id, birth_date, birth_time, gender")
-    .eq("user_id", userId).eq("label", "본인")
-    .order("created_at", { ascending: false }).limit(1).single();
-
-  if (!profile?.birth_date) {
+  // A(첫 번째 사람)는 화면에서 확정해 보낸다(생성 직전 컨펌). 예전에는 별도
+  // custom_person_a 체크박스로 받았고 **태어난 시각을 못 받아** 늘 시주 제외로
+  // 계산됐다. 이제 다른 상품과 같은 확정 화면을 쓰므로 시각까지 반영된다.
+  const parsedA = parseTargetBody(input);
+  if (!parsedA.ok) {
     await discardAttempt(started.attemptId);
-    return NextResponse.json({ error: "profile_required", redirect: "/onboarding" }, { status: 403 });
+    return NextResponse.json({ error: parsedA.error }, { status: 400 });
   }
+  const personA = parsedA.input;
+  const { ownProfile, isAdhoc } = await resolveTarget(userId, personA);
 
   const partnerBirth = input.partner_birth as string;
   const partnerGender = (input.partner_gender ?? "F") as "M" | "F";
@@ -56,31 +61,35 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "partner_birth is required" }, { status: 400 });
   }
 
-  // "A" 쪽도 임의의 사람으로 직접 입력할 수 있다(친구 커플·부모님 궁합 등).
-  // 체크박스를 안 켰으면 지금까지처럼 로그인 사용자의 등록된 본인 사주를 쓴다.
-  const useCustomA = !!input.custom_person_a;
-  const personABirth = (useCustomA ? input.person_a_birth : profile.birth_date) as string;
-  const personAGender = (useCustomA ? (input.person_a_gender ?? "M") : (profile.gender ?? "M")) as "M" | "F";
-  if (useCustomA && !personABirth) {
-    await discardAttempt(started.attemptId);
-    return NextResponse.json({ error: "person_a_birth is required" }, { status: 400 });
-  }
+  // A가 등록된 본인 사주가 아니면 "임의의 두 사람" 궁합이다(친구 커플·부모님 등).
+  const useCustomA = isAdhoc;
 
   // 같은 두 사람·같은 관계유형 조합이면 재생성하지 않는다 (재열람 무료).
+  // A가 본인이 아니면 1회성 캐시를 쓴다 — A의 시각까지 키에 들어가야 하는데
+  // 기존 테이블의 person_a_birth에는 날짜만 들어가기 때문이다.
+  const variant = [partnerBirth, partnerGender, context].join("|");
   const cacheKey = {
-    saju_profile_id: profile.id,
-    person_a_birth: personABirth, person_a_gender: personAGender,
+    saju_profile_id: ownProfile?.id ?? "",
+    person_a_birth: personA.birthDate, person_a_gender: personA.gender,
     partner_birth: partnerBirth, partner_gender: partnerGender, context,
   };
-  try {
-    const { data: cached } = await supabaseAdmin
-      .from("premium_compatibility_reports").select("content, score")
-      .match(cacheKey).or(notExpiredFilter()).limit(1).single();
-    if (cached?.content) {
+  if (isAdhoc) {
+    const cached = await readAdhocCache<{ content: unknown; score: number }>(userId, PRODUCT_ID, personA, variant);
+    if (cached) {
       await discardAttempt(started.attemptId);
-      return NextResponse.json({ report: cached.content, score: cached.score, context, cached: true });
+      return NextResponse.json({ report: cached.content, score: cached.score, context, cached: true, adhoc: true });
     }
-  } catch { /* 테이블 없음 또는 미저장 → 생성 진행 */ }
+  } else if (ownProfile?.id) {
+    try {
+      const { data: cached } = await supabaseAdmin
+        .from("premium_compatibility_reports").select("content, score")
+        .match(cacheKey).or(notExpiredFilter()).limit(1).maybeSingle();
+      if (cached?.content) {
+        await discardAttempt(started.attemptId);
+        return NextResponse.json({ report: cached.content, score: cached.score, context, cached: true });
+      }
+    } catch { /* 테이블 없음 또는 미저장 → 생성 진행 */ }
+  }
 
   // 구독자 또는 990원 단건 이용권 보유자만 통과. 이용권은 생성 성공 후 소진한다.
   const access = await checkReportAccess(userId, PRODUCT_ID);
@@ -94,10 +103,8 @@ export async function POST(req: NextRequest) {
   let mutual;
   let normalizedScore = 50;
   try {
-    const aHasTime = !useCustomA && !!profile.birth_time;
-    const aIso = aHasTime ? `${personABirth}T${profile.birth_time}` : `${personABirth}T00:00:00`;
     const personALabel = useCustomA ? "A" : "나";
-    const me = buildChart(aIso, personAGender, aHasTime);
+    const me = buildChart(isoOf(personA), personA.gender, !!personA.birthTime);
     const other = buildChart(`${partnerBirth}T00:00:00`, partnerGender, false);
     mutual = mutualAnalysis(me, other, personALabel, useCustomA ? "B" : "상대", context);
     normalizedScore = Math.min(100, Math.max(0, Math.round(38 + mutual.combinedScore * 6)));
@@ -114,11 +121,21 @@ export async function POST(req: NextRequest) {
     );
 
     // 캐시 저장 (테이블 없으면 무시)
-    try {
-      await supabaseAdmin.from("premium_compatibility_reports").insert({
-        ...cacheKey, user_id: userId, content: report, score: normalizedScore, expires_at: reportExpiresAtIso(),
-      });
-    } catch { /* noop */ }
+    if (isAdhoc) {
+      // 1회성 — 본인 프로필도, 본인 리포트 캐시도 건드리지 않는다.
+      await writeAdhocCache(userId, PRODUCT_ID, personA, { content: report, score: normalizedScore }, variant);
+    } else {
+      // 등록된 사주가 없던 사람이면 이 입력이 본인 프로필로 저장된다(016 규칙).
+      const profileId = await ensureOwnProfileId(userId, personA, ownProfile);
+      if (profileId) {
+        try {
+          await supabaseAdmin.from("premium_compatibility_reports").insert({
+            ...cacheKey, saju_profile_id: profileId, user_id: userId,
+            content: report, score: normalizedScore, expires_at: reportExpiresAtIso(),
+          });
+        } catch { /* noop */ }
+      }
+    }
 
     // 이용권 사용자는 생성 성공 시점에 소진 (실패 시 이용권 보존)
     if (access.passId) await consumeOneTimePass(access.passId);
@@ -148,21 +165,27 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: "partner_birth is required" }, { status: 400 });
   }
 
-  const { data: profile } = await supabaseAdmin
-    .from("saju_profiles").select("id, birth_date, gender")
-    .eq("user_id", userId).eq("label", "본인")
-    .order("created_at", { ascending: false }).limit(1).single();
-  if (!profile?.id) {
+  // A(첫 번째 사람)를 함께 받는다 — 안 받으면 다른 조합의 리포트가 지워진다.
+  const parsedA = parseTargetBody(body);
+  const ownProfile = await loadOwnProfile(userId);
+
+  if (parsedA.ok && ownProfile && !sameAsProfile(parsedA.input, ownProfile)) {
+    const a = parsedA.input;
+    await supabaseAdmin.from("premium_adhoc_reports").delete()
+      .eq("user_id", userId).eq("product_id", PRODUCT_ID)
+      .eq("birth_date", a.birthDate).eq("birth_time", timeKeyOf(a.birthTime))
+      .eq("gender", a.gender)
+      .eq("variant", [partnerBirth, partnerGender, context].join("|"));
+    return NextResponse.json({ ok: true });
+  }
+
+  if (!ownProfile?.id) {
     return NextResponse.json({ error: "profile_required" }, { status: 403 });
   }
 
-  const useCustomA = !!body.custom_person_a;
-  const personABirth = (useCustomA ? body.person_a_birth : profile.birth_date) as string;
-  const personAGender = (useCustomA ? (body.person_a_gender ?? "M") : (profile.gender ?? "M")) as "M" | "F";
-
   await supabaseAdmin.from("premium_compatibility_reports").delete()
-    .eq("saju_profile_id", profile.id).eq("user_id", userId)
-    .eq("person_a_birth", personABirth).eq("person_a_gender", personAGender)
+    .eq("saju_profile_id", ownProfile.id).eq("user_id", userId)
+    .eq("person_a_birth", ownProfile.birth_date).eq("person_a_gender", ownProfile.gender)
     .eq("partner_birth", partnerBirth).eq("partner_gender", partnerGender).eq("context", context);
 
   return NextResponse.json({ ok: true });

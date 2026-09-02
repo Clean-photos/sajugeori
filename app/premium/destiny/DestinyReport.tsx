@@ -5,6 +5,7 @@ import type { BlueprintReport, BlueprintPartial } from "@/lib/blueprint-engine/g
 import { BlueprintReportView } from "@/components/blueprint/BlueprintReportView";
 import { DeleteReportButton } from "@/components/premium/DeleteReportButton";
 import { WaitingCards } from "@/components/premium/WaitingCards";
+import { SajuInputForm, type SavedSaju } from "@/components/premium/SajuInputForm";
 import { Spinner } from "@/components/ui/Spinner";
 
 type ApiState =
@@ -15,7 +16,18 @@ type ApiState =
   | { status: "error"; message: string }
   | { status: "deleted" };
 
-export function DestinyReport() {
+type Target = { birth_date: string; birth_time: string | null; gender: string };
+
+/** 대상 사주를 쿼리 문자열로 만든다. 폴링마다 같은 값이 가야 이어서 생성된다. */
+function targetQuery(t: Target): string {
+  const q = new URLSearchParams({ birth_date: t.birth_date, gender: t.gender });
+  if (t.birth_time) q.set("birth_time", t.birth_time);
+  return q.toString();
+}
+
+export function DestinyReport({ saved }: { saved: SavedSaju }) {
+  // 대상을 확정하기 전에는 생성을 시작하지 않는다(생성 직전 컨펌).
+  const [target, setTarget] = useState<Target | null>(null);
   const [state, setState] = useState<ApiState>({ status: "loading" });
   const [busy, setBusy] = useState(false);
   // 폴링 한 번 = 스텝 하나(LLM 호출 하나)가 서버에서 끝날 때까지 기다리는
@@ -26,7 +38,7 @@ export function DestinyReport() {
 
   async function fetchOnce(params?: string): Promise<ApiState> {
     try {
-      const res = await fetch(`/api/premium/destiny${params ? `?${params}` : ""}`);
+      const res = await fetch(`/api/premium/destiny?${params}`);
       const data = await res.json();
       if (!res.ok) {
         return { status: "error", message: data?.error === "profile_required" ? "먼저 사주를 등록해 주세요." : (data?.message ?? data?.error ?? "불러오지 못했습니다.") };
@@ -40,15 +52,16 @@ export function DestinyReport() {
     }
   }
 
-  async function driveSteps(params?: string) {
+  async function driveSteps(t: Target, extra?: string) {
     if (runningRef.current) return;
     runningRef.current = true;
     setBusy(true);
+    const base = targetQuery(t);
     try {
-      let next = await fetchOnce(params);
+      let next = await fetchOnce(extra ? `${base}&${extra}` : base);
       setState(next);
       while (next.status === "generating") {
-        next = await fetchOnce();
+        next = await fetchOnce(base);
         setState(next);
       }
     } finally {
@@ -57,17 +70,34 @@ export function DestinyReport() {
     }
   }
 
-  useEffect(() => { driveSteps(); }, []);
+  // 확정 전에는 자동 시작하지 않는다. 확정되면 그때부터 폴링을 돌린다.
+  useEffect(() => { if (target) driveSteps(target); }, [target]);
 
   function regenerate() {
+    if (!target) return;
     if (!window.confirm("전체를 다시 생성할까요? 재생성은 1회만 가능합니다.")) return;
-    driveSteps("regenerate=1");
+    driveSteps(target, "regenerate=1");
   }
 
   async function handleDelete() {
-    const res = await fetch("/api/premium/destiny", { method: "DELETE" });
+    // 대상을 함께 보낸다 — 안 보내면 다른 대상의 설계도가 지워진다.
+    const res = await fetch(`/api/premium/destiny?${target ? targetQuery(target) : ""}`, { method: "DELETE" });
     if (!res.ok) throw new Error("delete failed");
     setState({ status: "deleted" });
+  }
+
+  // 대상 확정 화면 — 등록된 사주가 있으면 채워진 채로 뜨고, 체크를 풀면
+  // 가족·친구 사주로도 설계도를 만들 수 있다.
+  if (!target) {
+    return (
+      <SajuInputForm
+        saved={saved}
+        busy={false}
+        confirmMode
+        onSubmit={(v) => setTarget(v)}
+        submitLabel="이 사주로 운명 설계도 만들기"
+      />
+    );
   }
 
   if (state.status === "deleted") {
@@ -93,7 +123,7 @@ export function DestinyReport() {
     return (
       <div className="px-4 py-8 flex flex-col items-center gap-3">
         <p className="text-sm text-[#C0392B]">{state.message}</p>
-        <button onClick={() => driveSteps()} className="text-sm text-[#1F3D34] underline underline-offset-2">
+        <button onClick={() => driveSteps(target)} className="text-sm text-[#1F3D34] underline underline-offset-2">
           다시 시도
         </button>
       </div>
@@ -119,7 +149,7 @@ export function DestinyReport() {
       <div className="flex flex-col gap-3">
         <div className="px-4 pt-4 flex flex-col items-center gap-2 text-center">
           <p className="text-sm text-[#C0392B]">일부 생성에 실패했습니다: {state.error}</p>
-          <button onClick={() => driveSteps()} disabled={busy} className="flex items-center justify-center gap-1.5 text-sm text-white bg-[#1F3D34] rounded-full px-4 py-2 disabled:opacity-50">
+          <button onClick={() => driveSteps(target)} disabled={busy} className="flex items-center justify-center gap-1.5 text-sm text-white bg-[#1F3D34] rounded-full px-4 py-2 disabled:opacity-50">
             {busy && <Spinner size={14} />}
             {busy ? "재시도 중..." : "실패한 부분만 다시 생성"}
           </button>

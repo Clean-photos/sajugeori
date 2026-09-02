@@ -133,3 +133,54 @@ export async function ensureOwnProfileId(
     return null;
   }
 }
+
+/** 1회성 대상 사주를 담는 프로필의 label. "본인"이 아니어야 한다 — 앱 전역이
+ *  label="본인"으로만 조회하므로, 이 행은 어떤 화면·API에도 잡히지 않는다. */
+export const TARGET_PROFILE_LABEL = "대상";
+
+/**
+ * **어떤 대상이든** saju_profile_id를 확보한다(운명 설계도 전용).
+ *
+ * 운명 설계도는 다른 리포트와 달리 재개 가능한 다단계 생성기라, 진행 상태
+ * (status/parts_done/attempt_id/pass_id)를 blueprint_reports에 들고 있고 그 키가
+ * saju_profile_id다. 1회성 캐시 테이블에는 이 상태 컬럼들이 없어서 그쪽으로는
+ * 옮길 수 없다. 7,900원짜리 상품의 살아 있는 테이블 PK를 바꾸는 건 위험이 커,
+ * **대상마다 label="대상" 프로필 행을 하나 두고** 상태 머신은 그대로 둔다.
+ *
+ * - 본인 사주면 기존 본인 행(없으면 016 규칙대로 새로 저장)
+ * - 그 외에는 같은 생년월일시·성별의 "대상" 행을 재사용하고, 없으면 만든다
+ *   (재사용해야 탭을 닫았다 다시 열었을 때 만들던 리포트를 이어받는다)
+ */
+export async function ensureTargetProfileId(
+  userId: string, input: TargetInput, ownProfile: OwnProfile | null, isAdhoc: boolean
+): Promise<string | null> {
+  if (!isAdhoc) return ensureOwnProfileId(userId, input, ownProfile);
+
+  const { data: existing } = await supabaseAdmin
+    .from("saju_profiles").select("id")
+    .eq("user_id", userId).eq("label", TARGET_PROFILE_LABEL)
+    .eq("birth_date", input.birthDate).eq("gender", input.gender)
+    .order("created_at", { ascending: false }).limit(1).maybeSingle();
+  if (existing?.id) return existing.id;
+
+  try {
+    const engine = runSajuEngine({
+      birth_date: input.birthDate, birth_time: input.birthTime,
+      calendar: input.calendar, gender: input.gender,
+    });
+    const { data, error } = await supabaseAdmin
+      .from("saju_profiles")
+      .insert({
+        user_id: userId, label: TARGET_PROFILE_LABEL,
+        birth_date: input.birthDate, birth_time: input.birthTime,
+        calendar: input.calendar, gender: input.gender,
+        saju_raw: engine.saju_raw, saju_json: engine.saju_json, schema_version: 1,
+      })
+      .select("id").single();
+    if (error) console.error("대상 프로필 insert 실패:", error);
+    return data?.id ?? null;
+  } catch (e) {
+    console.error("ensureTargetProfileId 실패:", e);
+    return null;
+  }
+}

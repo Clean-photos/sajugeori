@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/lib/db/client";
 import { checkDestinyAccess, consumeOneTimePass } from "@/lib/billing/access";
 import { startAttempt, finishAttemptDone, finishAttemptFailed, discardAttempt } from "@/lib/billing/attempts";
 import { reportExpiresAtIso, notExpiredFilter } from "@/lib/billing/report-ttl";
+import { parseTargetBody, resolveTarget, ensureTargetProfileId, isoOf, loadOwnProfile } from "@/lib/billing/report-target";
 import { runBlueprintStep, type BlueprintPartial, type BlueprintResumeState } from "@/lib/blueprint-engine/generate";
 
 // 운명 설계도 v3.2 — 질문 24개·6블록(판정·근거강도·수치·왜·장면·반증·처방) 구조.
@@ -106,18 +107,31 @@ export async function GET(req: NextRequest) {
   }
   const userId = session.user.id;
 
-  const { data: profile } = await supabaseAdmin
-    .from("saju_profiles").select("id, birth_date, birth_time, gender")
-    .eq("user_id", userId).eq("label", "본인")
-    .order("created_at", { ascending: false }).limit(1).single();
-  if (!profile?.birth_date) {
+  // 대상 사주는 화면에서 확정해 쿼리로 보낸다(생성 직전 컨펌). 폴링마다 같은 값이
+  // 와야 하므로 body가 아니라 쿼리 파라미터로 받는다.
+  const q = req.nextUrl.searchParams;
+  const parsed = parseTargetBody({
+    birth_date: q.get("birth_date"), birth_time: q.get("birth_time"), gender: q.get("gender"),
+  });
+  if (!parsed.ok) {
     return NextResponse.json({ error: "profile_required", redirect: "/onboarding" }, { status: 403 });
   }
+  const input = parsed.input;
+  const { ownProfile, isAdhoc } = await resolveTarget(userId, input);
 
-  const wantsRegenerate = req.nextUrl.searchParams.get("regenerate") === "1";
-  const iso = profile.birth_time ? `${profile.birth_date}T${profile.birth_time}` : `${profile.birth_date}T00:00:00`;
-  const hasHour = !!profile.birth_time;
-  const gender = profile.gender ?? "M";
+  // 이 상품은 진행 상태(status/parts_done/attempt_id)를 saju_profile_id로 들고 있어
+  // 1회성 캐시 테이블로는 옮길 수 없다. 대상마다 프로필 행을 확보해 상태 머신을
+  // 그대로 쓴다(자세한 사유는 ensureTargetProfileId 주석 참고).
+  const profileId = await ensureTargetProfileId(userId, input, ownProfile, isAdhoc);
+  if (!profileId) {
+    return NextResponse.json({ error: "사주 정보를 준비하지 못했습니다." }, { status: 500 });
+  }
+  const profile = { id: profileId };
+
+  const wantsRegenerate = q.get("regenerate") === "1";
+  const iso = isoOf(input);
+  const hasHour = !!input.birthTime;
+  const gender = input.gender;
 
   const { data: existingRaw } = await supabaseAdmin
     .from("blueprint_reports")
@@ -213,23 +227,42 @@ export async function GET(req: NextRequest) {
 }
 
 // DELETE /api/premium/destiny — 로그인 필수. 사용자가 자기 운명 설계도 결과를 직접 삭제.
-export async function DELETE() {
+export async function DELETE(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: "login_required" }, { status: 401 });
   }
   const userId = session.user.id;
 
-  const { data: profile } = await supabaseAdmin
-    .from("saju_profiles").select("id")
-    .eq("user_id", userId).eq("label", "본인")
-    .order("created_at", { ascending: false }).limit(1).single();
-  if (!profile?.id) {
+  // 대상을 함께 받는다 — 안 받으면 가족 사주로 만든 설계도를 지우려다 본인 것이 지워진다.
+  const q = req.nextUrl.searchParams;
+  const parsed = parseTargetBody({
+    birth_date: q.get("birth_date"), birth_time: q.get("birth_time"), gender: q.get("gender"),
+  });
+
+  let profileId: string | null = null;
+  if (parsed.ok) {
+    const { ownProfile, isAdhoc } = await resolveTarget(userId, parsed.input);
+    // 여기서는 없는 프로필을 새로 만들지 않는다(삭제인데 행을 만들 이유가 없다).
+    profileId = isAdhoc ? null : ownProfile?.id ?? null;
+    if (isAdhoc) {
+      const { data } = await supabaseAdmin
+        .from("saju_profiles").select("id")
+        .eq("user_id", userId).eq("label", "대상")
+        .eq("birth_date", parsed.input.birthDate).eq("gender", parsed.input.gender)
+        .order("created_at", { ascending: false }).limit(1).maybeSingle();
+      profileId = data?.id ?? null;
+    }
+  } else {
+    profileId = (await loadOwnProfile(userId))?.id ?? null;
+  }
+
+  if (!profileId) {
     return NextResponse.json({ error: "profile_required" }, { status: 403 });
   }
 
   await supabaseAdmin.from("blueprint_reports").delete()
-    .eq("saju_profile_id", profile.id).eq("user_id", userId);
+    .eq("saju_profile_id", profileId).eq("user_id", userId);
 
   return NextResponse.json({ ok: true });
 }
