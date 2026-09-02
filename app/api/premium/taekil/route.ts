@@ -4,6 +4,10 @@ import { supabaseAdmin } from "@/lib/db/client";
 import { checkReportAccess, consumeOneTimePass } from "@/lib/billing/access";
 import { startAttempt, finishAttemptDone, finishAttemptFailed, discardAttempt } from "@/lib/billing/attempts";
 import { reportExpiresAtIso, notExpiredFilter } from "@/lib/billing/report-ttl";
+import {
+  parseTargetBody, resolveTarget, readAdhocCache, writeAdhocCache,
+  ensureOwnProfileId, isoOf,
+} from "@/lib/billing/report-target";
 import { buildChart, rankDates } from "@/lib/saju-engine";
 import type { TaekilPurpose } from "@/lib/saju-engine";
 import { generateTaekilReport } from "@/lib/premium/taekil-generate";
@@ -38,15 +42,15 @@ export async function POST(req: NextRequest) {
   }
   const input = started.input;
 
-  const { data: profile } = await supabaseAdmin
-    .from("saju_profiles").select("id, birth_date, birth_time, gender")
-    .eq("user_id", userId).eq("label", "본인")
-    .order("created_at", { ascending: false }).limit(1).single();
-
-  if (!profile?.birth_date) {
+  // 대상 사주는 화면에서 확정해 보낸다(생성 직전 컨펌). 예전처럼 "마지막에 등록한
+  // 본인 사주"를 말없이 쓰지 않는다 — 가족 사주로 볼 방법이 없던 원인이었다.
+  const parsedTarget = parseTargetBody(input);
+  if (!parsedTarget.ok) {
     await discardAttempt(started.attemptId);
-    return NextResponse.json({ error: "profile_required", redirect: "/onboarding" }, { status: 403 });
+    return NextResponse.json({ error: parsedTarget.error }, { status: 400 });
   }
+  const target = parsedTarget.input;
+  const { ownProfile, isAdhoc } = await resolveTarget(userId, target);
 
   const purpose = (input.purpose ?? "other") as TaekilPurpose;
   const from = input.range_from as string;
@@ -57,16 +61,26 @@ export async function POST(req: NextRequest) {
   }
 
   // 같은 목적·같은 기간 조회면 재생성하지 않는다 (재열람 무료).
-  const cacheKey = { saju_profile_id: profile.id, purpose, range_from: from, range_to: to };
-  try {
-    const { data: cached } = await supabaseAdmin
-      .from("premium_taekil_reports").select("content, best")
-      .match(cacheKey).or(notExpiredFilter()).limit(1).single();
-    if (cached?.content) {
+  // 대상 사주가 다르면 같은 조건이라도 다른 리포트이므로 variant에 함께 넣는다.
+  const variant = [purpose, from, to].join("|");
+  const cacheKey = { saju_profile_id: ownProfile?.id ?? "", purpose, range_from: from, range_to: to };
+  if (isAdhoc) {
+    const cached = await readAdhocCache<{ content: unknown; best: unknown }>(userId, PRODUCT_ID, target, variant);
+    if (cached) {
       await discardAttempt(started.attemptId);
-      return NextResponse.json({ report: cached.content, best: cached.best ?? [], purpose, range: { from, to }, cached: true });
+      return NextResponse.json({ report: cached.content, best: cached.best ?? [], purpose, range: { from, to }, cached: true, adhoc: true });
     }
-  } catch { /* 테이블 없음 또는 미저장 → 생성 진행 */ }
+  } else if (ownProfile?.id) {
+    try {
+      const { data: cached } = await supabaseAdmin
+        .from("premium_taekil_reports").select("content, best")
+        .match(cacheKey).or(notExpiredFilter()).limit(1).maybeSingle();
+      if (cached?.content) {
+        await discardAttempt(started.attemptId);
+        return NextResponse.json({ report: cached.content, best: cached.best ?? [], purpose, range: { from, to }, cached: true });
+      }
+    } catch { /* 테이블 없음 또는 미저장 → 생성 진행 */ }
+  }
 
   // 구독자 또는 990원 단건 이용권 보유자만 통과. 이용권은 생성 성공 후 소진한다.
   const access = await checkReportAccess(userId, PRODUCT_ID);
@@ -75,13 +89,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "premium_required", redirect: "/premium/buy?product=taekil_one" }, { status: 402 });
   }
 
-  // 등록된 생일로 차트 재구성 후 일진 스코어링
+  // 확정한 대상 사주로 차트 구성 후 일진 스코어링
   let ranked;
   try {
-    const iso = profile.birth_time
-      ? `${profile.birth_date}T${profile.birth_time}`
-      : `${profile.birth_date}T00:00:00`;
-    const chart = buildChart(iso, profile.gender ?? "M", !!profile.birth_time);
+    const chart = buildChart(isoOf(target), target.gender, !!target.birthTime);
     ranked = rankDates(chart, from, to, purpose);
   } catch (e) {
     console.error("premium taekil engine error:", e);
@@ -112,11 +123,22 @@ ${avoidLines}`.trim();
     const bestForClient = ranked.best.map((d) => ({ date: d.date, weekday: d.weekday, ganji: d.ganji }));
 
     // 캐시 저장 (테이블 없으면 무시)
-    try {
-      await supabaseAdmin.from("premium_taekil_reports").insert({
-        ...cacheKey, user_id: userId, content: report, best: bestForClient, expires_at: reportExpiresAtIso(),
-      });
-    } catch { /* noop */ }
+    if (isAdhoc) {
+      // 1회성 — 본인 프로필도, 본인 리포트 캐시도 건드리지 않는다.
+      // 이 상품은 content와 best를 함께 돌려주므로 묶어서 캐시한다.
+      await writeAdhocCache(userId, PRODUCT_ID, target, { content: report, best: bestForClient }, variant);
+    } else {
+      // 등록된 사주가 없던 사람이면 이 입력이 본인 프로필로 저장된다(016 규칙).
+      const profileId = await ensureOwnProfileId(userId, target, ownProfile);
+      if (profileId) {
+        try {
+          await supabaseAdmin.from("premium_taekil_reports").insert({
+            ...cacheKey, saju_profile_id: profileId, user_id: userId,
+            content: report, best: bestForClient, expires_at: reportExpiresAtIso(),
+          });
+        } catch { /* noop */ }
+      }
+    }
 
     // 이용권 사용자는 생성 성공 시점에 소진 (실패 시 이용권 보존)
     if (access.passId) await consumeOneTimePass(access.passId);

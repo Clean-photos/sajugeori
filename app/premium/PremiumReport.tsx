@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { cleanReportText } from "@/lib/report-format";
 import { PrintReportFooter } from "@/components/premium/PrintReport";
@@ -35,12 +35,13 @@ export function PremiumReport({
   saved?: SavedSaju;
 } = {}) {
   const [report, setReport] = useState<Report | null>(null);
-  // 등록된 사주가 없으면 조회할 게 없으므로 로딩 없이 바로 입력 폼부터 보여준다.
-  const [loading, setLoading] = useState(hasProfile);
+  // 대상 확정 화면부터 시작한다. 등록된 사주가 있어도 자동 생성하지 않는다 —
+  // 예전에는 곧장 본인 사주로 생성돼 가족 사주를 볼 방법이 없었다.
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [regenerating, setRegenerating] = useState(false);
   const [deleted, setDeleted] = useState(false);
-  const [showForm, setShowForm] = useState(!hasProfile);
+  const [showForm, setShowForm] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
   async function handleDelete() {
@@ -96,13 +97,20 @@ export function PremiumReport({
     setSubmitting(false);
   }
 
-  useEffect(() => { if (hasProfile) load(false); }, [hasProfile]);
+  // 자동 생성 없음(대상 확정 후에만 생성). hasProfile은 확정 화면 안내 문구에만 쓴다.
+  void hasProfile;
 
   if (showForm) {
     return (
       <>
         {error && <p className="px-5 pt-4 text-xs text-[#C0392B]">{error}</p>}
-        <SajuInputForm saved={saved} busy={submitting} onSubmit={submitSaju} />
+        <SajuInputForm
+          saved={saved}
+          busy={submitting}
+          confirmMode
+          onSubmit={submitSaju}
+          submitLabel="이 사주로 풀이 보기"
+        />
         {submitting && (
           <div className="px-4 pb-8 flex flex-col items-center gap-3">
             <p className="text-xs text-[#9B968F]">처음 생성은 1분 정도 걸릴 수 있어요</p>

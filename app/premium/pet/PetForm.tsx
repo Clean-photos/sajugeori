@@ -7,13 +7,16 @@ import { SaveReportButtons } from "@/components/premium/SaveReportButtons";
 import { DeleteReportButton } from "@/components/premium/DeleteReportButton";
 import { WaitingCards } from "@/components/premium/WaitingCards";
 import { ReportBody } from "@/components/premium/ReportBody";
+import { SajuInputForm, type SavedSaju } from "@/components/premium/SajuInputForm";
 
 type Step = "form" | "loading" | "result" | "deleted";
 type Species = "dog" | "cat";
 
 const THIS_YEAR = new Date().getFullYear();
 
-export function PetForm() {
+type Target = { birth_date: string; birth_time: string | null; gender: string };
+
+export function PetForm({ saved }: { saved: SavedSaju }) {
   const [step, setStep] = useState<Step>("form");
   const [species, setSpecies] = useState<Species>("dog");
   const [name, setName] = useState("");
@@ -26,6 +29,8 @@ export function PetForm() {
   const [error, setError] = useState("");
   // 실패한 시도의 id. 있으면 "같은 정보로 재생성" — 서버에 저장된 입력값을 그대로 재사용한다.
   const [attemptId, setAttemptId] = useState<string | null>(null);
+  // 어떤 집사 사주로 만든 리포트인지. 재생성·삭제 때도 같은 대상을 보낸다.
+  const [target, setTarget] = useState<Target | null>(null);
 
   const speciesKr = species === "cat" ? "고양이" : "강아지";
   const yearNum = parseInt(year);
@@ -37,7 +42,10 @@ export function PetForm() {
     setError("");
   }
 
-  async function submit(regenerate = false) {
+  async function submit(regenerate = false, v?: Target) {
+    const t = v ?? target;
+    if (!t) return;
+    setTarget(t);
     setStep("loading");
     setError("");
     try {
@@ -46,13 +54,14 @@ export function PetForm() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(
           regenerate && attemptId
-            ? { attemptId }
+            ? { attemptId, ...t }
             : {
                 species,
                 petName: name.trim(),
                 petYear: yearNum,
                 petMonth: noMonth ? null : parseInt(month),
                 petDay: noMonth || !day ? null : parseInt(day),
+                ...t,
               }
         ),
       });
@@ -83,12 +92,15 @@ export function PetForm() {
     const res = await fetch("/api/premium/pet", {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
+      // 대상(집사 사주)을 함께 보낸다 — 가족 사주로 만든 리포트를 지울 때 본인
+      // 리포트가 지워지면 안 된다.
       body: JSON.stringify({
         species,
         petName: name.trim(),
         petYear: yearNum,
         petMonth: noMonth ? null : parseInt(month),
         petDay: noMonth || !day ? null : parseInt(day),
+        ...(target ?? {}),
       }),
     });
     if (!res.ok) throw new Error("delete failed");
@@ -150,7 +162,8 @@ export function PetForm() {
   }
 
   return (
-    <div className="flex-1 px-5 py-6 flex flex-col gap-5">
+    <>
+    <div className="flex-1 px-5 pt-6 flex flex-col gap-5">
       {/* 종 선택 */}
       <div>
         <label className="block text-xs font-medium text-[#6B6661] uppercase tracking-wider mb-2">어떤 아이인가요</label>
@@ -252,25 +265,29 @@ export function PetForm() {
 
       {error && <p className="text-xs text-[#C0392B] px-1">{error}</p>}
 
-      <div className="mt-auto pt-2">
-        {attemptId ? (
+      {attemptId && (
+        <div className="pt-2">
           <button
             onClick={() => submit(true)}
             className="w-full bg-[#C8743A] text-white rounded-xl py-4 font-semibold text-base active:scale-[0.97] transition-all shadow-lg shadow-[#C8743A]/25"
           >
             같은 정보로 재생성하기
           </button>
-        ) : (
-          <button
-            onClick={() => submit(false)}
-            disabled={!canSubmit}
-            className="w-full bg-[#C8743A] text-white rounded-xl py-4 font-semibold text-base disabled:opacity-40 active:scale-[0.97] transition-all shadow-lg shadow-[#C8743A]/25"
-          >
-            {name.trim() ? `${name.trim()}와의 궁합 보기` : "궁합 보기"}
-          </button>
-        )}
-        <p className="text-center text-xs text-[#6B6661] mt-3">등록된 내 사주와 아이의 기운을 함께 계산합니다</p>
-      </div>
+        </div>
+      )}
     </div>
+
+      {/* 생성 직전 집사 사주 확정 — 등록된 사주가 있으면 채워진 채로 뜨고,
+          체크를 풀면 가족 사주로도 볼 수 있다. */}
+      {!attemptId && (
+        <SajuInputForm
+          saved={saved}
+          busy={false}
+          confirmMode
+          onSubmit={(v) => { if (canSubmit) submit(false, v); }}
+          submitLabel={name.trim() ? `${name.trim()}와의 궁합 보기` : "이 사주로 궁합 보기"}
+        />
+      )}
+    </>
   );
 }

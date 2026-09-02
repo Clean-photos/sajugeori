@@ -7,6 +7,7 @@ import { SaveReportButtons } from "@/components/premium/SaveReportButtons";
 import { DeleteReportButton } from "@/components/premium/DeleteReportButton";
 import { WaitingCards } from "@/components/premium/WaitingCards";
 import { ReportBody } from "@/components/premium/ReportBody";
+import { SajuInputForm, type SavedSaju } from "@/components/premium/SajuInputForm";
 
 type Step = "form" | "loading" | "result" | "deleted";
 
@@ -33,7 +34,9 @@ function formatDateInput(raw: string) {
   return v.slice(0, 10);
 }
 
-export function TaekilForm() {
+type Target = { birth_date: string; birth_time: string | null; gender: string };
+
+export function TaekilForm({ saved }: { saved: SavedSaju }) {
   const range = defaultRange();
   const [step, setStep] = useState<Step>("form");
   const [form, setForm] = useState({ purpose: "wedding", range_from: range.from, range_to: range.to });
@@ -42,15 +45,20 @@ export function TaekilForm() {
   const [error, setError] = useState("");
   // 실패한 시도의 id. 있으면 "같은 정보로 재생성" — 서버에 저장된 입력값을 그대로 재사용한다.
   const [attemptId, setAttemptId] = useState<string | null>(null);
+  // 어떤 대상 사주로 만든 리포트인지. 재생성 때도 같은 대상을 다시 보내야 한다.
+  const [target, setTarget] = useState<Target | null>(null);
 
-  async function submit(regenerate = false) {
+  async function submit(regenerate = false, v?: Target) {
+    const t = v ?? target;
+    if (!t) return;
+    setTarget(t);
     setStep("loading");
     setError("");
     try {
       const res = await fetch("/api/premium/taekil", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(regenerate && attemptId ? { attemptId } : form),
+        body: JSON.stringify(regenerate && attemptId ? { attemptId, ...t } : { ...form, ...t }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -143,7 +151,8 @@ export function TaekilForm() {
   }
 
   return (
-    <div className="flex-1 px-5 py-6 flex flex-col gap-5">
+    <>
+    <div className="flex-1 px-5 pt-6 flex flex-col gap-5">
       <div>
         <label className="block text-xs font-medium text-[#6B6661] uppercase tracking-wider mb-2">목적</label>
         <div className="grid grid-cols-3 gap-2">
@@ -172,20 +181,27 @@ export function TaekilForm() {
 
       {error && <p className="text-xs text-[#C0392B] px-1">{error}</p>}
 
-      <div className="mt-auto pt-2">
-        {attemptId ? (
+      {attemptId && (
+        <div className="pt-2">
           <button onClick={() => submit(true)}
             className="w-full bg-[#C8743A] text-white rounded-xl py-4 font-semibold text-base active:scale-[0.97] transition-all shadow-lg shadow-[#C8743A]/25">
             같은 정보로 재생성하기
           </button>
-        ) : (
-          <button onClick={() => submit(false)} disabled={!canSubmit}
-            className="w-full bg-[#C8743A] text-white rounded-xl py-4 font-semibold text-base disabled:opacity-40 active:scale-[0.97] transition-all shadow-lg shadow-[#C8743A]/25">
-            내 사주로 길일 찾기
-          </button>
-        )}
-        <p className="text-center text-xs text-[#6B6661] mt-3">등록된 내 사주를 기준으로 분석합니다</p>
-      </div>
+        </div>
+      )}
     </div>
+
+      {/* 생성 직전 대상 확정 — 등록된 사주가 있으면 채워진 채로 뜨고, 체크를 풀면
+          가족·친구 사주를 직접 넣을 수 있다. */}
+      {!attemptId && (
+        <SajuInputForm
+          saved={saved}
+          busy={false}
+          confirmMode
+          onSubmit={(v) => { if (canSubmit) submit(false, v); }}
+          submitLabel="이 사주로 길일 찾기"
+        />
+      )}
+    </>
   );
 }

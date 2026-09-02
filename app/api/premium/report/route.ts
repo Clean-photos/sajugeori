@@ -6,6 +6,7 @@ import { startAttempt, finishAttemptDone, finishAttemptFailed, discardAttempt } 
 import { reportExpiresAtIso, notExpiredFilter } from "@/lib/billing/report-ttl";
 import { generateReport } from "@/lib/premium/saju-generate";
 import { runSajuEngine } from "@/lib/saju-engine";
+import { parseTargetBody, resolveTarget, saveAsOwnProfile } from "@/lib/billing/report-target";
 
 const PRODUCT_ID = "saju_one";
 
@@ -95,15 +96,11 @@ export async function POST(req: NextRequest) {
   }
   const userId = session.user.id;
 
-  const body = await req.json().catch(() => ({}));
-  const birthDate = typeof body.birth_date === "string" ? body.birth_date : "";
-  const birthTime = typeof body.birth_time === "string" && body.birth_time ? body.birth_time : null;
-  const gender = body.gender === "M" || body.gender === "F" ? body.gender : "";
-  const calendar = body.calendar === "lunar" ? "lunar" : "solar";
-
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(birthDate) || !gender) {
-    return NextResponse.json({ error: "생년월일과 성별을 확인해주세요." }, { status: 400 });
+  const parsed = parseTargetBody(await req.json().catch(() => ({})));
+  if (!parsed.ok) {
+    return NextResponse.json({ error: parsed.error }, { status: 400 });
   }
+  const { birthDate, birthTime, gender, calendar } = parsed.input;
 
   let engine: ReturnType<typeof runSajuEngine>;
   try {
@@ -117,11 +114,12 @@ export async function POST(req: NextRequest) {
   const dayMaster = identity.day_master ?? "";
   const strength = identity.strength_label ?? "";
 
-  // 등록된 본인 사주가 있는지로 "프로필 저장" / "1회성"이 갈린다.
-  const { data: existingProfile } = await supabaseAdmin
-    .from("saju_profiles").select("id")
-    .eq("user_id", userId).eq("label", "본인")
-    .order("created_at", { ascending: false }).limit(1).maybeSingle();
+  // 등록된 본인 사주와 **같은 대상인지**로 "본인" / "1회성"이 갈린다.
+  // 예전에는 "등록된 사주가 있으면 무조건 1회성"이라 체크박스로 본인 사주를 불러와
+  // 그대로 확정해도 1회성 캐시로 새로 만들어졌다 — 이미 결제해 만든 본인 리포트가
+  // 있는데도 다시 생성되고 이용권이 또 소진되는 문제였다.
+  const { ownProfile, isAdhoc } = await resolveTarget(userId, parsed.input);
+  const existingProfile = isAdhoc ? ownProfile : null;
 
   const timeKey = birthTime ?? "";
 
@@ -135,6 +133,18 @@ export async function POST(req: NextRequest) {
         .or(notExpiredFilter()).limit(1).maybeSingle();
       if (cached?.content) {
         return NextResponse.json({ report: cached.content, day_master: dayMaster, strength, cached: true, adhoc: true });
+      }
+    } catch { /* 테이블 없음 → 생성으로 진행 */ }
+  }
+
+  // 본인 대상이면 기존 premium_reports 캐시를 먼저 본다(재열람 무료).
+  if (!isAdhoc && ownProfile?.id) {
+    try {
+      const { data: cached } = await supabaseAdmin
+        .from("premium_reports").select("content")
+        .eq("saju_profile_id", ownProfile.id).or(notExpiredFilter()).limit(1).maybeSingle();
+      if (cached?.content) {
+        return NextResponse.json({ report: cached.content, day_master: dayMaster, strength, cached: true });
       }
     } catch { /* 테이블 없음 → 생성으로 진행 */ }
   }
@@ -172,17 +182,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ report, day_master: dayMaster, strength, cached: false, adhoc: true });
   }
 
-  // 등록된 사주가 없던 사람 — 이 입력을 본인 프로필로 저장하고 기존 캐시 경로를 쓴다.
-  const { data: created, error: profileError } = await supabaseAdmin
-    .from("saju_profiles")
-    .insert({
-      user_id: userId, label: "본인",
-      birth_date: birthDate, birth_time: birthTime, calendar, gender,
-      saju_raw: engine.saju_raw, saju_json: engine.saju_json, schema_version: 1,
-    })
-    .select("id")
-    .single();
-  if (profileError) console.error("saju_profiles insert error:", profileError);
+  // 본인 대상 — 등록된 사주가 없던 사람이면 이 입력을 본인 프로필로 저장한다(016 규칙).
+  const createdId = ownProfile?.id ?? await saveAsOwnProfile(userId, parsed.input, engine);
+  const created = createdId ? { id: createdId } : null;
 
   if (created?.id) {
     try {
@@ -193,7 +195,7 @@ export async function POST(req: NextRequest) {
     } catch { /* noop */ }
   }
 
-  return NextResponse.json({ report, day_master: dayMaster, strength, cached: false, savedProfile: true });
+  return NextResponse.json({ report, day_master: dayMaster, strength, cached: false, savedProfile: !ownProfile });
 }
 
 // DELETE /api/premium/report — 로그인 필수. 사용자가 자기 프리미엄 사주 결과를 직접 삭제.
