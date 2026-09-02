@@ -250,24 +250,43 @@ function OnboardingInner({ existingProfile }: { existingProfile: ExistingProfile
               </div>
             </div>
 
+            {/* ⚠️ 음력은 변환 레이어가 완성될 때까지 비활성화한다.
+                엔진(lib/saju-engine/index.ts)이 음력 입력을 그대로 throw하는데,
+                그 오류가 화면에는 "오류가 발생했습니다. 다시 시도해주세요."로만
+                뜬다. 즉 누르면 반드시 실패하고, 재시도해도 영원히 실패하며,
+                이유조차 알 수 없는 함정이 된다. 그 상태로 두면 음력 사용자가
+                양력 칸에 음력 날짜를 넣는 잘못된 우회를 하게 된다.
+                변환 기능이 붙으면 disabled와 이 안내를 함께 걷어낸다. */}
             <div>
               <p className="text-[#1A1A18] font-medium mb-3">역법 (생년월일 기준)</p>
               <div className="flex gap-2">
-                {[["solar", "양력 (일반)"], ["lunar", "음력"]].map(([val, label]) => (
-                  <button
-                    key={val}
-                    onClick={() => setForm({ ...form, calendar: val })}
-                    className={`flex-1 py-4 rounded-xl border-2 text-sm font-medium transition-all duration-200 ${
-                      form.calendar === val
-                        ? "bg-[#1F3D34] text-white border-[#1F3D34] shadow-md"
-                        : "bg-[#FBF8F2] text-[#6B6661] border-[#E5DFD4]"
-                    }`}
-                  >
-                    {label}
-                  </button>
-                ))}
+                {([["solar", "양력 (일반)"], ["lunar", "음력"]] as const).map(([val, label]) => {
+                  const disabled = val === "lunar";
+                  return (
+                    <button
+                      key={val}
+                      type="button"
+                      disabled={disabled}
+                      aria-disabled={disabled}
+                      onClick={() => { if (!disabled) setForm({ ...form, calendar: val }); }}
+                      className={`flex-1 py-4 rounded-xl border-2 text-sm font-medium transition-all duration-200 ${
+                        disabled
+                          ? "bg-[#F1EDE4] text-[#A8A29B] border-[#E5DFD4] cursor-not-allowed"
+                          : form.calendar === val
+                            ? "bg-[#1F3D34] text-white border-[#1F3D34] shadow-md"
+                            : "bg-[#FBF8F2] text-[#6B6661] border-[#E5DFD4]"
+                      }`}
+                    >
+                      {label}
+                      {disabled && <span className="block text-[11px] font-normal mt-0.5">준비 중입니다</span>}
+                    </button>
+                  );
+                })}
               </div>
-              <p className="text-xs text-[#6B6661] mt-2">보통 주민등록 기준인 양력을 선택하세요</p>
+              <p className="text-xs text-[#6B6661] mt-2">
+                음력 입력은 준비 중입니다. 지금은 <b className="text-[#1A1A18]">양력(주민등록 기준)</b>으로 넣어 주세요 —
+                음력 생일을 양력 칸에 넣으면 사주가 다르게 계산됩니다.
+              </p>
             </div>
           </div>
         )}
