@@ -59,10 +59,26 @@ export default async function PremiumPage() {
 
   return (
     <div className="flex flex-col min-h-screen pb-20 bg-[#F6F1E7]">
+      {/* 헤더는 화면에 실제로 무엇이 떠 있는지에 맞춘다.
+          예전에는 상태와 무관하게 "내 사주 풀이 · (로그인 사용자의 일간·강약)"을
+          띄웠는데, 미결제 상태에서 본문은 샘플(1978년생 여성)이라 헤더와 본문이
+          서로 다른 사주를 가리켰다 — 사주를 아는 사람은 바로 이상함을 느낀다.
+          결제 후 자기 리포트를 볼 때는 기존 표기가 맞으므로 그대로 둔다. */}
       <header className="px-5 pt-6 pb-4 bg-[#1B3A4B] text-white">
         <p className="text-xs opacity-70 mb-1">프리미엄 사주</p>
-        <h1 className="text-xl font-bold">내 사주 풀이</h1>
-        <p className="text-xs opacity-60 mt-1">{subtitle}</p>
+        {canView ? (
+          <>
+            <h1 className="text-xl font-bold">내 사주 풀이</h1>
+            <p className="text-xs opacity-60 mt-1">{subtitle}</p>
+          </>
+        ) : (
+          <>
+            <h1 className="text-xl font-bold">프리미엄 사주는 이렇게 나옵니다</h1>
+            <p className="text-xs opacity-60 mt-1">
+              예시 · 1978년생 여성 / 회원님 결과는 다르게 계산됩니다
+            </p>
+          </>
+        )}
       </header>
 
       {canView ? (
