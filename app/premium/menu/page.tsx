@@ -7,11 +7,12 @@ import { ONE_REPORT_PRICE, DESTINY_BLUEPRINT_ONE } from "@/lib/billing/plans";
 export const metadata: Metadata = {
   title: "프리미엄 운세 — 사주·궁합·택일·연운세·살풀이·오행보완 | 사주거리",
   description:
-    "사주 계산 엔진의 실제 데이터를 근거로 만드는 심층 풀이. 프리미엄 사주·궁합·택일·연운세·살풀이·오행 보완·반려동물 궁합 일곱 가지. 리포트 한 편 990원.",
+    "사주 계산 엔진의 실제 데이터를 근거로 만드는 심층 풀이. 운명 설계도와 프리미엄 사주·궁합·택일·연운세·살풀이·오행 보완·반려동물 궁합. 리포트 한 편 990원.",
   alternates: { canonical: "/premium/menu" },
 };
 
 /**
+ * 아래 그리드 일곱 종에 운명 설계도(상단 단독 카드)를 더해 화면에는 여덟 장이 뜬다.
  * 일곱 종 모두 판매 중이다. 지정된 화면 순서: (사주,궁합) → (연운세,살풀이) →
  * (택일,오행보완) → (반려동물). 반려동물 궁합 아이콘은 어두운 카드 배경에 묻히던
  * 발자국 대신 색이 뚜렷한 강아지 이모지로 바꿨다.
@@ -84,10 +85,12 @@ export default function PremiumMenuPage() {
             <div aria-hidden="true" className="absolute -bottom-3 -right-2 font-serif text-[72px] leading-none select-none text-white/10">
               🧭
             </div>
-            {/* "확장판"은 가격 배지와 같은 자리에 두면 다른 카드와 구분이 안 된다.
-                모서리 리본 형태로 따로 빼 상위 상품임을 형태로 구분한다. */}
+            {/* 배지는 가격 배지와 같은 자리에 두면 다른 카드와 구분이 안 된다.
+                모서리 리본 형태로 따로 빼 상위 상품임을 형태로 구분한다.
+                문구는 "확장판"이었는데 무엇의 확장판인지 알 수 없어, 의미가
+                바로 통하는 "가장 자세한 풀이"로 바꿨다. */}
             <span className="absolute top-0 right-0 text-[10px] font-semibold px-3 py-1 rounded-bl-xl bg-[#C8743A] text-white tracking-wide">
-              확장판
+              가장 자세한 풀이
             </span>
             <span className="font-serif text-3xl font-bold leading-none text-white/90">
               🧭
@@ -137,8 +140,10 @@ export default function PremiumMenuPage() {
           훨씬 개인화된 결과가 나옵니다.
         </p>
 
-        <h2 className="font-serif text-lg font-bold text-[#1F3D34] mt-2">일곱 가지 프리미엄 풀이</h2>
+        <h2 className="font-serif text-lg font-bold text-[#1F3D34] mt-2">여덟 가지 프리미엄 풀이</h2>
         <p className="text-[16px] text-[#1A1A18] leading-[1.85]">
+          운명 설계도는 여덟 영역 심층 풀이에 평생 대운 로드맵과 인생 전환점, 실행 전략까지 더한
+          가장 자세한 리포트입니다.
           프리미엄 사주는 성격·재물·직업·관계 등 여덟 영역을 나누어 깊이 풀이합니다.
           프리미엄 궁합은 두 사람의 사주를 양방향으로 비교해 서로에게 어떤 영향을 주고받는지 살핍니다.
           프리미엄 택일은 원하는 기간의 날짜를 일진 기준으로 채점해 내 사주와 맞는 날을 추려 주고,
