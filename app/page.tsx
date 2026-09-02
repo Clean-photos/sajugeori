@@ -143,6 +143,12 @@ export default async function HomePage() {
                 <p className={`text-xs mt-0.5 ${card.accent ? "text-white/65" : "text-[#6B6661]"}`}>
                   {card.subtitle}
                 </p>
+                {/* 진입 후에야 광고를 알게 되면 이탈로 이어진다. 조건을 미리 알리면
+                    오히려 신뢰가 올라간다. 실제 대기 시간은 AdGate의
+                    COUNTDOWN_SECONDS(5초)와 맞춰 둔다 — 값이 바뀌면 여기도 함께 고칠 것. */}
+                <p className={`text-[10.5px] mt-1.5 ${card.accent ? "text-white/50" : "text-[#8A8580]"}`}>
+                  무료 · 광고 5초
+                </p>
               </div>
             </div>
           </Link>
