@@ -70,6 +70,12 @@ export interface PeopleBlock {
     rows: Record<Element, string>;
     mustInclude: string;
   };
+  /**
+   * §④ 관계 유형별 적용에 주입하는 부족 오행별 인물 묘사(2문장).
+   * 관계 유형 4개마다 다시 쓰지 않고 이 묘사 하나를 공통으로 붙인다 — 배우자든
+   * 동업자든 "그 기운을 가진 사람"의 특징은 같으므로 20개를 만들 필요가 없다.
+   */
+  elementPersona: Record<Element, string>;
 }
 
 export interface RelationDict {
@@ -167,6 +173,14 @@ export function adjustForStrength(
 export function partnerGuide(dayElement: Element, target: Element) {
   const rel = computeRelation(dayElement, target);
   return { relation: rel, ...relationDict.people.byDayStem.rows[rel] };
+}
+
+/**
+ * §④ 관계 유형별 적용에 붙이는 인물 묘사(2문장). el은 이번 리포트에서 찾는
+ * 오행(부족 오행, follow형이면 dominant) — 없으면(이론상 발생 안 함) null.
+ */
+export function personaFor(el: Element): string {
+  return relationDict.people.elementPersona[el];
 }
 
 /** 관찰로 추정하는 블록(§3-⑤) — 톤 규칙과 안내 문구가 반드시 함께 나가야 한다 */

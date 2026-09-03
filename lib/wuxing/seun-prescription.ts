@@ -30,26 +30,77 @@ interface CaseCopy {
 const seunCopy = seunCopyJson as { cases: Record<SeunCase, CaseCopy> };
 
 /**
- * 세운 오행(그 해의 천간·지지 오행, 최대 2개)과 내 부족/과다 오행으로 케이스를 가른다.
- * 우선순위 A > B > D > C > E — 예: Y가 부족 오행이면서 동시에 과다 오행을 생하는
- * 경우에도 A로 판정한다(문서 §1-3 예시와 동일).
- *
- * primary(부족 오행)가 없는 사주(균형형)에서는 A·C·D가 성립할 수 없다 — L이 없으므로.
- * 이때는 B(과다 오행이 더 들어오는 해) 또는 E로만 갈린다.
+ * 케이스 우선순위(문서 §1-3) — 숫자가 작을수록 우선한다. classifySingle이 이
+ * 순서와 정확히 같은 순서로 조건을 검사하므로, RANK는 그 검사 순서를 그대로
+ * 숫자로 옮긴 것이다(동치 증명은 classifySeunCaseDetail 주석 참고).
  */
+const RANK: Record<SeunCase, number> = { A: 0, B: 1, D: 2, C: 3, E: 4 };
+
+/** 오행 하나만으로 케이스를 가른다 — 천간·지지를 각각 판정하기 위한 단위 함수. */
+function classifySingle(el: Element, primary: Element | null, excessive: Element[]): SeunCase {
+  if (primary && el === primary) return "A"; // Y = L
+  if (excessive.includes(el)) return "B"; // Y = X
+  if (primary && C.CONTROLS[el] === primary) return "D"; // Y 극 L
+  if (primary && C.GENERATES[el] === primary) return "C"; // Y 생 L
+  return "E";
+}
+
+export interface SeunCaseDetail {
+  /** 최종(주) 케이스 */
+  case: SeunCase;
+  stemCase: SeunCase;
+  branchCase: SeunCase;
+  /** 천간·지지 판정이 다른가 — true면 서술에 두 축을 각각 반영해야 한다(§2) */
+  diverges: boolean;
+  /** 갈릴 때, 최종 케이스를 만든 축. 갈리지 않으면 둘 다 같은 값이므로 "both" */
+  matchedAxis: "stem" | "branch" | "both";
+}
+
+/**
+ * 세운을 천간·지지 2축으로 각각 판정한다(§2, CEO 결정 2026-09-02).
+ *
+ * ⚠️ 이전 버전은 "천간·지지 오행을 모은 배열(yElements)에서 OR로 검사"했는데,
+ * 결과적으로 이 새 버전과 최종 case가 항상 같다 — OR 검사도 우선순위 순서
+ * (A→B→D→C→E)대로 배열 전체를 훑고 먼저 맞는 것을 반환하므로, "두 축 중 더
+ * 높은 우선순위(더 작은 RANK)를 가진 축을 채택"하는 것과 수학적으로 동일하다.
+ * 그래서 classifySeunCase()의 반환값은 이전과 100% 동일하고, 기존 테스트가
+ * 그대로 통과한다 — 이번 변경은 판정 로직이 아니라 **판정 근거(어느 축이
+ * 왜 그 케이스를 만들었는지)를 노출**하는 것이다. 이게 있어야 "천간은
+ * 중립이나 지지에서 부족한 기운이 들어온다" 같은 축별 서술이 가능해진다.
+ *
+ * E는 stemCase·branchCase가 **둘 다** E일 때만 나온다 — 한쪽이라도 A/B/C/D면
+ * RANK가 E(4)보다 작아 그쪽이 채택되기 때문이다(문서 §2 규칙 4와 일치).
+ */
+export function classifySeunCaseDetail(
+  yearStemEl: Element,
+  yearBranchEl: Element,
+  primary: Element | null,
+  excessive: Element[]
+): SeunCaseDetail {
+  const stemCase = classifySingle(yearStemEl, primary, excessive);
+  const branchCase = yearStemEl === yearBranchEl ? stemCase : classifySingle(yearBranchEl, primary, excessive);
+
+  if (stemCase === branchCase) {
+    return { case: stemCase, stemCase, branchCase, diverges: false, matchedAxis: "both" };
+  }
+  const finalCase = RANK[stemCase] < RANK[branchCase] ? stemCase : branchCase;
+  return {
+    case: finalCase,
+    stemCase,
+    branchCase,
+    diverges: true,
+    matchedAxis: finalCase === stemCase ? "stem" : "branch",
+  };
+}
+
+/** 기존 호출부·테스트 호환용 — 최종 케이스만 필요하면 이걸 쓴다. */
 export function classifySeunCase(
   yearStemEl: Element,
   yearBranchEl: Element,
   primary: Element | null,
   excessive: Element[]
 ): SeunCase {
-  const yElements = yearStemEl === yearBranchEl ? [yearStemEl] : [yearStemEl, yearBranchEl];
-
-  if (primary && yElements.includes(primary)) return "A"; // Y = L
-  if (yElements.some((y) => excessive.includes(y))) return "B"; // Y = X
-  if (primary && yElements.some((y) => C.CONTROLS[y] === primary)) return "D"; // Y 극 L
-  if (primary && yElements.some((y) => C.GENERATES[y] === primary)) return "C"; // Y 생 L
-  return "E";
+  return classifySeunCaseDetail(yearStemEl, yearBranchEl, primary, excessive).case;
 }
 
 /** 결정적 선택 — 문자열 시드에서 0..len-1 인덱스를 뽑는다(FNV-1a 32bit) */
@@ -71,13 +122,20 @@ export interface YearPrescription {
   caseLabel: string;
   /** "화(火) — 부족한 것을 생해주는 기운이 들어온다" 형태의 한 줄 */
   incomingLine: string;
-  /** 케이스별 고정 풀에서 뽑은 "올해의 상태" */
+  /** 천간·지지 판정이 갈렸는가(§2) */
+  divergesByAxis: boolean;
+  /**
+   * 갈렸을 때만 채워지는 축별 서술 — "지지는 특별한 영향이 없고, 천간에서
+   * 부족한 것이 직접 들어옵니다" 형태. 갈리지 않으면 null(본문에 덧붙일 게 없다).
+   */
+  axisNote: string | null;
+  /** 케이스별 고정 풀에서 뽑은 "올해의 상태" — 3년 안에서 중복되지 않는다(§3) */
   statusLine: string;
-  /** A층 사전에서 뽑은 우선 항목 3개 */
+  /** A층 사전에서 뽑은 우선 항목 3개 — 3년 9개가 서로 겹치지 않는다(§3) */
   priorityItems: DictItem[];
-  /** A층 사전에서 뽑은 피할 것 2개 */
+  /** A층 사전에서 뽑은 피할 것 2개 — 3년 6개가 서로 겹치지 않는다(§3) */
   avoidItems: DictItem[];
-  /** 케이스별 고정 풀에서 뽑은 "한 줄 지침" */
+  /** 케이스별 고정 풀에서 뽑은 "한 줄 지침" — 3년 안에서 중복되지 않는다(§3) */
   guidelineLine: string;
 }
 
@@ -85,55 +143,16 @@ export interface YearPrescription {
 const habitEnvFirst: Axis[] = ["habit", "environment", "color", "direction", "food", "material"];
 const habitFirst: Axis[] = ["habit", "color", "direction", "food", "material", "environment"];
 
-function collectByAxisOrder(el: Element, order: Axis[], limit: number, byStrength = false): DictItem[] {
+/** order 순서대로 그 오행의 전체 항목을 모은다(슬라이스하지 않는다 — 중복 제거용 큰 후보군이 필요해서). */
+function collectByAxisOrderFull(el: Element, order: Axis[], byStrength = false): DictItem[] {
   const pool: DictItem[] = [];
   for (const ax of order) pool.push(...axisItems(el, ax));
-  if (!byStrength) return pool.slice(0, limit);
+  if (!byStrength) return pool;
   const rank: Record<string, number> = { A: 0, B: 1, C: 2 };
   return [...pool]
     .map((it, i) => ({ it, i }))
     .sort((a, b) => rank[a.it.strength] - rank[b.it.strength] || a.i - b.i)
-    .slice(0, limit)
     .map(({ it }) => it);
-}
-
-/**
- * 우선 항목 3개 선정 (§1-6). 케이스마다 기준이 다르다:
- *   A 부족 보충, 강도 A·B 우선 — 효과가 확실한 것부터
- *   B 과다 오행 설기 항목 우선 — 보충보다 설기
- *   C 부족 보충, 행동·환경 축 우선 — 습관화가 잘 되는 시기
- *   D 부족 보충 강도 A 우선 + 과다 회피 항목 1개 포함
- *   E 부족 보충, 행동 축 우선 — 루틴 정착
- *
- * primary(부족 오행)가 없으면(균형형) 과다 오행 쪽으로 폴백한다 — 상품이 빈손으로
- * 끝나지 않도록 하는 것이 §3-⑤의 요구다.
- */
-function pickPriorityItems(seunCase: SeunCase, cls: Classification, dominantExcess: Element | null): DictItem[] {
-  const primary = cls.primary;
-  const excessEl = dominantExcess ?? cls.excessive[0] ?? cls.dominant ?? null;
-
-  if (seunCase === "B") {
-    if (!excessEl) return primary ? collectByAxisOrder(primary, AXES, 3, true) : [];
-    // 설기 items는 DrainItem(실행란 없음)이라 DictItem 형태로 맞춰 action을 비워 반환
-    return dictDrainAsItems(excessEl).slice(0, 3);
-  }
-
-  if (!primary) {
-    // 균형형 — 부족이 없다. 과다 오행 설기로 폴백
-    return excessEl ? dictDrainAsItems(excessEl).slice(0, 3) : [];
-  }
-
-  if (seunCase === "C") return collectByAxisOrder(primary, habitEnvFirst, 3);
-  if (seunCase === "E") return collectByAxisOrder(primary, habitFirst, 3);
-  if (seunCase === "D") {
-    // 회피 1개를 끼워 넣을 과다 오행이 없으면(균형형에 가까운 사주) 3개 전부
-    // 강도 우선으로 채운다 — "3개"가 항상 보장돼야 한다
-    const avoid = excessEl ? avoidanceItems(excessEl, 1) : [];
-    const filled = collectByAxisOrder(primary, AXES, 3 - avoid.length, true);
-    return [...filled, ...avoid];
-  }
-  // A — 강도 A·B 우선
-  return collectByAxisOrder(primary, AXES, 3, true);
 }
 
 /** DrainItem(실행란 없음)을 DictItem 모양으로 맞춘다 — action은 원리 문구로 대체 */
@@ -142,20 +161,148 @@ function dictDrainAsItems(el: Element): DictItem[] {
   return entry.drain.items.map((it) => ({ item: it.item, basis: it.basis, action: entry.drain.principle, strength: it.strength }));
 }
 
-function pickAvoidItems(seunCase: SeunCase, cls: Classification, dominantExcess: Element | null): DictItem[] {
-  const excessEl = dominantExcess ?? cls.excessive[0] ?? cls.dominant ?? null;
-  if (!excessEl) return [];
-  return avoidanceItems(excessEl, 2);
+/**
+ * used에 없는 것부터 count개를 뽑는다. 겹치는 것부터 쓰지 않지만, "3개(또는
+ * 2개) 항상 보장"이 dedup보다 우선이라 pool 자체가 모자라면(예: 케이스 B가
+ * 3년 내내 반복되는데 설기 항목은 오행당 5개뿐인 경우) 남은 자리는 이미 쓴
+ * 항목이라도 채운다 — §3이 요구하는 "9개 서로 안 겹침"은 pool이 허락하는
+ * 한도 안에서의 목표이지, 항목 개수 자체를 줄이는 명분이 될 수 없다.
+ */
+function pickUniqueItems(pool: DictItem[], count: number, used: Set<string>): DictItem[] {
+  const picked: DictItem[] = [];
+  for (const it of pool) {
+    if (picked.length >= count) break;
+    if (used.has(it.item)) continue;
+    picked.push(it);
+  }
+  if (picked.length < count) {
+    for (const it of pool) {
+      if (picked.length >= count) break;
+      if (picked.some((p) => p.item === it.item)) continue;
+      picked.push(it);
+    }
+  }
+  for (const it of picked) used.add(it.item);
+  return picked;
 }
 
-function buildYearPrescription(y: SeunYear, cls: Classification): YearPrescription {
+/**
+ * 우선 항목 후보군(중복 제거 전, 큰 풀) — 케이스마다 기준이 다르다:
+ *   A 부족 보충, 강도 A·B 우선 — 효과가 확실한 것부터
+ *   B 과다 오행 설기 항목 우선 — 보충보다 설기(모자라면 그 오행 나머지 축으로 이어서)
+ *   C 부족 보충, 행동·환경 축 우선 — 습관화가 잘 되는 시기
+ *   D 부족 보충(강도 우선) + 과다 회피 항목 최대 1개
+ *   E 부족 보충, 행동 축 우선 — 루틴 정착
+ *
+ * primary(부족 오행)가 없으면(균형형) 과다 오행 쪽으로 폴백한다 — 상품이 빈손으로
+ * 끝나지 않도록 하는 것이 §3-⑤의 요구다.
+ */
+function priorityPool(seunCase: SeunCase, cls: Classification, dominantExcess: Element | null, used: Set<string>): DictItem[] {
+  const primary = cls.primary;
+  const excessEl = dominantExcess ?? cls.excessive[0] ?? cls.dominant ?? null;
+
+  if (seunCase === "B") {
+    if (!excessEl) return primary ? collectByAxisOrderFull(primary, AXES, true) : [];
+    // 설기 항목(오행당 5개)이 3년 반복에 부족할 수 있어, 소진되면 그 오행의
+    // 나머지 축(AXES)으로 이어서 후보를 늘린다 — 여전히 "그 오행에 대한
+    // 처방"이라 주제는 벗어나지 않는다.
+    return [...dictDrainAsItems(excessEl), ...collectByAxisOrderFull(excessEl, AXES, true)];
+  }
+
+  if (!primary) {
+    // 균형형 — 부족이 없다. 과다 오행 설기로 폴백
+    return excessEl ? [...dictDrainAsItems(excessEl), ...collectByAxisOrderFull(excessEl, AXES, true)] : [];
+  }
+
+  if (seunCase === "C") return collectByAxisOrderFull(primary, habitEnvFirst);
+  if (seunCase === "E") return collectByAxisOrderFull(primary, habitFirst);
+  if (seunCase === "D") {
+    // 회피 항목은 최대 1개만 섞는다(원래 규칙 유지) — 매년 그 해에 아직 안 쓴
+    // 회피 항목 중 첫 번째를 고르고, 나머지는 강도 우선 AXES로 채운다.
+    const avoidPool = excessEl ? avoidanceItems(excessEl, 20) : [];
+    const bestAvoid = avoidPool.find((a) => !used.has(a.item)) ?? avoidPool[0] ?? null;
+    const axesPool = collectByAxisOrderFull(primary, AXES, true).filter((it) => !bestAvoid || it.item !== bestAvoid.item);
+    return bestAvoid ? [bestAvoid, ...axesPool] : axesPool;
+  }
+  // A — 강도 A·B 우선
+  return collectByAxisOrderFull(primary, AXES, true);
+}
+
+function pickPriorityItems(seunCase: SeunCase, cls: Classification, dominantExcess: Element | null, used: Set<string>): DictItem[] {
+  const pool = priorityPool(seunCase, cls, dominantExcess, used);
+  return pickUniqueItems(pool, 3, used);
+}
+
+function pickAvoidItems(cls: Classification, dominantExcess: Element | null, used: Set<string>): DictItem[] {
+  const excessEl = dominantExcess ?? cls.excessive[0] ?? cls.dominant ?? null;
+  if (!excessEl) return [];
+  const pool = avoidanceItems(excessEl, 20);
+  return pickUniqueItems(pool, 2, used);
+}
+
+/** 축 하나의 케이스를 짧게 요약 — 갈린 두 축을 한 문장에 엮을 때 쓴다. */
+const CASE_BRIEF: Record<SeunCase, string> = {
+  A: "부족한 기운이 직접 들어오고",
+  B: "이미 많은 기운이 더해지고",
+  C: "부족한 것을 도와주는 기운이 들어오고",
+  D: "부족한 것을 치는 기운이 들어오고",
+  E: "특별한 영향이 없고",
+};
+const AXIS_LABEL = { stem: "천간", branch: "지지" } as const;
+// "천간"은 받침 있음(은) / "지지"는 받침 없음(는) — 두 값뿐이라 josa.ts의 오행
+// 5개짜리 표를 끌어오는 대신 이 자리에서 고정한다.
+const AXIS_LABEL_EUN_NEUN = { stem: "천간은", branch: "지지는" } as const;
+
+/**
+ * 천간·지지 판정이 갈렸을 때만 쓰는 서술(§2) — "지지는 특별한 영향이 없고,
+ * 천간에서 부족한 것이 직접 들어옵니다" 형태. 고정 조합(2×5가지 CASE_BRIEF ×
+ * conditionNote)이라 LLM 없이 결정적으로 만든다.
+ */
+function buildAxisNote(detail: SeunCaseDetail, matchedConditionNote: string): string | null {
+  if (!detail.diverges) return null;
+  const otherAxis: "stem" | "branch" = detail.matchedAxis === "stem" ? "branch" : "stem";
+  const otherCase = otherAxis === "stem" ? detail.stemCase : detail.branchCase;
+  return `${AXIS_LABEL_EUN_NEUN[otherAxis]} ${CASE_BRIEF[otherCase]}, ${AXIS_LABEL[detail.matchedAxis as "stem" | "branch"]}에서 ${matchedConditionNote}`;
+}
+
+/**
+ * 3년(또는 그 이상) 안에서 같은 문구가 반복되지 않도록 뽑는다(§3). pool이
+ * 해에 필요한 개수보다 항상 크므로(6 ≥ 3) 소진 걱정 없이 매번 새 문구가 나온다.
+ * 시드에 연도를 포함해 같은 케이스라도 해마다 시작 인덱스가 달라지게 하고,
+ * 그 지점부터 순서대로 훑어 아직 안 쓴 첫 문구를 채택한다 — 결정적이다.
+ */
+function pickUniqueText(pool: string[], seed: string, used: Set<string>): string {
+  const start = pickIndex(seed, pool.length);
+  for (let k = 0; k < pool.length; k++) {
+    const text = pool[(start + k) % pool.length];
+    if (!used.has(text)) {
+      used.add(text);
+      return text;
+    }
+  }
+  // pool 전체가 이미 다 쓰였을 때만(3년 구조에서는 발생하지 않는다) 원래 선택으로 폴백
+  const fallback = pool[start];
+  used.add(fallback);
+  return fallback;
+}
+
+/** 3년치를 순서대로 조립할 때 축적되는 "이미 쓴 것" 상태 — §3의 중복 방지 단위. */
+interface DedupState {
+  usedPriorityItems: Set<string>;
+  usedAvoidItems: Set<string>;
+  usedStatus: Set<string>;
+  usedGuideline: Set<string>;
+}
+
+function buildYearPrescription(y: SeunYear, cls: Classification, state: DedupState): YearPrescription {
   const incoming = y.stemElement === y.branchElement ? [y.stemElement] : [y.stemElement, y.branchElement];
-  const seunCase = classifySeunCase(y.stemElement, y.branchElement, cls.primary, cls.excessive);
+  const detail = classifySeunCaseDetail(y.stemElement, y.branchElement, cls.primary, cls.excessive);
+  const seunCase = detail.case;
   const copy = seunCopy.cases[seunCase];
 
   const seed = `${y.year}|${seunCase}`;
-  const statusLine = copy.status[pickIndex(seed + "status", copy.status.length)];
-  const guidelineLine = copy.guideline[pickIndex(seed + "guideline", copy.guideline.length)];
+  const statusLine = pickUniqueText(copy.status, seed + "status", state.usedStatus);
+  const guidelineLine = pickUniqueText(copy.guideline, seed + "guideline", state.usedGuideline);
 
   const dominantExcess = cls.excessive.find((e) => incoming.includes(e)) ?? null;
   const incomingLine = `${incoming.map((e) => `${e}(${C.ELEMENT_KR[e]})`).join("·")} — ${copy.conditionNote}`;
@@ -167,9 +314,11 @@ function buildYearPrescription(y: SeunYear, cls: Classification): YearPrescripti
     seunCase,
     caseLabel: copy.label,
     incomingLine,
+    divergesByAxis: detail.diverges,
+    axisNote: buildAxisNote(detail, copy.conditionNote),
     statusLine,
-    priorityItems: pickPriorityItems(seunCase, cls, dominantExcess),
-    avoidItems: pickAvoidItems(seunCase, cls, dominantExcess),
+    priorityItems: pickPriorityItems(seunCase, cls, dominantExcess, state.usedPriorityItems),
+    avoidItems: pickAvoidItems(cls, dominantExcess, state.usedAvoidItems),
     guidelineLine,
   };
 }
@@ -206,6 +355,13 @@ function buildDaewoonNote(plan: SeunPlan): DaewoonNote {
  * 올해 포함 3년치 세운 처방을 낸다. `buildSeunPlan()`(엔진 무접촉 세운 래퍼) 위에
  * 5케이스 판정 + A층 사전 연결을 얹는다. 3년을 관통하는 흐름 한 문단은 LLM이
  * 붙이므로 이 함수의 반환값에는 없다 — 호출부에서 `years`를 프롬프트에 주입한다.
+ *
+ * §3(연도 간 중복 금지, CEO 결정 2026-09-02): 우선 항목·피할 것·상태·지침이
+ * 3년 내내 서로 겹치지 않아야 한다. `.map()`으로 각 해를 독립적으로 만들면
+ * 케이스가 같은 두 해가 완전히 같은 결과를 내므로(실측으로 확인한 실제 버그),
+ * 연도 오름차순으로 **순차 처리**하며 "이미 쓴 것"을 하나의 DedupState에
+ * 누적한다 — 결정성은 그대로 유지된다(같은 명식·같은 fromYear면 항상 같은
+ * 순서로 같은 결과가 나온다).
  */
 export function buildSeunPrescription(
   chart: SajuChart,
@@ -213,8 +369,12 @@ export function buildSeunPrescription(
   fromYear?: number
 ): SeunPrescriptionPlan {
   const plan = buildSeunPlan(chart, cls, fromYear);
-  return {
-    years: plan.years.map((y) => buildYearPrescription(y, cls)),
-    daewoonNote: buildDaewoonNote(plan),
+  const state: DedupState = {
+    usedPriorityItems: new Set(),
+    usedAvoidItems: new Set(),
+    usedStatus: new Set(),
+    usedGuideline: new Set(),
   };
+  const years = plan.years.map((y) => buildYearPrescription(y, cls, state));
+  return { years, daewoonNote: buildDaewoonNote(plan) };
 }

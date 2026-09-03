@@ -37,6 +37,7 @@ import {
   buildRelationIntroLine,
   partnerGuide,
   observationGuide,
+  personaFor,
   relationDict,
   type RelationDisplayBlock,
   type StrengthAdjustment,
@@ -214,6 +215,13 @@ export interface PeopleSectionData {
   avoid: { conditions: string[]; mustInclude: string };
   /** ④ 관계 유형별 적용 */
   byRelationType: { type: string; criterion: string }[];
+  /**
+   * ④ 하단 — 부족 오행(target)을 가진 사람의 인물 묘사(2문장). 배우자·동업자 등
+   * 4개 유형에 각각 다시 쓰지 않고 공통으로 한 번만 붙인다(CEO 지적: 관계 유형
+   * 설명이 "누구에게나 적용되는 일반론"이라 개인화가 없었다 — 이 묘사가 그 자리를 메운다).
+   * target이 없을 이론상 경우는 없다(follow형도 dominant가 항상 있다).
+   */
+  personaNote: string | null;
   /** ⑤ 생년월일 없이 알아보는 법 — 톤 규칙·안내 문구가 항상 함께 */
   observation: ReturnType<typeof observationGuide>;
   /** 이 관계에서 사람 축이 1순위인가 — true면 섹션을 더 강조해 배치한다 */
@@ -231,6 +239,9 @@ export function buildPeopleSection(chart: SajuChart, cls: Classification): Peopl
     distribution: people.byDistribution,
     avoid: people.avoid,
     byRelationType: people.byRelationType,
+    personaNote: target
+      ? `당신에게 필요한 ${C.ELEMENT_KR[target]}(${target}) 기운을 가진 분은 ${personaFor(target)}`
+      : null,
     observation: observationGuide(target),
     emphasized: target !== null && peopleAxisIsPrimary(computeRelation(chart.day_master_element, target)),
   };

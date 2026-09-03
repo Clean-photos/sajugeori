@@ -633,7 +633,12 @@ for (const c of CASES) {
   }
 
   // 검증기 — 프롬프트 RULES 위반을 실제로 잡아내는지 (API 호출 없이 문자열만 테스트)
-  eq("정상 존댓말 문단 → 문제 없음", validateSeunNarrative("올해는 채우기 좋은 해입니다. 내년에는 대운이 바뀌며 흐름이 달라집니다."), []);
+  eq("정상 존댓말 문단 → 문제 없음", validateSeunNarrative("화(火) 기운이 들어와 채우기 좋은 해입니다. 내년에는 대운이 바뀌며 흐름이 달라집니다."), []);
+  // §4 — 명식 고유 정보(오행명·간지·개수) 하나도 없으면 일반론으로 보고 걸러낸다.
+  check("[§4] 명식 정보 없는 문단 → 인용 없음으로 걸림",
+    validateSeunNarrative("올해는 채우기 좋은 해입니다. 내년에는 대운이 바뀌며 흐름이 달라집니다.")
+      .some((s) => s.includes("명식 고유 정보")));
+  check("[§4] 나이 숫자만 있어도 통과", validateSeunNarrative("34세 무렵 대운이 바뀌며 채우는 해가 이어집니다.").length === 0);
   check("마크다운 기호 검출", validateSeunNarrative("**중요**합니다.").includes("마크다운 기호 포함"));
   check("금지 표현 검출", validateSeunNarrative("이 분석 시스템이 계산했습니다.").some((i) => i.includes("분석 시스템")));
   check("평서체 종결 검출", validateSeunNarrative("올해는 채우는 해다.").some((i) => i.startsWith("존댓말 아님")));

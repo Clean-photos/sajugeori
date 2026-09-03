@@ -26,6 +26,10 @@ function YearCard({ y }: { y: YearPrescription }) {
         </span>
       </div>
       <p className="text-[11.5px] text-[#6B6661] mb-2">{y.incomingLine}</p>
+      {/* 천간·지지 판정이 갈린 해만 — "지지는 중립이나 천간에서 ~" 식으로 두 축을 함께 짚는다 */}
+      {y.axisNote && (
+        <p className="text-[11px] text-[#8A8580] mb-2 leading-relaxed">{y.axisNote}</p>
+      )}
       <p className="text-[13px] text-[#1A1A18] leading-relaxed mb-2.5">{y.statusLine}</p>
 
       {y.priorityItems.length > 0 && (

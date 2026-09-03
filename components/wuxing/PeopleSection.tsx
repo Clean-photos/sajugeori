@@ -61,6 +61,13 @@ export function PeopleSection({ people }: { people: PeopleSectionData }) {
             </div>
           ))}
         </div>
+        {/* 관계 유형 4개는 기준이라 누구에게나 같다 — 그 아래에 "이번에 찾는 기운을
+            가진 사람"의 인물 묘사를 한 번만 붙여 개인화한다. */}
+        {people.personaNote && (
+          <p className="text-[11.5px] text-[#1A1A18] leading-relaxed mt-3 pt-3 border-t border-[#E5DFD4]">
+            {people.personaNote}
+          </p>
+        )}
       </div>
 
       {/* ⑤ 생년월일 없이 알아보는 법 — 실사용성이 가장 높은 블록(원문 강조) */}

@@ -38,7 +38,10 @@ function chartFactsLine(chart: SajuChart, cls: Classification): string {
 
 function yearsBlock(plan: SeunPrescriptionPlan): string {
   return plan.years
-    .map((y) => `${y.year}년 ${y.ganji} — 케이스: ${y.caseLabel}(${y.incomingLine}) / 상태: ${y.statusLine} / 지침: ${y.guidelineLine}`)
+    .map((y) => {
+      const axis = y.axisNote ? ` / 천간·지지 갈림: ${y.axisNote}` : "";
+      return `${y.year}년 ${y.ganji} — 케이스: ${y.caseLabel}(${y.incomingLine})${axis} / 상태: ${y.statusLine} / 지침: ${y.guidelineLine}`;
+    })
     .join("\n");
 }
 
@@ -79,6 +82,15 @@ const DAEWOON_TRANSITION_VERB = /바뀌|바뀐|바뀝|전환|교체|시작/;
 const CALENDAR_YEAR = /\b(19|20)\d{2}\s*년/;
 const AGE_BUFFER = /무렵/;
 
+// §4(CEO 결정 2026-09-02): "올해는 습관을 만드는 해" 수준으로만 쓰고 명식 고유
+// 정보가 하나도 없는 문단을 막는다. 오행 한자(火 등)나 숫자(연도·나이·개수)가
+// 최소 하나는 들어가야 한다 — 프롬프트가 이미 이 사실들을 전부 재료로 주므로,
+// 하나도 안 쓰였다면 사실을 무시하고 일반론만 쓴 것이다.
+// ⚠️ 천간·지지 한자(甲~癸, 子~亥)는 일부러 안 넣는다 — 그 글자들의 유니코드
+// 코드포인트가 순번대로 붙어 있지 않아 "甲-癸" 같은 범위 표기가 전혀 무관한
+// 한자 수천 개까지 걸러내는 사실상 무의미한 검사가 된다.
+const CITES_CHART_FACT = /[木火土金水]|\d/;
+
 function clauses(text: string): string[] {
   return text.split(/[,，、.!?]/).map((s) => s.trim()).filter(Boolean);
 }
@@ -100,6 +112,12 @@ export function validateSeunNarrative(text: string): string[] {
     if (INFORMAL_ENDING.test(s)) issues.push(`존댓말 아님: "${s}"`);
   }
   if (sentences.length > 4) issues.push(`2~3문장 요청인데 ${sentences.length}문장`);
+
+  // §4 — 명식 고유 정보(오행 한자·숫자) 인용 강제. 하나도 없으면 "올해는
+  // 습관을 만드는 해" 수준의 일반론만 쓴 것이다.
+  if (!CITES_CHART_FACT.test(text)) {
+    issues.push("명식 고유 정보(오행명·간지·개수 중 최소 1개) 인용 없음");
+  }
 
   // §1-7 완충 표기 위반 — "대운이 바뀐다"고 말하는 절에 확정 연도가 박혀 있고
   // "OO세 무렵" 형태의 완충 표현이 없으면, approxDaewoonStart()의 ±1~2년 오차를
