@@ -6,6 +6,7 @@ import { AdGate } from "../AdGate";
 import { ReadingIntro } from "../ReadingIntro";
 import { cleanReportText } from "@/lib/report-format";
 import { Spinner } from "@/components/ui/Spinner";
+import { WaitingCards } from "@/components/premium/WaitingCards";
 import { CalendarField } from "../CalendarField";
 import { fetchFreeReport } from "../fetchFreeReport";
 import { toSolar, type CalendarKind } from "@/lib/calendar/convert";
@@ -202,6 +203,7 @@ export default function FreeCompatibilityPage() {
       <div className="min-h-screen bg-[#F6F1E7] flex flex-col items-center justify-center gap-4 px-6">
         <Spinner size={28} />
         <p className="text-sm text-[#6B6661]">결과를 준비하고 있어요...</p>
+        <WaitingCards />
       </div>
     );
   }

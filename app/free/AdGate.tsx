@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { scheduleKakaoAdfitLoad } from "@/lib/ads/kakaoAdfitLoader";
 
 const COUNTDOWN_SECONDS = 5;
 
@@ -33,7 +34,6 @@ export function AdGate({
   const [remaining, setRemaining] = useState(COUNTDOWN_SECONDS);
   const [token, setToken] = useState<string | null>(null);
   const firedRef = useRef(false);
-  const insRef = useRef<HTMLModElement>(null);
   const adUnit = ADFIT_UNITS[page];
 
   // 토큰 발급
@@ -44,16 +44,13 @@ export function AdGate({
       .catch(() => setToken("")); // 실패해도 플로우 진행(검증 단계에서 막힘)
   }, []);
 
-  // 애드핏 스크립트 로드 — 마운트마다 새로 붙여 재스캔 유도(SPA 네비게이션 대응)
+  // 애드핏 스크립트 로드 — 마운트마다 재로드 예약(SPA 네비게이션 대응).
+  // 실제 script 태그 삽입은 kakaoAdfitLoader가 한 번으로 묶는다(§5, 홈의
+  // 배너 3개가 동시에 스크립트를 따로 실행하며 광고 요청이 겹치던 문제와
+  // 같은 원인 — 여기는 화면당 광고 1개뿐이지만 로더를 통일해 둔다).
   useEffect(() => {
     if (!adUnit) return;
-    const script = document.createElement("script");
-    script.src = "//t1.kakaocdn.net/kas/static/ba.min.js";
-    script.async = true;
-    insRef.current?.parentElement?.appendChild(script);
-    return () => {
-      script.remove();
-    };
+    scheduleKakaoAdfitLoad();
   }, [adUnit]);
 
   // 최소 시청 카운트다운 (표시용 — 결과 생성 시작을 막지 않는다)
@@ -97,7 +94,6 @@ export function AdGate({
       <div className="w-[300px] h-[250px] bg-[#16302B] border border-[#2A4742] rounded-2xl flex items-center justify-center overflow-hidden">
         {adUnit ? (
           <ins
-            ref={insRef}
             className="kakao_ad_area"
             style={{ display: "block", width: 300, height: 250 }}
             data-ad-unit={adUnit}

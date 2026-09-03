@@ -6,6 +6,7 @@ import { AdGate } from "../AdGate";
 import { ReadingIntro } from "../ReadingIntro";
 import { cleanReportText } from "@/lib/report-format";
 import { Spinner } from "@/components/ui/Spinner";
+import { WaitingCards } from "@/components/premium/WaitingCards";
 import { CalendarField } from "../CalendarField";
 import { fetchFreeReport } from "../fetchFreeReport";
 import { toSolar, type CalendarKind } from "@/lib/calendar/convert";
@@ -213,6 +214,9 @@ export default function FreeSajuPage() {
       <div className="min-h-screen bg-[#F6F1E7] flex flex-col items-center justify-center gap-4 px-6">
         <Spinner size={28} />
         <p className="text-sm text-[#6B6661]">결과를 준비하고 있어요...</p>
+        {/* §5(CEO 결정 2026-09-02): 빈 스피너 대신 이미 있는 사주 상식 카드 풀로
+            대기 시간을 채운다(프리미엄 폼들과 동일한 컴포넌트 재사용). */}
+        <WaitingCards />
       </div>
     );
   }
