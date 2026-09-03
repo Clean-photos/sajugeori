@@ -9,6 +9,8 @@ import { DeleteReportButton } from "@/components/premium/DeleteReportButton";
 import { WaitingCards } from "@/components/premium/WaitingCards";
 import { PrintReportFooter } from "@/components/premium/PrintReport";
 import { SajuInputForm, type SavedSaju } from "@/components/premium/SajuInputForm";
+import { premiumErrorInfo, type PremiumErrorInfo } from "@/components/premium/premiumError";
+import { PremiumErrorBanner } from "@/components/premium/PremiumErrorBanner";
 
 type Step = "form" | "loading" | "result" | "deleted";
 
@@ -17,13 +19,13 @@ type Target = { birth_date: string; birth_time: string | null; gender: string };
 export function WuxingResultForm({ saved }: { saved: SavedSaju }) {
   const [step, setStep] = useState<Step>("form");
   const [report, setReport] = useState<WuxingReportData | null>(null);
-  const [error, setError] = useState("");
+  const [error, setError] = useState<PremiumErrorInfo | null>(null);
   // 어떤 대상으로 만든 리포트인지 — 삭제할 때 같은 대상을 지워야 한다.
   const [target, setTarget] = useState<Target | null>(null);
 
   async function submit(v: Target) {
     setStep("loading");
-    setError("");
+    setError(null);
     setTarget(v);
     try {
       const res = await fetch("/api/premium/wuxing", {
@@ -35,19 +37,18 @@ export function WuxingResultForm({ saved }: { saved: SavedSaju }) {
       if (!res.ok) {
         // WUXING_ENABLED가 꺼져 있으면 404 — 결제 게이트를 통과했더라도(구독자 등)
         // 아직 준비 중이라고 안내한다("생성 실패"로 보이면 버그처럼 읽힌다).
-        const msg =
-          res.status === 404 ? "아직 준비 중인 리포트입니다. 조금만 기다려 주세요."
-          : data.error === "profile_required" ? "먼저 사주를 등록해주세요."
-          : data.error === "premium_required" ? "결제가 필요합니다."
-          : "생성에 실패했습니다. 잠시 후 다시 시도해주세요.";
-        setError(msg);
+        setError(
+          res.status === 404
+            ? { message: "아직 준비 중인 리포트입니다. 조금만 기다려 주세요." }
+            : premiumErrorInfo(data, "생성에 실패했습니다. 잠시 후 다시 시도해주세요.")
+        );
         setStep("form");
         return;
       }
       setReport(data.report as WuxingReportData);
       setStep("result");
     } catch {
-      setError("네트워크 오류가 발생했습니다.");
+      setError({ message: "네트워크 연결을 확인한 뒤 다시 시도해주세요." });
       setStep("form");
     }
   }
@@ -112,7 +113,7 @@ export function WuxingResultForm({ saved }: { saved: SavedSaju }) {
         오행 지도, 채우는 법, 어울리는 사람, 3년 세운 처방까지 한 번에 만들어 드립니다.
       </p>
 
-      {error && <p className="text-xs text-[#C0392B] px-5 pt-3">{error}</p>}
+      {error && <div className="px-5 pt-3"><PremiumErrorBanner error={error} /></div>}
 
       {/* 생성 직전 대상 확정 — 등록된 사주가 있으면 채워진 채로 뜨고, 체크를 풀면
           가족·친구 사주를 직접 넣을 수 있다. */}

@@ -10,6 +10,8 @@ import { DeleteReportButton } from "@/components/premium/DeleteReportButton";
 import { WaitingCards } from "@/components/premium/WaitingCards";
 import { ReportBody } from "@/components/premium/ReportBody";
 import { SajuInputForm, type SavedSaju } from "@/components/premium/SajuInputForm";
+import { premiumErrorInfo, type PremiumErrorInfo } from "@/components/premium/premiumError";
+import { PremiumErrorBanner } from "@/components/premium/PremiumErrorBanner";
 
 type Step = "form" | "loading" | "result" | "deleted";
 type DetectedSal = { name: string; where: string[] };
@@ -25,13 +27,13 @@ export function SalpuriForm({ saved }: { saved: SavedSaju }) {
   const [step, setStep] = useState<Step>("form");
   const [report, setReport] = useState("");
   const [sal, setSal] = useState<DetectedSal[]>([]);
-  const [error, setError] = useState("");
+  const [error, setError] = useState<PremiumErrorInfo | null>(null);
   // 어떤 대상으로 만든 리포트인지 — 삭제할 때 같은 대상을 지워야 한다.
   const [target, setTarget] = useState<Target | null>(null);
 
   async function submit(v: Target) {
     setStep("loading");
-    setError("");
+    setError(null);
     setTarget(v);
     try {
       const res = await fetch("/api/premium/salpuri", {
@@ -41,7 +43,7 @@ export function SalpuriForm({ saved }: { saved: SavedSaju }) {
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error === "profile_required" ? "먼저 사주를 등록해주세요." : "분석에 실패했습니다. 다시 시도해주세요.");
+        setError(premiumErrorInfo(data, "분석에 실패했습니다. 잠시 후 다시 시도해주세요."));
         setStep("form");
         return;
       }
@@ -49,7 +51,7 @@ export function SalpuriForm({ saved }: { saved: SavedSaju }) {
       setSal(data.sal ?? []);
       setStep("result");
     } catch {
-      setError("네트워크 오류가 발생했습니다.");
+      setError({ message: "네트워크 연결을 확인한 뒤 다시 시도해주세요." });
       setStep("form");
     }
   }
@@ -157,7 +159,7 @@ export function SalpuriForm({ saved }: { saved: SavedSaju }) {
         </p>
       </div>
 
-      {error && <p className="text-xs text-[#C0392B] px-1">{error}</p>}
+      {error && <PremiumErrorBanner error={error} />}
     </div>
 
       {/* 생성 직전 대상 확정 — 등록된 사주가 있으면 채워진 채로 뜨고, 체크를 풀면

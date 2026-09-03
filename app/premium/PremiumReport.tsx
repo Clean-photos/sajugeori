@@ -11,6 +11,8 @@ import { ReportBody } from "@/components/premium/ReportBody";
 import { SajuInputForm, type SavedSaju } from "@/components/premium/SajuInputForm";
 import { Spinner } from "@/components/ui/Spinner";
 import { DESTINY_UPGRADE } from "@/lib/billing/plans";
+import { premiumErrorInfo, type PremiumErrorInfo } from "@/components/premium/premiumError";
+import { PremiumErrorBanner } from "@/components/premium/PremiumErrorBanner";
 
 const SECTIONS: { id: string; label: string; icon: string }[] = [
   { id: "personality", label: "타고난 성격·기질", icon: "🧠" },
@@ -38,7 +40,7 @@ export function PremiumReport({
   // 대상 확정 화면부터 시작한다. 등록된 사주가 있어도 자동 생성하지 않는다 —
   // 예전에는 곧장 본인 사주로 생성돼 가족 사주를 볼 방법이 없었다.
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState<PremiumErrorInfo | null>(null);
   const [regenerating, setRegenerating] = useState(false);
   const [deleted, setDeleted] = useState(false);
   const [showForm, setShowForm] = useState(true);
@@ -51,20 +53,20 @@ export function PremiumReport({
   }
 
   async function load(regenerate = false) {
-    setError("");
+    setError(null);
     if (regenerate) setRegenerating(true); else setLoading(true);
     try {
       const res = await fetch(`/api/premium/report${regenerate ? "?regenerate=1" : ""}`);
       const data = await res.json();
       if (!res.ok) {
-        setError(data?.error === "profile_required" ? "먼저 사주를 등록해 주세요." : (data?.error ?? "불러오지 못했습니다."));
+        setError(premiumErrorInfo(data, "불러오지 못했습니다."));
         return;
       }
       const cleaned: Report = {};
       for (const k of Object.keys(data.report ?? {})) cleaned[k] = cleanReportText(data.report[k]);
       setReport(cleaned);
     } catch {
-      setError("풀이를 불러오지 못했습니다.");
+      setError({ message: "네트워크 연결을 확인한 뒤 다시 시도해주세요." });
     } finally {
       setLoading(false);
       setRegenerating(false);
@@ -74,7 +76,7 @@ export function PremiumReport({
   /** 화면에서 입력한 사주로 풀이를 만든다. 저장 규칙은 서버가 판단한다. */
   async function submitSaju(v: { birth_date: string; birth_time: string | null; gender: string }) {
     setSubmitting(true);
-    setError("");
+    setError(null);
     try {
       const res = await fetch("/api/premium/report", {
         method: "POST",
@@ -83,7 +85,7 @@ export function PremiumReport({
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data?.error ?? "풀이를 만들지 못했습니다.");
+        setError(premiumErrorInfo(data, "풀이를 만들지 못했습니다."));
         setSubmitting(false);
         return;
       }
@@ -92,7 +94,7 @@ export function PremiumReport({
       setReport(cleaned);
       setShowForm(false);
     } catch {
-      setError("풀이를 만들지 못했습니다.");
+      setError({ message: "네트워크 연결을 확인한 뒤 다시 시도해주세요." });
     }
     setSubmitting(false);
   }
@@ -103,7 +105,7 @@ export function PremiumReport({
   if (showForm) {
     return (
       <>
-        {error && <p className="px-5 pt-4 text-xs text-[#C0392B]">{error}</p>}
+        {error && <div className="px-5 pt-4"><PremiumErrorBanner error={error} /></div>}
         <SajuInputForm
           saved={saved}
           busy={submitting}
@@ -135,7 +137,7 @@ export function PremiumReport({
   if (error) {
     return (
       <div className="px-4 py-8 flex flex-col items-center gap-3">
-        <p className="text-sm text-[#C0392B]">{error}</p>
+        <PremiumErrorBanner error={error} />
         <button onClick={() => load(false)} className="text-sm text-[#1B3A4B] underline underline-offset-2">
           다시 시도
         </button>
@@ -192,7 +194,7 @@ export function PremiumReport({
         text={SECTIONS.map((sec) => `【 ${sec.label} 】\n${report?.[sec.id] ?? ""}`).join("\n\n")}
       />
       <button
-        onClick={() => { setShowForm(true); setError(""); }}
+        onClick={() => { setShowForm(true); setError(null); }}
         className="no-print text-center text-xs text-[#6B6661] py-2 active:opacity-60"
       >
         다른 사주로 보기

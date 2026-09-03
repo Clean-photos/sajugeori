@@ -8,6 +8,8 @@ import { DeleteReportButton } from "@/components/premium/DeleteReportButton";
 import { WaitingCards } from "@/components/premium/WaitingCards";
 import { ReportBody } from "@/components/premium/ReportBody";
 import { SajuInputForm, type SavedSaju } from "@/components/premium/SajuInputForm";
+import { premiumErrorInfo, type PremiumErrorInfo } from "@/components/premium/premiumError";
+import { PremiumErrorBanner } from "@/components/premium/PremiumErrorBanner";
 
 type Step = "form" | "loading" | "result" | "deleted";
 
@@ -42,7 +44,7 @@ export function TaekilForm({ saved }: { saved: SavedSaju }) {
   const [form, setForm] = useState({ purpose: "wedding", range_from: range.from, range_to: range.to });
   const [report, setReport] = useState("");
   const [best, setBest] = useState<{ date: string; weekday: string; ganji: string }[]>([]);
-  const [error, setError] = useState("");
+  const [error, setError] = useState<PremiumErrorInfo | null>(null);
   // 실패한 시도의 id. 있으면 "같은 정보로 재생성" — 서버에 저장된 입력값을 그대로 재사용한다.
   const [attemptId, setAttemptId] = useState<string | null>(null);
   // 어떤 대상 사주로 만든 리포트인지. 재생성 때도 같은 대상을 다시 보내야 한다.
@@ -53,7 +55,7 @@ export function TaekilForm({ saved }: { saved: SavedSaju }) {
     if (!t) return;
     setTarget(t);
     setStep("loading");
-    setError("");
+    setError(null);
     try {
       const res = await fetch("/api/premium/taekil", {
         method: "POST",
@@ -63,7 +65,7 @@ export function TaekilForm({ saved }: { saved: SavedSaju }) {
       const data = await res.json();
       if (!res.ok) {
         setAttemptId(typeof data.attemptId === "string" ? data.attemptId : null);
-        setError(data.error === "profile_required" ? "먼저 사주를 등록해주세요." : "분석에 실패했습니다. 입력하신 정보는 그대로 남아 있어요.");
+        setError(premiumErrorInfo(data, "분석에 실패했습니다. 입력하신 정보는 그대로 남아 있어요."));
         setStep("form");
         return;
       }
@@ -72,7 +74,7 @@ export function TaekilForm({ saved }: { saved: SavedSaju }) {
       setBest(data.best ?? []);
       setStep("result");
     } catch {
-      setError("네트워크 오류가 발생했습니다.");
+      setError({ message: "네트워크 연결을 확인한 뒤 다시 시도해주세요." });
       setStep("form");
     }
   }
@@ -83,7 +85,7 @@ export function TaekilForm({ saved }: { saved: SavedSaju }) {
   function updateForm(patch: Partial<typeof form>) {
     setForm({ ...form, ...patch });
     setAttemptId(null);
-    setError("");
+    setError(null);
   }
 
   async function handleDelete() {
@@ -179,7 +181,7 @@ export function TaekilForm({ saved }: { saved: SavedSaju }) {
         <p className="text-[11px] text-[#6B6661]/70 mt-2">최대 120일까지 조회할 수 있어요</p>
       </div>
 
-      {error && <p className="text-xs text-[#C0392B] px-1">{error}</p>}
+      {error && <PremiumErrorBanner error={error} />}
 
       {attemptId && (
         <div className="pt-2">
