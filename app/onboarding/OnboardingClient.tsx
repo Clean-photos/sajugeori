@@ -7,6 +7,8 @@ import { Spinner } from "@/components/ui/Spinner";
 import { CalendarField } from "@/app/free/CalendarField";
 import { toSolar, type CalendarKind } from "@/lib/calendar/convert";
 import { BirthDateConfirmBanner } from "@/components/BirthDateConfirmBanner";
+import { ReregisterWarningModal } from "@/components/ReregisterWarningModal";
+import type { MyReport } from "@/lib/billing/my-reports";
 
 const STEPS = ["생년월일", "태어난 시각", "성별 · 역법"];
 
@@ -25,7 +27,7 @@ function maxBirthDate() {
   return d.toISOString().split("T")[0];
 }
 
-function OnboardingInner({ existingProfile }: { existingProfile: ExistingProfile }) {
+function OnboardingInner({ existingProfile, reports }: { existingProfile: ExistingProfile; reports: MyReport[] }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const from = searchParams.get("from");
@@ -36,6 +38,8 @@ function OnboardingInner({ existingProfile }: { existingProfile: ExistingProfile
   const nextPath = nextParam && /^\/(?!\/)/.test(nextParam) ? nextParam : null;
   // 등록된 사주가 있으면 먼저 그 사주를 보여주고, "다시 등록"을 눌러야 폼으로 들어간다.
   const [showForm, setShowForm] = useState(!existingProfile);
+  // 리포트가 하나도 없으면(잃을 게 없으면) 확인창을 띄울 이유가 없다 — 바로 폼으로.
+  const [showReregisterWarning, setShowReregisterWarning] = useState(false);
   const [step, setStep] = useState(0);
   const [form, setForm] = useState({
     birth_date: "",
@@ -130,15 +134,23 @@ function OnboardingInner({ existingProfile }: { existingProfile: ExistingProfile
             이 사주로 프리미엄 리포트 보기
           </Link>
           <button
-            onClick={() => setShowForm(true)}
+            onClick={() => (reports.length > 0 ? setShowReregisterWarning(true) : setShowForm(true))}
             className="text-center border border-[#E5DFD4] text-[#1F3D34] rounded-xl py-3.5 font-semibold text-sm active:scale-[0.97] transition-all"
           >
             사주 다시 등록하기
           </button>
-          <p className="text-xs text-[#6B6661] text-center leading-relaxed">
-            다시 등록하면 기존 사주로 저장된 프리미엄 리포트도 함께 사라져요.
-          </p>
         </div>
+
+        {showReregisterWarning && (
+          <ReregisterWarningModal
+            reports={reports}
+            onCancel={() => setShowReregisterWarning(false)}
+            onConfirm={() => {
+              setShowReregisterWarning(false);
+              setShowForm(true);
+            }}
+          />
+        )}
       </div>
     );
   }
@@ -329,10 +341,16 @@ function OnboardingInner({ existingProfile }: { existingProfile: ExistingProfile
   );
 }
 
-export function OnboardingClient({ existingProfile }: { existingProfile: ExistingProfile }) {
+export function OnboardingClient({
+  existingProfile,
+  reports,
+}: {
+  existingProfile: ExistingProfile;
+  reports: MyReport[];
+}) {
   return (
     <Suspense fallback={null}>
-      <OnboardingInner existingProfile={existingProfile} />
+      <OnboardingInner existingProfile={existingProfile} reports={reports} />
     </Suspense>
   );
 }
