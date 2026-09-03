@@ -42,10 +42,16 @@ function OnboardingInner({ existingProfile }: { existingProfile: ExistingProfile
     gender: "",
   });
   const [loading, setLoading] = useState(false);
+  // 이번 음력 사고의 직접 원인이 여기였다 — 서버가 보낸 구체적인 사유를 버리고
+  // "오류가 발생했습니다"로 뭉개서, 사용자는 왜 실패하는지 알 방법이 없었다.
+  // 이제 서버 응답의 error 필드를 그대로 신뢰해서 보여준다(이 API는 원본 예외를
+  // 그대로 노출하지 않고, saju-engine이 던지는 문구도 전부 사람이 읽을 한국어다).
+  const [error, setError] = useState<string | null>(null);
 
   async function handleSubmit() {
     const conv = toSolar(form.birth_date, form.calendar as CalendarKind);
-    if (!conv.ok) { alert(conv.error); return; }
+    if (!conv.ok) { setError(conv.error); return; }
+    setError(null);
     setLoading(true);
     try {
       const res = await fetch("/api/saju/calculate", {
@@ -53,20 +59,24 @@ function OnboardingInner({ existingProfile }: { existingProfile: ExistingProfile
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           // 엔진은 양력만 받는다. 음력으로 골랐어도 여기서 변환해 보낸다.
-          birth_date: conv.ok ? conv.solar : form.birth_date,
+          birth_date: conv.solar,
           birth_time: form.no_time ? null : form.birth_time,
           calendar: "solar",
           gender: form.gender,
           persist: true,
         }),
       });
-      if (!res.ok) throw new Error("계산 실패");
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        setError(typeof data?.error === "string" ? data.error : "사주 계산에 실패했습니다. 입력값을 확인해 주세요.");
+        return;
+      }
       // next가 있으면 원래 보려던 화면으로, 사주거리 잠금에서 왔으면 사주거리로,
       // 그 외 일반 등록은 홈으로.
       router.push(nextPath ?? (from === "street" ? "/street" : "/"));
       router.refresh();
     } catch {
-      alert("오류가 발생했습니다. 다시 시도해주세요.");
+      setError("네트워크 연결을 확인한 뒤 다시 시도해 주세요.");
     } finally {
       setLoading(false);
     }
@@ -267,6 +277,12 @@ function OnboardingInner({ existingProfile }: { existingProfile: ExistingProfile
                 주민등록 기준이면 양력입니다. 음력 생일을 쓰신다면 음력을 선택해 주세요.
               </p>
             </div>
+
+            {error && (
+              <p className="text-xs text-[#C0392B] bg-[#C0392B]/8 border border-[#C0392B]/25 rounded-xl px-3.5 py-3 leading-relaxed">
+                {error}
+              </p>
+            )}
           </div>
         )}
 
