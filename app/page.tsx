@@ -124,10 +124,10 @@ export default async function HomePage() {
         {MENU_CARDS.map((card) => (
           <Link key={card.href} href={card.href} className={card.delay}>
             <div
-              className={`relative overflow-hidden rounded-2xl p-5 min-h-[150px] flex flex-col justify-between active:scale-[0.96] transition-all duration-200 shadow-sm ${
-                card.accent
-                  ? "bg-[#1F3D34] text-white"
-                  : "bg-[#FBF8F2] border border-[#E5DFD4] text-[#1A1A18]"
+              className={`relative overflow-hidden rounded-2xl p-5 min-h-[150px] flex flex-col justify-between active:scale-[0.96] transition-all duration-200 shadow-sm bg-[#FBF8F2] text-[#1A1A18] ${
+                // 무료 일반사주만 다른 배경 대신 프리미엄 운세와 같은 초록 두꺼운 테두리로
+                // 구분한다 — 진입점 중 가장 기본이 되는 카드임을 색이 아니라 테두리로 표시.
+                card.accent ? "border-[5px] border-[#1F3D34]" : "border border-[#E5DFD4]"
               }`}
             >
               {/*
@@ -137,32 +137,89 @@ export default async function HomePage() {
               <div
                 aria-hidden="true"
                 style={{ "--ico": `"${card.icon}"` } as React.CSSProperties}
-                className={`absolute -bottom-3 -right-2 font-serif text-[72px] leading-none select-none before:content-[var(--ico)] ${
-                  card.accent ? "text-white/10" : "text-[#1F3D34]/6"
-                }`}
+                className="absolute -bottom-3 -right-2 font-serif text-[72px] leading-none select-none before:content-[var(--ico)] text-[#1F3D34]/6"
               />
-              <span
-                className={`font-serif text-3xl font-bold leading-none ${
-                  card.accent ? "text-white/90" : "text-[#1F3D34]"
-                }`}
-              >
+              <span className="font-serif text-3xl font-bold leading-none text-[#1F3D34]">
                 {card.icon}
               </span>
               <div className="relative">
                 <p className="font-semibold text-base leading-snug">{card.title}</p>
-                <p className={`text-xs mt-0.5 ${card.accent ? "text-white/65" : "text-[#6B6661]"}`}>
+                <p className="text-xs mt-0.5 text-[#6B6661]">
                   {card.subtitle}
                 </p>
                 {/* 진입 후에야 광고를 알게 되면 이탈로 이어진다. 조건을 미리 알리면
                     오히려 신뢰가 올라간다. 실제 대기 시간은 AdGate의
                     COUNTDOWN_SECONDS(5초)와 맞춰 둔다 — 값이 바뀌면 여기도 함께 고칠 것. */}
-                <p className={`text-[10.5px] mt-1.5 ${card.accent ? "text-white/50" : "text-[#8A8580]"}`}>
+                <p className="text-[10.5px] mt-1.5 text-[#8A8580]">
                   무료 · 광고 5초
                 </p>
               </div>
             </div>
           </Link>
         ))}
+      </section>
+
+      {/*
+        AI 역술가 대화(/street) 배너는 내렸다. 대화 품질이 기대에 못 미쳐
+        진입점만 숨기고 라우트와 코드는 남겨 둔다.
+        그 자리에 단건 리포트를 전면에 세운다.
+
+        무료 4종 카드 바로 아래로 옮겼다 — 무료로 하나 보고 나면 다음 동선이
+        "더 깊이 보기"로 바로 이어지는 편이 자연스럽고, 예전처럼 그 사이에
+        샘플 배너·읽을거리 3카드·광고가 끼어 있으면 전환 동선이 늘어진다.
+      */}
+      <section className="px-4 mb-4 animate-fade-up" style={{animationDelay:'0.06s'}}>
+        <Link href="/premium/menu">
+          <div className="relative overflow-hidden rounded-2xl bg-[#1F3D34] p-5 flex items-center gap-4 active:scale-[0.98] transition-all duration-200 shadow-lg">
+            <div className="absolute inset-0 opacity-20"
+              style={{backgroundImage: "radial-gradient(circle at 80% 50%, #C8743A 0%, transparent 60%)"}}
+            />
+            <div className="relative w-14 h-14 rounded-xl bg-white/10 flex items-center justify-center text-3xl flex-shrink-0 border border-white/20">
+              🔮
+            </div>
+            <div className="relative flex-1">
+              <p className="font-bold text-lg text-white leading-snug">프리미엄 운세보기</p>
+              <p className="text-sm text-white/65 mt-0.5">
+                프리미엄 사주, 궁합 등 한 편 {ONE_REPORT_PRICE.toLocaleString()}원
+                <br />
+                당신의 운명 설계도 {DESTINY_BLUEPRINT_ONE.amount.toLocaleString()}원
+              </p>
+            </div>
+            <div className="relative w-8 h-8 rounded-full bg-[#C8743A] flex items-center justify-center flex-shrink-0">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M5 12h14M12 5l7 7-7 7"/>
+              </svg>
+            </div>
+          </div>
+        </Link>
+      </section>
+
+      {/* Teaser / onboarding nudge — 프리미엄 배너와 한 쌍으로 함께 위로 옮겼다 */}
+      <section className="px-4 mb-4">
+        <div className="rounded-2xl border border-[#E5DFD4] bg-[#FBF8F2] px-5 py-4 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-[#C8743A]/10 flex items-center justify-center text-xl flex-shrink-0">
+            ✦
+          </div>
+          <div className="flex-1">
+            {isLoggedIn ? (
+              <>
+                <p className="text-xs text-[#6B6661] mb-0.5">사주를 등록하면</p>
+                <p className="text-sm font-medium text-[#1A1A18]">맞춤 풀이와 프리미엄 리포트를 받을 수 있어요</p>
+              </>
+            ) : (
+              <>
+                <p className="text-xs text-[#6B6661] mb-0.5">회원가입하면</p>
+                <p className="text-sm font-medium text-[#1A1A18]">사주를 저장하고 프리미엄 리포트를 받을 수 있어요</p>
+              </>
+            )}
+          </div>
+          <Link
+            href={isLoggedIn ? "/onboarding" : "/signup"}
+            className="text-xs font-semibold text-[#C8743A] whitespace-nowrap"
+          >
+            {isLoggedIn ? "등록 →" : "가입 →"}
+          </Link>
+        </div>
       </section>
 
       {/* 샘플 리포트 배너 — 실제 제공되는 프리미엄 리포트 전문을 로그인 없이 바로 보여준다 */}
@@ -201,73 +258,6 @@ export default async function HomePage() {
       {/* 무료 4종 카드 아래 — 여기서부터는 큰 배너를 써도 진입 동선을 막지 않는다. */}
       <section className="px-4 mb-4 flex justify-center">
         <KakaoAdFitBanner unit={ADFIT_MID_250} width={300} height={250} />
-      </section>
-
-      {/* Divider */}
-      <div className="px-4 flex items-center gap-3 mb-4">
-        <div className="flex-1 h-px bg-[#E5DFD4]" />
-        <span className="text-xs text-[#6B6661] tracking-widest">더 깊은 풀이</span>
-        <div className="flex-1 h-px bg-[#E5DFD4]" />
-      </div>
-
-      {/*
-        AI 역술가 대화(/street) 배너는 내렸다. 대화 품질이 기대에 못 미쳐
-        진입점만 숨기고 라우트와 코드는 남겨 둔다.
-        그 자리에 단건 리포트를 전면에 세운다.
-      */}
-      {/* Premium Banner */}
-      <section className="px-4 animate-fade-up" style={{animationDelay:'0.36s'}}>
-        <Link href="/premium/menu">
-          <div className="relative overflow-hidden rounded-2xl bg-[#1F3D34] p-5 flex items-center gap-4 active:scale-[0.98] transition-all duration-200 shadow-lg">
-            <div className="absolute inset-0 opacity-20"
-              style={{backgroundImage: "radial-gradient(circle at 80% 50%, #C8743A 0%, transparent 60%)"}}
-            />
-            <div className="relative w-14 h-14 rounded-xl bg-white/10 flex items-center justify-center text-3xl flex-shrink-0 border border-white/20">
-              🔮
-            </div>
-            <div className="relative flex-1">
-              <p className="font-bold text-lg text-white leading-snug">프리미엄 운세보기</p>
-              <p className="text-sm text-white/65 mt-0.5">
-                프리미엄 사주, 궁합 등 한 편 {ONE_REPORT_PRICE.toLocaleString()}원
-                <br />
-                당신의 운명 설계도 {DESTINY_BLUEPRINT_ONE.amount.toLocaleString()}원
-              </p>
-            </div>
-            <div className="relative w-8 h-8 rounded-full bg-[#C8743A] flex items-center justify-center flex-shrink-0">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M5 12h14M12 5l7 7-7 7"/>
-              </svg>
-            </div>
-          </div>
-        </Link>
-      </section>
-
-      {/* Teaser / onboarding nudge */}
-      <section className="px-4 mt-3">
-        <div className="rounded-2xl border border-[#E5DFD4] bg-[#FBF8F2] px-5 py-4 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-[#C8743A]/10 flex items-center justify-center text-xl flex-shrink-0">
-            ✦
-          </div>
-          <div className="flex-1">
-            {isLoggedIn ? (
-              <>
-                <p className="text-xs text-[#6B6661] mb-0.5">사주를 등록하면</p>
-                <p className="text-sm font-medium text-[#1A1A18]">맞춤 풀이와 프리미엄 리포트를 받을 수 있어요</p>
-              </>
-            ) : (
-              <>
-                <p className="text-xs text-[#6B6661] mb-0.5">회원가입하면</p>
-                <p className="text-sm font-medium text-[#1A1A18]">사주를 저장하고 프리미엄 리포트를 받을 수 있어요</p>
-              </>
-            )}
-          </div>
-          <Link
-            href={isLoggedIn ? "/onboarding" : "/signup"}
-            className="text-xs font-semibold text-[#C8743A] whitespace-nowrap"
-          >
-            {isLoggedIn ? "등록 →" : "가입 →"}
-          </Link>
-        </div>
       </section>
 
       {/* 읽을거리 */}
