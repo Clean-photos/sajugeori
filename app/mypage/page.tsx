@@ -5,7 +5,7 @@ import { ChangePasswordSection } from "./ChangePasswordSection";
 import { auth } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/db/client";
 import { REPORT_PRODUCTS, DESTINY_PRODUCT_IDS } from "@/lib/billing/plans";
-import { listUserReports } from "@/lib/billing/my-reports";
+import { listUserReports, type MyReport } from "@/lib/billing/my-reports";
 import { BirthDateConfirmBanner } from "@/components/BirthDateConfirmBanner";
 
 export default async function MypagePage() {
@@ -18,7 +18,7 @@ export default async function MypagePage() {
     calendar: string; birth_date_confirmed_at: string | null;
   } | null = null;
   let payments: { label: string; status: string; created_at: string; amount?: number }[] = [];
-  let reports: { label: string; href: string; created_at: string }[] = [];
+  let reports: MyReport[] = [];
   let isEmailAccount = false;
 
   if (loggedIn) {
@@ -135,8 +135,13 @@ export default async function MypagePage() {
                 {reports.map((r, i) => (
                   <li key={i}>
                     <a href={r.href} className="flex items-center justify-between py-1.5 active:opacity-60">
-                      <span className="text-sm text-[#1A1A18]">{r.label}</span>
-                      <span className="text-xs text-[#6B6661]">
+                      <span className="flex flex-col">
+                        <span className="text-sm text-[#1A1A18]">{r.label}</span>
+                        {/* §3(CEO 결정 2026-09-02): 같은 상품을 본인·가족 여러 명 몫으로
+                            받았을 때 라벨만으론 구분이 안 됐다 — 대상 사주를 함께 표시. */}
+                        {r.target && <span className="text-[11px] text-[#6B6661]/80 mt-0.5">{r.target}</span>}
+                      </span>
+                      <span className="text-xs text-[#6B6661] whitespace-nowrap">
                         {r.created_at.slice(0, 10)} <span className="text-[#C8743A]">보기 →</span>
                       </span>
                     </a>
