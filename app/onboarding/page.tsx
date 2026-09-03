@@ -9,7 +9,7 @@ export default async function OnboardingPage() {
   if (session?.user?.id) {
     const { data: p } = await supabaseAdmin
       .from("saju_profiles")
-      .select("birth_date, gender, saju_json")
+      .select("birth_date, gender, saju_json, calendar, birth_date_confirmed_at")
       .eq("user_id", session.user.id).eq("label", "본인")
       .order("created_at", { ascending: false }).limit(1).single();
 
@@ -20,6 +20,8 @@ export default async function OnboardingPage() {
         strength_label: identity?.strength_label ?? "",
         birth_date: p.birth_date,
         gender: p.gender,
+        // §1 도입 전 저장분(음력이 양력 칸에 들어갔을 수 있음)만 확인 배너 대상.
+        needsBirthDateConfirm: p.calendar === "solar" && !p.birth_date_confirmed_at,
       };
     }
   }

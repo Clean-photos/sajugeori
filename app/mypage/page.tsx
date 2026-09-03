@@ -6,12 +6,17 @@ import { auth } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/db/client";
 import { REPORT_PRODUCTS, DESTINY_PRODUCT_IDS } from "@/lib/billing/plans";
 import { listUserReports } from "@/lib/billing/my-reports";
+import { BirthDateConfirmBanner } from "@/components/BirthDateConfirmBanner";
 
 export default async function MypagePage() {
   const session = await auth();
   const loggedIn = !!session?.user?.id;
 
-  let profile: { label: string; birth_date: string; gender: string; saju_json: { identity?: { day_master?: string; strength_label?: string } } } | null = null;
+  let profile: {
+    label: string; birth_date: string; gender: string;
+    saju_json: { identity?: { day_master?: string; strength_label?: string } };
+    calendar: string; birth_date_confirmed_at: string | null;
+  } | null = null;
   let payments: { label: string; status: string; created_at: string; amount?: number }[] = [];
   let reports: { label: string; href: string; created_at: string }[] = [];
   let isEmailAccount = false;
@@ -21,7 +26,7 @@ export default async function MypagePage() {
 
     const { data: p } = await supabaseAdmin
       .from("saju_profiles")
-      .select("label, birth_date, gender, saju_json")
+      .select("label, birth_date, gender, saju_json, calendar, birth_date_confirmed_at")
       .eq("user_id", userId).eq("label", "본인")
       .order("created_at", { ascending: false }).limit(1).single();
     if (p) profile = p;
@@ -95,6 +100,13 @@ export default async function MypagePage() {
               <p className="text-xs text-[#6B6661] mt-1">
                 {profile.birth_date} · {profile.gender === "M" ? "남성" : "여성"}
               </p>
+              {/* §1(양력·음력 선택) 도입 전 저장분만 대상 — 음력이 양력 칸에
+                  들어갔을 수 있어 본인 확인을 유도한다(B안). */}
+              {profile.calendar === "solar" && !profile.birth_date_confirmed_at && (
+                <div className="mt-3">
+                  <BirthDateConfirmBanner birthDate={profile.birth_date} />
+                </div>
+              )}
               <a href="/premium" className="mt-3 block text-center bg-[#C8743A] text-white rounded-xl py-2.5 text-sm font-semibold">
                 프리미엄 사주 풀이 보기
               </a>

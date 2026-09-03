@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Spinner } from "@/components/ui/Spinner";
 import { CalendarField } from "@/app/free/CalendarField";
 import { toSolar, type CalendarKind } from "@/lib/calendar/convert";
+import { BirthDateConfirmBanner } from "@/components/BirthDateConfirmBanner";
 
 const STEPS = ["생년월일", "태어난 시각", "성별 · 역법"];
 
@@ -14,6 +15,8 @@ export type ExistingProfile = {
   strength_label: string;
   birth_date: string;
   gender: string;
+  /** §1 도입 전 저장분(음력이 양력 칸에 들어갔을 수 있음)이고 아직 본인 확인 전. */
+  needsBirthDateConfirm: boolean;
 } | null;
 
 function maxBirthDate() {
@@ -115,6 +118,10 @@ function OnboardingInner({ existingProfile }: { existingProfile: ExistingProfile
               {existingProfile.birth_date} · {existingProfile.gender === "M" ? "남성" : "여성"}
             </p>
           </div>
+
+          {existingProfile.needsBirthDateConfirm && (
+            <BirthDateConfirmBanner birthDate={existingProfile.birth_date} />
+          )}
 
           <Link
             href="/premium"
