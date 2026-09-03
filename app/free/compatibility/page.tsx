@@ -7,6 +7,7 @@ import { ReadingIntro } from "../ReadingIntro";
 import { cleanReportText } from "@/lib/report-format";
 import { Spinner } from "@/components/ui/Spinner";
 import { CalendarField } from "../CalendarField";
+import { fetchFreeReport } from "../fetchFreeReport";
 import { toSolar, type CalendarKind } from "@/lib/calendar/convert";
 
 type Step = "form" | "ad" | "loading" | "result";
@@ -31,6 +32,7 @@ export default function FreeCompatibilityPage() {
     context: "romance",
   });
   const [result, setResult] = useState("");
+  const [error, setError] = useState("");
   // 두 사람이므로 역법도 각각 고른다. 제출 직전 양력으로 변환해 보낸다.
   const [myCalendar, setMyCalendar] = useState<CalendarKind>("solar");
   const [otherCalendar, setOtherCalendar] = useState<CalendarKind>("solar");
@@ -44,12 +46,12 @@ export default function FreeCompatibilityPage() {
   }
 
   async function fetchReport(adToken: string) {
-    const res = await fetch("/api/free/compatibility", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...form, my_birth: mySolar, other_birth: otherSolar, ad_token: adToken }),
+    setError("");
+    const r = await fetchFreeReport("/api/free/compatibility", {
+      ...form, my_birth: mySolar, other_birth: otherSolar, ad_token: adToken,
     });
-    setResult(cleanReportText(await res.text()));
+    if (!r.ok) { setError(r.message); setStep("form"); return; }
+    setResult(cleanReportText(r.text));
     setStep("result");
   }
 
@@ -70,6 +72,9 @@ export default function FreeCompatibilityPage() {
         </div>
 
         <div className="flex-1 px-5 py-6 flex flex-col gap-6">
+          {error && (
+            <p className="text-xs text-[#C0392B] bg-[#C0392B]/8 border border-[#C0392B]/25 rounded-xl px-3.5 py-3 leading-relaxed">{error}</p>
+          )}
           {/* 관계 유형 */}
           <div>
             <label className="block text-xs font-medium text-[#6B6661] uppercase tracking-wider mb-2">관계 유형</label>

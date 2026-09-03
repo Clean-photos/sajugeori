@@ -7,6 +7,7 @@ import { ReadingIntro } from "../ReadingIntro";
 import { cleanReportText } from "@/lib/report-format";
 import { Spinner } from "@/components/ui/Spinner";
 import { CalendarField } from "../CalendarField";
+import { fetchFreeReport } from "../fetchFreeReport";
 import { toSolar, type CalendarKind } from "@/lib/calendar/convert";
 
 type Step = "form" | "ad" | "loading" | "result";
@@ -25,28 +26,26 @@ export default function FreeSajuPage() {
   const conv = form.birth_date.length === 10 ? toSolar(form.birth_date, calendar) : null;
   const solarBirthDate = conv?.ok ? conv.solar : "";
   const [result, setResult] = useState<string>("");
+  const [error, setError] = useState("");
 
   function watchAd() {
     setStep("ad");
   }
 
   async function fetchReport(adToken: string) {
-    const res = await fetch("/api/free/report", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        saju_json: null,
-        kind: "saju",
-        ad_token: adToken,
-        extra: {
-          birth_date: solarBirthDate,
-          birth_time: form.no_time ? null : form.birth_time,
-          gender: form.gender,
-        },
-      }),
+    setError("");
+    const r = await fetchFreeReport("/api/free/report", {
+      saju_json: null,
+      kind: "saju",
+      ad_token: adToken,
+      extra: {
+        birth_date: solarBirthDate,
+        birth_time: form.no_time ? null : form.birth_time,
+        gender: form.gender,
+      },
     });
-    const text = await res.text();
-    setResult(cleanReportText(text));
+    if (!r.ok) { setError(r.message); setStep("form"); return; }
+    setResult(cleanReportText(r.text));
     setStep("result");
   }
 
@@ -70,6 +69,9 @@ export default function FreeSajuPage() {
         </div>
 
         <div className="flex-1 px-5 py-6 flex flex-col gap-5">
+          {error && (
+            <p className="text-xs text-[#C0392B] bg-[#C0392B]/8 border border-[#C0392B]/25 rounded-xl px-3.5 py-3 leading-relaxed">{error}</p>
+          )}
           {/* Birth Date */}
           <div>
             <label className="block text-xs font-medium text-[#6B6661] uppercase tracking-wider mb-2">생년월일</label>

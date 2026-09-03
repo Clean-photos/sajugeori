@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdRewardProvider } from "@/lib/ads";
 import { runSajuEngine } from "@/lib/saju-engine";
+import { wrapStreamError } from "@/lib/report-stream-error";
 
 const PURPOSE_LABEL: Record<string, string> = {
   wedding: "결혼식", move: "이사", business: "개업·계약",
@@ -73,7 +74,7 @@ ${engineSummary}
           }
         }
       } catch {
-        controller.enqueue(enc.encode("분석 중 오류가 발생했습니다."));
+        controller.enqueue(enc.encode(wrapStreamError("분석 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.")));
       } finally {
         controller.close();
       }

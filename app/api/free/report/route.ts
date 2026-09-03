@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdRewardProvider } from "@/lib/ads";
 import { runSajuEngine, checkSamjae } from "@/lib/saju-engine";
 import { PHASE_MEANING } from "@/lib/saju-engine/samjae";
+import { wrapStreamError } from "@/lib/report-stream-error";
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
@@ -134,7 +135,7 @@ ${samjaeSection}
           }
         }
       } catch {
-        controller.enqueue(enc.encode("분석 중 오류가 발생했습니다. 다시 시도해주세요."));
+        controller.enqueue(enc.encode(wrapStreamError("분석 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.")));
       } finally {
         controller.close();
       }
