@@ -8,6 +8,7 @@ import { ONE_REPORT_PRICE } from "@/lib/billing/plans";
 import { SAMPLE_REPORTS } from "@/lib/sample-reports";
 import { SampleStickyCta } from "./SampleStickyCta";
 import { SamplePreview } from "@/components/premium/SamplePreview";
+import { ScrollRestoration } from "@/components/ScrollRestoration";
 import { PremiumReport } from "./PremiumReport";
 
 export const metadata: Metadata = {
@@ -60,6 +61,9 @@ export default async function PremiumPage() {
 
   return (
     <div className="flex flex-col min-h-screen pb-20 bg-[#F6F1E7]">
+      {/* §4: 4,000px 넘는 샘플을 읽다 결제/로그인으로 갔다 뒤로가기로 돌아오면
+          스크롤이 맨 위로 리셋되던 문제 — sessionStorage로 위치를 복원한다. */}
+      <ScrollRestoration />
       {/* 헤더는 화면에 실제로 무엇이 떠 있는지에 맞춘다.
           예전에는 상태와 무관하게 "내 사주 풀이 · (로그인 사용자의 일간·강약)"을
           띄웠는데, 미결제 상태에서 본문은 샘플(1978년생 여성)이라 헤더와 본문이
@@ -105,7 +109,7 @@ export default async function PremiumPage() {
           </div>
 
           <div className="px-4 pt-3 pb-4">
-            <SamplePreview sample={SAMPLE_REPORTS.saju} />
+            <SamplePreview sample={SAMPLE_REPORTS.saju} loggedIn={loggedIn} />
           </div>
 
           {/* 샘플을 끝까지 읽고 사고 싶어진 사람이 맨 위로 되돌아가지 않도록,

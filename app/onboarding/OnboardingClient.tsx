@@ -193,6 +193,7 @@ function OnboardingInner({ existingProfile, reports }: { existingProfile: Existi
             <input
               type="text"
               inputMode="numeric"
+              autoComplete="bday"
               placeholder="YYYY-MM-DD"
               value={form.birth_date}
               maxLength={10}
@@ -332,7 +333,8 @@ function OnboardingInner({ existingProfile, reports }: { existingProfile: Existi
               className="flex-1 flex items-center justify-center gap-2 bg-[#C8743A] text-white rounded-xl py-3.5 font-semibold text-sm disabled:opacity-40 active:scale-[0.97] transition-all shadow-lg shadow-[#C8743A]/25"
             >
               {loading && <Spinner />}
-              {loading ? "사주를 저장 중..." : "내 사주 확인하기 →"}
+              {/* §4(CEO 결정 2026-09-02): 비활성 이유를 버튼 문구로. */}
+              {loading ? "사주를 저장 중..." : !form.gender ? "성별을 선택해주세요" : "내 사주 확인하기 →"}
             </button>
           )}
         </div>

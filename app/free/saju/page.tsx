@@ -78,6 +78,7 @@ export default function FreeSajuPage() {
             <input
               type="text"
               inputMode="numeric"
+              autoComplete="bday"
               placeholder="YYYY-MM-DD"
               value={form.birth_date}
               maxLength={10}
@@ -154,14 +155,15 @@ export default function FreeSajuPage() {
             </div>
           </div>
 
-          {/* CTA */}
+          {/* CTA — §4(CEO 결정 2026-09-02): 비활성 이유를 버튼 문구로 알린다
+              (fix(buy) 5ca7583과 동일 원칙). */}
           <div className="mt-auto pt-2">
             <button
               onClick={watchAd}
               disabled={!solarBirthDate || !form.gender}
               className="w-full bg-[#C8743A] text-white rounded-xl py-4 font-semibold text-base disabled:opacity-40 active:scale-[0.97] transition-all duration-200 shadow-lg shadow-[#C8743A]/25"
             >
-              광고 보고 무료로 확인하기
+              {!solarBirthDate ? "생년월일을 입력해주세요" : !form.gender ? "성별을 선택해주세요" : "광고 보고 무료로 확인하기"}
             </button>
             <p className="text-center text-xs text-[#6B6661] mt-3">짧은 광고 시청 후 결과를 확인할 수 있어요</p>
           </div>

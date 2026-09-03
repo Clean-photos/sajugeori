@@ -117,7 +117,9 @@ export async function PremiumGate({
 
           {sample && (
             <div className="w-full text-left mt-2">
-              <SamplePreview sample={sample} />
+              {/* "login" 게이트가 아니면 이미 로그인된 사용자다(checkGate 참고) —
+                  "로그인 후 확인하세요"가 모순으로 보이지 않게 상태를 넘긴다. */}
+              <SamplePreview sample={sample} loggedIn={gate.kind !== "login"} />
             </div>
           )}
         </div>

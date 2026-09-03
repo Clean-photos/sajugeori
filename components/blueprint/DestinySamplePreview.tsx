@@ -5,16 +5,18 @@ import { BlueprintReportView } from "./BlueprintReportView";
  * 대각선으로 안내 문구를 반복 타일링하는 워터마크.
  * components/premium/SamplePreview.tsx의 것과 동일한 방식.
  */
-function WatermarkOverlay() {
-  const lines = ["샘플 SAMPLE 결과입니다", "로그인 후 본인의 사주로 확인하세요", "사주거리"];
+function WatermarkOverlay({ loggedIn }: { loggedIn: boolean }) {
+  // §4(CEO 결정 2026-09-02): SamplePreview와 동일한 로그인 상태 분기 + 가독성 조정.
+  const middleLine = loggedIn ? "결제 후 본인의 사주로 확인하세요" : "로그인 후 본인의 사주로 확인하세요";
+  const lines = ["샘플 SAMPLE 결과입니다", middleLine, "사주거리"];
   const svg =
     "data:image/svg+xml;utf8," +
     encodeURIComponent(
-      `<svg xmlns='http://www.w3.org/2000/svg' width='480' height='260'>` +
+      `<svg xmlns='http://www.w3.org/2000/svg' width='560' height='320'>` +
         lines
           .map(
             (line, i) =>
-              `<text x='240' y='${70 + i * 34}' text-anchor='middle' font-size='16' font-family='sans-serif' font-weight='700' fill='#C8743A' opacity='0.16' transform='rotate(-24 240 130)'>${line}</text>`
+              `<text x='280' y='${90 + i * 40}' text-anchor='middle' font-size='16' font-family='sans-serif' font-weight='700' fill='#C8743A' opacity='0.11' transform='rotate(-24 280 160)'>${line}</text>`
           )
           .join("") +
         `</svg>`
@@ -34,10 +36,12 @@ function WatermarkOverlay() {
  * 발췌가 아니라 실제 완성본 전체(components/blueprint/BlueprintReportView와
  * 동일한 렌더)를 워터마크로 덮어서 보여준다.
  */
-export function DestinySamplePreview({ report, input }: { report: BlueprintReport; input: string }) {
+export function DestinySamplePreview({
+  report, input, loggedIn = false,
+}: { report: BlueprintReport; input: string; loggedIn?: boolean }) {
   return (
     <div className="relative overflow-hidden rounded-2xl border border-dashed border-[#C8743A]/40 bg-[#FBF8F2]">
-      <WatermarkOverlay />
+      <WatermarkOverlay loggedIn={loggedIn} />
 
       <div className="relative px-4 pt-3 pb-1 flex items-center justify-between border-b border-dashed border-[#C8743A]/30">
         <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#C8743A]/15 text-[#8A5228] tracking-wide">

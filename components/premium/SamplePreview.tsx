@@ -9,16 +9,22 @@ import { ReportBody } from "./ReportBody";
  * 대신, 이 워터마크 하나로 전체를 덮어 "이건 샘플이고 실제 결과가 아니다"를
  * 계속 상기시킨다.
  */
-function WatermarkOverlay() {
-  const lines = ["샘플 SAMPLE 결과입니다", "로그인 후 본인의 사주로 확인하세요", "사주거리"];
+function WatermarkOverlay({ loggedIn }: { loggedIn: boolean }) {
+  // §4(CEO 결정 2026-09-02): 로그인 상태에서도 "로그인 후"라고 뜨는 건 이미
+  // 로그인한 사람 눈엔 모순이다 — 로그인 여부에 따라 가운데 줄만 바꾼다.
+  const middleLine = loggedIn ? "결제 후 본인의 사주로 확인하세요" : "로그인 후 본인의 사주로 확인하세요";
+  const lines = ["샘플 SAMPLE 결과입니다", middleLine, "사주거리"];
+  // 가독성 개선: 타일을 더 크게(480→560×260→320) 잡고 불투명도를 낮춰(0.16→0.11)
+  // 실제 리포트 본문 위에 겹쳐도 글자가 덜 부딪히게 한다 — 워터마크 기능(샘플임을
+  // 계속 상기)은 유지하되 밀도만 낮추는 방향.
   const svg =
     "data:image/svg+xml;utf8," +
     encodeURIComponent(
-      `<svg xmlns='http://www.w3.org/2000/svg' width='480' height='260'>` +
+      `<svg xmlns='http://www.w3.org/2000/svg' width='560' height='320'>` +
         lines
           .map(
             (line, i) =>
-              `<text x='240' y='${70 + i * 34}' text-anchor='middle' font-size='16' font-family='sans-serif' font-weight='700' fill='#C8743A' opacity='0.16' transform='rotate(-24 240 130)'>${line}</text>`
+              `<text x='280' y='${90 + i * 40}' text-anchor='middle' font-size='16' font-family='sans-serif' font-weight='700' fill='#C8743A' opacity='0.11' transform='rotate(-24 280 160)'>${line}</text>`
           )
           .join("") +
         `</svg>`
@@ -37,10 +43,10 @@ function WatermarkOverlay() {
  * 대각선 워터마크로 방문자가 이걸 자기 사주 결과로 착각하지 않도록 한다.
  * 실제 결제 시에는 본인 사주로 새로 계산됨을 끝에 한 번 더 명시한다.
  */
-export function SamplePreview({ sample }: { sample: SampleReport }) {
+export function SamplePreview({ sample, loggedIn = false }: { sample: SampleReport; loggedIn?: boolean }) {
   return (
     <div className="relative overflow-hidden rounded-2xl border border-dashed border-[#C8743A]/40 bg-[#FBF8F2]">
-      <WatermarkOverlay />
+      <WatermarkOverlay loggedIn={loggedIn} />
 
       <div className="relative px-4 pt-3 pb-1 flex items-center justify-between border-b border-dashed border-[#C8743A]/30">
         <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#C8743A]/15 text-[#8A5228] tracking-wide">
