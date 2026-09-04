@@ -106,7 +106,30 @@ export default async function PremiumPage() {
             </Link>
           </div>
 
-          <div className="px-4 pt-3 pb-4">
+          {/* §2(2/3 문서, CEO 결정 2026-09-03): "무료와 뭐가 다른가요"가 지금까지
+              장문 설명으로만 되어 있어 한눈에 안 들어왔다 — 표로 바로 대비시킨다. */}
+          <div className="px-4 pt-4">
+            <p className="text-sm font-semibold text-[#1F3D34] mb-2">무료와 뭐가 다른가요?</p>
+            <div className="rounded-2xl border border-[#E5DFD4] overflow-hidden">
+              <div className="grid grid-cols-2 text-center text-xs font-semibold text-white">
+                <div className="bg-[#8A8580] py-2">무료</div>
+                <div className="bg-[#1F3D34] py-2">프리미엄</div>
+              </div>
+              {[
+                ["4영역", "8영역"],
+                ["대운 ✕", "대운 ○"],
+                ["용신 ✕", "용신 ○"],
+                ["다시보기 ✕", "1년간 다시보기 ○"],
+              ].map((row, i) => (
+                <div key={i} className="grid grid-cols-2 text-center text-[13px] border-t border-[#E5DFD4]">
+                  <div className="py-2.5 text-[#6B6661] bg-[#FBF8F2] border-r border-[#E5DFD4]">{row[0]}</div>
+                  <div className="py-2.5 text-[#1A1A18] font-medium bg-white">{row[1]}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="px-4 pt-4 pb-4">
             <SamplePreview sample={SAMPLE_REPORTS.saju} loggedIn={loggedIn} />
           </div>
 

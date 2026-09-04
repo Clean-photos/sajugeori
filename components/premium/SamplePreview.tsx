@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import type { SampleReport } from "@/lib/sample-reports";
 import { cleanReportText } from "@/lib/report-format";
 import { ReportBody } from "./ReportBody";
@@ -38,6 +41,48 @@ function WatermarkOverlay({ loggedIn }: { loggedIn: boolean }) {
   );
 }
 
+// §2(2/3 문서, CEO 결정 2026-09-03): 샘플 8개 영역이 4,368px 통짜로 펼쳐져
+// 품질 증명이 오히려 구매를 막고 있었다. "접는 것과 감추는 것은 다르다 —
+// 전문 공개 정책은 유지한다"는 지시에 따라, 텍스트는 항상 DOM에 그대로
+// 있고(SEO 색인·전문 공개 그대로) 화면 표시만 CSS로 접는다. 기본 2개만
+// 펼치고 나머지는 접어 첫 화면 길이를 압축한다.
+const DEFAULT_OPEN_COUNT = 2;
+
+function AccordionSection({
+  icon, label, text, defaultOpen,
+}: { icon: string; label: string; text: string; defaultOpen: boolean }) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="py-2 border-b border-[#E5DFD4] last:border-b-0">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="w-full flex items-center justify-between gap-2 text-left"
+      >
+        <span className="flex items-center gap-2">
+          <span>{icon}</span>
+          <span className="text-sm font-semibold text-[#1F3D34]">{label}</span>
+        </span>
+        <span className="flex items-center gap-1.5 flex-shrink-0">
+          {open && <span className="text-[10px] font-medium text-[#8A5228]">펼침</span>}
+          <span
+            className={`text-[#8A5228] text-xs transition-transform duration-200 ${open ? "rotate-90" : ""}`}
+            aria-hidden="true"
+          >
+            ▶
+          </span>
+        </span>
+      </button>
+      {/* hidden(=display:none)일 뿐 DOM에서 제거하지 않는다 — 접힌 섹션도
+          텍스트는 그대로 렌더돼 있어야 "전문 공개"가 유지된다. */}
+      <div className={open ? "mt-1.5" : "hidden"}>
+        <ReportBody text={text} />
+      </div>
+    </div>
+  );
+}
+
 /**
  * 게이트(비로그인·미결제) 화면에 보여주는 샘플 리포트 전문.
  * 대각선 워터마크로 방문자가 이걸 자기 사주 결과로 착각하지 않도록 한다.
@@ -59,14 +104,14 @@ export function SamplePreview({ sample, loggedIn = false }: { sample: SampleRepo
           샘플에서 본 것과 실제 결과의 생김새가 달라 보이면 안 된다. */}
       <div className="relative px-4 py-3 flex flex-col gap-1">
         {sample.kind === "sections" ? (
-          sample.sections.map((sec) => (
-            <div key={sec.id} className="py-2">
-              <div className="flex items-center gap-2 mb-1.5">
-                <span>{sec.icon}</span>
-                <span className="text-sm font-semibold text-[#1F3D34]">{sec.label}</span>
-              </div>
-              <ReportBody text={cleanReportText(sec.text)} />
-            </div>
+          sample.sections.map((sec, i) => (
+            <AccordionSection
+              key={sec.id}
+              icon={sec.icon}
+              label={sec.label}
+              text={cleanReportText(sec.text)}
+              defaultOpen={i < DEFAULT_OPEN_COUNT}
+            />
           ))
         ) : (
           <div className="py-2">
