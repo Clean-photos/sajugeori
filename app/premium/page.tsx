@@ -4,6 +4,7 @@ import { BottomTabBar } from "@/components/layout/BottomTabBar";
 import { auth } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/db/client";
 import { isPremiumUser, findUnusedOneTimePass } from "@/lib/billing/access";
+import { loadOwnProfile } from "@/lib/billing/report-target";
 import { ONE_REPORT_PRICE } from "@/lib/billing/plans";
 import { SAMPLE_REPORTS } from "@/lib/sample-reports";
 import { SampleStickyCta } from "./SampleStickyCta";
@@ -31,10 +32,7 @@ export default async function PremiumPage() {
   // 입력 폼의 "입력된 사주 사용" 버튼에 쓸 요약
   let savedSaju: { birth_date: string; birth_time: string | null; gender: string } | null = null;
   if (userId) {
-    const { data: p } = await supabaseAdmin
-      .from("saju_profiles").select("id, saju_json, birth_date, birth_time, gender")
-      .eq("user_id", userId).eq("label", "본인")
-      .order("created_at", { ascending: false }).limit(1).single();
+    const p = await loadOwnProfile(userId, { withDisplay: true });
     if (p?.birth_date) {
       savedSaju = { birth_date: p.birth_date, birth_time: p.birth_time ?? null, gender: p.gender };
     }
@@ -133,7 +131,7 @@ export default async function PremiumPage() {
         </>
       )}
 
-      <BottomTabBar />
+      <BottomTabBar hasProfile={hasProfile} />
     </div>
   );
 }

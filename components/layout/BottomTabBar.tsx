@@ -3,7 +3,16 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-const TABS = [
+interface Tab {
+  href: string;
+  label: string;
+  icon: React.ReactNode;
+  /** hasProfile일 때만 쓰는 대체 라벨·아이콘. 없으면 기본값을 그대로 쓴다. */
+  labelRegistered?: string;
+  iconRegistered?: React.ReactNode;
+}
+
+const TABS: Tab[] = [
   {
     href: "/",
     label: "홈",
@@ -16,7 +25,10 @@ const TABS = [
   },
   {
     href: "/onboarding",
+    // §1-4(2/3 문서): 실제 동작은 "덮어쓰기"인데 등록 후에도 라벨이 "사주추가"로
+    // 남아 있었다. hasProfile이 true면 render 시점에 라벨·아이콘을 분기한다.
     label: "사주추가",
+    labelRegistered: "내 사주",
     icon: (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
         <circle cx="12" cy="12" r="9"/>
@@ -24,6 +36,7 @@ const TABS = [
         <line x1="8" y1="12" x2="16" y2="12"/>
       </svg>
     ),
+    iconRegistered: <span className="text-[22px] leading-none">☯</span>,
   },
   {
     href: "/premium/menu",
@@ -60,7 +73,7 @@ const TABS = [
   },
 ];
 
-export function BottomTabBar({ dark = false }: { dark?: boolean }) {
+export function BottomTabBar({ dark = false, hasProfile = false }: { dark?: boolean; hasProfile?: boolean }) {
   const pathname = usePathname();
 
   const activeColor = dark ? "#F6F1E7" : "#1F3D34";
@@ -77,6 +90,8 @@ export function BottomTabBar({ dark = false }: { dark?: boolean }) {
       <div className="relative flex">
         {TABS.map((tab) => {
           const active = pathname === tab.href || (tab.href !== "/" && pathname.startsWith(tab.href));
+          const label = hasProfile && tab.labelRegistered ? tab.labelRegistered : tab.label;
+          const icon = hasProfile && tab.iconRegistered ? tab.iconRegistered : tab.icon;
           return (
             <Link
               key={tab.href}
@@ -87,13 +102,13 @@ export function BottomTabBar({ dark = false }: { dark?: boolean }) {
                 className="transition-all duration-200"
                 style={{ color: active ? activeColor : inactiveColor, transform: active ? "scale(1.1)" : undefined }}
               >
-                {tab.icon}
+                {icon}
               </span>
               <span
                 className="text-[10px] font-medium tracking-tight transition-colors"
                 style={{ color: active ? activeColor : inactiveColor }}
               >
-                {tab.label}
+                {label}
               </span>
               {active && (
                 <span

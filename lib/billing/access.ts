@@ -119,6 +119,26 @@ export async function countRemainingPasses(userId: string): Promise<number> {
 }
 
 /**
+ * 이 사용자가 구매 이력이 있는 상품 id 집합(상태 불문 — 환불된 것도 "산 적 있음"으로
+ * 친다. 환불한 상품을 다시 사라고 홈에서 권하는 건 별개의 CS 대화지 크로스셀
+ * 대상이 아니다).
+ *
+ * 홈 화면 "아직 구매하지 않은 리포트" 블록(§1, CEO 결정 2026-09-03)에 쓴다 —
+ * REPORT_PRODUCTS 중 이 집합에 없는 것만 추천 대상이다.
+ */
+export async function purchasedProductIds(userId: string): Promise<Set<string>> {
+  try {
+    const { data } = await supabaseAdmin
+      .from("one_time_purchases")
+      .select("product_id")
+      .eq("user_id", userId);
+    return new Set((data ?? []).map((r) => r.product_id as string));
+  } catch {
+    return new Set();
+  }
+}
+
+/**
  * 리포트 열람 권한 확인.
  *
  * 구독자면 이용권을 쓰지 않고 통과시키고, 아니면 단건 이용권을 찾는다.

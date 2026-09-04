@@ -6,30 +6,22 @@ import { auth } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/db/client";
 import { REPORT_PRODUCTS, DESTINY_PRODUCT_IDS } from "@/lib/billing/plans";
 import { listUserReports, type MyReport } from "@/lib/billing/my-reports";
+import { loadOwnProfile, type OwnProfile } from "@/lib/billing/report-target";
 import { BirthDateConfirmBanner } from "@/components/BirthDateConfirmBanner";
 
 export default async function MypagePage() {
   const session = await auth();
   const loggedIn = !!session?.user?.id;
 
-  let profile: {
-    label: string; birth_date: string; gender: string;
-    saju_json: { identity?: { day_master?: string; strength_label?: string } };
-    calendar: string; birth_date_confirmed_at: string | null;
-  } | null = null;
+  let profile: OwnProfile | null = null;
   let payments: { label: string; status: string; created_at: string; amount?: number }[] = [];
   let reports: MyReport[] = [];
   let isEmailAccount = false;
 
   if (loggedIn) {
-    const userId = session!.user!.id;
+    const userId = session!.user!.id!;
 
-    const { data: p } = await supabaseAdmin
-      .from("saju_profiles")
-      .select("label, birth_date, gender, saju_json, calendar, birth_date_confirmed_at")
-      .eq("user_id", userId).eq("label", "본인")
-      .order("created_at", { ascending: false }).limit(1).single();
-    if (p) profile = p;
+    profile = await loadOwnProfile(userId, { withDisplay: true });
 
     // 결제 내역은 구독(subscriptions)과 단건 이용권(one_time_purchases) 양쪽에 나뉘어
     // 있다. 예전에는 구독만 조회해서, 990원 단건을 결제한 사람은 결제 내역이
@@ -195,7 +187,7 @@ export default async function MypagePage() {
         {loggedIn && <DangerZone hasProfile={!!profile} />}
       </div>
 
-      <BottomTabBar />
+      <BottomTabBar hasProfile={!!profile} />
     </div>
   );
 }

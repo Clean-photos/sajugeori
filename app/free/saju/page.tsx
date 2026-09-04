@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { AdGate } from "../AdGate";
 import { ReadingIntro } from "../ReadingIntro";
 import { cleanReportText } from "@/lib/report-format";
@@ -19,9 +20,32 @@ function maxBirthDate() {
   return d.toISOString().split("T")[0];
 }
 
-export default function FreeSajuPage() {
-  const [step, setStep] = useState<Step>("form");
-  const [form, setForm] = useState({ birth_date: "", birth_time: "", no_time: false, gender: "" });
+function FreeSajuInner() {
+  // 홈 히어로 폼(§1, 2/3 문서)에서 넘어온 값. 홈은 이미 양력으로 변환해 보내므로
+  // (HomeSajuForm 참고) calendar는 항상 "solar"로 둔다 — 여기서 다시 변환할 필요가
+  // 없다. birth_date가 없으면 평소처럼 빈 폼에서 시작한다.
+  const searchParams = useSearchParams();
+  const initialBirthDate = searchParams.get("birth_date") ?? "";
+  const initialBirthTime = searchParams.get("birth_time") ?? "";
+  const initialGender = searchParams.get("gender") === "F" || searchParams.get("gender") === "M"
+    ? searchParams.get("gender")!
+    : "";
+  const autostart = searchParams.get("autostart") === "1";
+  // step의 초기값 자체를 여기서 결정한다(useEffect로 나중에 넘기면 폼이
+  // 한 프레임 보였다 바로 광고로 바뀌는 깜빡임이 생긴다). initial 값은 홈에서
+  // 이미 양력으로 변환해 보낸 것이라 "solar"로 바로 검증할 수 있다.
+  const initialValid =
+    !!initialBirthDate &&
+    (initialGender === "M" || initialGender === "F") &&
+    toSolar(initialBirthDate, "solar").ok;
+
+  const [step, setStep] = useState<Step>(autostart && initialValid ? "ad" : "form");
+  const [form, setForm] = useState({
+    birth_date: initialBirthDate,
+    birth_time: initialBirthTime,
+    no_time: !!initialBirthDate && !initialBirthTime,
+    gender: initialGender,
+  });
   // 입력 역법. 제출 직전에 양력으로 변환해 서버로 보낸다(엔진은 양력만 받는다).
   const [calendar, setCalendar] = useState<CalendarKind>("solar");
   const conv = form.birth_date.length === 10 ? toSolar(form.birth_date, calendar) : null;
@@ -274,5 +298,15 @@ export default function FreeSajuPage() {
         </button>
       </div>
     </div>
+  );
+}
+
+// useSearchParams는 App Router에서 Suspense 경계 안에서만 쓸 수 있다
+// (OnboardingClient.tsx와 동일한 패턴).
+export default function FreeSajuPage() {
+  return (
+    <Suspense fallback={null}>
+      <FreeSajuInner />
+    </Suspense>
   );
 }

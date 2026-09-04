@@ -15,12 +15,26 @@ export interface TargetInput {
   calendar: "solar" | "lunar";
 }
 
+/** saju_json 중 화면 표시에 실제로 쓰는 부분만 — 전체 스키마를 여기서 새로 정의하지 않는다. */
+export interface OwnProfileIdentity {
+  identity?: { day_master?: string; strength_label?: string };
+}
+
 export interface OwnProfile {
   id: string;
   birth_date: string;
   birth_time: string | null;
   gender: string;
   calendar: string;
+  /**
+   * 화면 표시용 필드 — loadOwnProfile(userId, { withDisplay: true })일 때만 채워진다.
+   * §1(CEO 결정 2026-09-03) 이전엔 onboarding/mypage/premium/premium-destiny 4곳이
+   * 이 셋(saju_json·label·birth_date_confirmed_at)을 포함해 각자 다시 조회하고
+   * 있었다 — 새 조회 함수를 또 만드는 대신 이 함수를 확장해 4곳을 여기로 옮긴다.
+   */
+  label?: string;
+  saju_json?: OwnProfileIdentity | null;
+  birth_date_confirmed_at?: string | null;
 }
 
 /** UNIQUE 컬럼에 NULL을 넣지 않기 위한 정규화(016과 동일 규칙). "HH:MM:SS" → "HH:MM" */

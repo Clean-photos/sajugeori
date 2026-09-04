@@ -36,11 +36,24 @@ export interface ResolvedTarget {
   isAdhoc: boolean;
 }
 
-/** 로그인 사용자의 등록된 본인 사주를 읽는다(없으면 null). */
-export async function loadOwnProfile(userId: string): Promise<OwnProfile | null> {
+/**
+ * 로그인 사용자의 등록된 본인 사주를 읽는다(없으면 null).
+ *
+ * withDisplay: true면 화면 표시용 필드(label·saju_json·birth_date_confirmed_at)까지
+ * 함께 가져온다. 이 셋을 매번 요청하지 않는 이유는 대상 확정(resolveTarget) 같은
+ * 순수 로직 경로에서는 필요 없는 값이라, 기본은 가볍게 두고 화면(onboarding·
+ * mypage·premium·premium/destiny·홈)에서만 켜서 쓴다.
+ */
+export async function loadOwnProfile(
+  userId: string,
+  opts: { withDisplay?: boolean } = {}
+): Promise<OwnProfile | null> {
+  const cols = opts.withDisplay
+    ? "id, label, birth_date, birth_time, gender, calendar, saju_json, birth_date_confirmed_at"
+    : "id, birth_date, birth_time, gender, calendar";
   const { data } = await supabaseAdmin
     .from("saju_profiles")
-    .select("id, birth_date, birth_time, gender, calendar")
+    .select(cols)
     .eq("user_id", userId).eq("label", "본인")
     .order("created_at", { ascending: false }).limit(1).maybeSingle();
   return (data as OwnProfile | null) ?? null;

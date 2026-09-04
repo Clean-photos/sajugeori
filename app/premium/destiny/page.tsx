@@ -4,6 +4,7 @@ import { BottomTabBar } from "@/components/layout/BottomTabBar";
 import { auth } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/db/client";
 import { isPremiumUser, findUnusedDestinyPass, hasSajuReport } from "@/lib/billing/access";
+import { loadOwnProfile } from "@/lib/billing/report-target";
 import { DESTINY_BLUEPRINT_ONE, DESTINY_UPGRADE } from "@/lib/billing/plans";
 import { DestinySamplePreview } from "@/components/blueprint/DestinySamplePreview";
 import sampleFullReport from "@/lib/blueprint-engine/sample-full-report.json";
@@ -29,10 +30,7 @@ export default async function DestinyPage() {
   let hasReport = false;
   let eligibleForUpgrade = false;
   if (userId) {
-    const { data: p } = await supabaseAdmin
-      .from("saju_profiles").select("id, saju_json, birth_date, birth_time, gender")
-      .eq("user_id", userId).eq("label", "본인")
-      .order("created_at", { ascending: false }).limit(1).single();
+    const p = await loadOwnProfile(userId, { withDisplay: true });
     if (p?.birth_date) {
       saved = { birth_date: p.birth_date, birth_time: p.birth_time, gender: p.gender };
     }
@@ -106,7 +104,7 @@ export default async function DestinyPage() {
         </div>
       )}
 
-      <BottomTabBar />
+      <BottomTabBar hasProfile={hasProfile} />
     </div>
   );
 }
