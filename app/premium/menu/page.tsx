@@ -12,53 +12,40 @@ export const metadata: Metadata = {
 };
 
 /**
- * 아래 그리드 일곱 종에 운명 설계도(상단 단독 카드)를 더해 화면에는 여덟 장이 뜬다.
- * 일곱 종 모두 판매 중이다. 지정된 화면 순서: (사주,궁합) → (연운세,살풀이) →
- * (택일,오행보완) → (반려동물). 반려동물 궁합 아이콘은 어두운 카드 배경에 묻히던
- * 발자국 대신 색이 뚜렷한 강아지 이모지로 바꿨다.
+ * §3(2/3 문서, CEO 결정 2026-09-03): 990원 상품 7개가 완전히 동일한 무게로
+ * 나열돼 처음 온 사람이 무엇부터 볼지 알 수 없었다. 프리미엄 사주를 "처음이라면
+ * 여기부터"로 승격(단독 카드)하고, 나머지 6개는 상황별로 묶는다 —
+ * 관계(궁합·반려동물) · 때(택일·연운세) · 막힘(살풀이·오행보완).
+ * 운명 설계도는 기존처럼 최상단 단독 카드를 유지한다.
  */
-const MENU_CARDS = [
+const FLAGSHIP_CARD = {
+  href: "/premium",
+  icon: "☯",
+  title: "프리미엄 사주",
+  subtitle: "여덟 영역 심층 풀이",
+};
+
+const MENU_GROUPS: { label: string; cards: { href: string; icon: string; title: string; subtitle: string }[] }[] = [
   {
-    href: "/premium",
-    icon: "☯",
-    title: "프리미엄 사주",
-    subtitle: "여덟 영역 심층 풀이",
+    label: "관계",
+    cards: [
+      { href: "/premium/compatibility", icon: "∞", title: "프리미엄 궁합", subtitle: "두 사람의 사주를 양방향으로" },
+      { href: "/premium/pet", icon: "🐶", title: "반려동물 궁합", subtitle: "우리 아이와 나의 케미" },
+    ],
   },
   {
-    href: "/premium/compatibility",
-    icon: "∞",
-    title: "프리미엄 궁합",
-    subtitle: "두 사람의 사주를 양방향으로",
+    label: "때",
+    cards: [
+      { href: "/premium/taekil", icon: "📅", title: "프리미엄 택일", subtitle: "이사·개업·계약 좋은 날" },
+      { href: "/premium/yearly", icon: "運", title: "프리미엄 연운세", subtitle: "올해와 내년, 월별 흐름" },
+    ],
   },
   {
-    href: "/premium/yearly",
-    icon: "運",
-    title: "프리미엄 연운세",
-    subtitle: "올해와 내년, 월별 흐름",
-  },
-  {
-    href: "/premium/salpuri",
-    icon: "殺",
-    title: "프리미엄 살풀이",
-    subtitle: "내 사주에 든 살을 하나씩",
-  },
-  {
-    href: "/premium/taekil",
-    icon: "📅",
-    title: "프리미엄 택일",
-    subtitle: "이사·개업·계약 좋은 날",
-  },
-  {
-    href: "/premium/ohang",
-    icon: "行",
-    title: "오행 보완 리포트",
-    subtitle: "부족한 기운을 무엇으로, 언제 채울지",
-  },
-  {
-    href: "/premium/pet",
-    icon: "🐶",
-    title: "반려동물 궁합",
-    subtitle: "우리 아이와 나의 케미",
+    label: "막힘",
+    cards: [
+      { href: "/premium/salpuri", icon: "殺", title: "프리미엄 살풀이", subtitle: "내 사주에 든 살을 하나씩" },
+      { href: "/premium/ohang", icon: "行", title: "오행 보완 리포트", subtitle: "부족한 기운을 무엇으로, 언제 채울지" },
+    ],
   },
 ];
 
@@ -108,27 +95,54 @@ export default function PremiumMenuPage() {
         </Link>
       </section>
 
-      <section className="px-4 grid grid-cols-2 gap-3">
-        {MENU_CARDS.map((card) => (
-          <Link key={card.href} href={card.href}>
-            <div className="relative overflow-hidden rounded-2xl p-5 min-h-[150px] flex flex-col justify-between active:scale-[0.96] transition-all duration-200 shadow-sm bg-[#1F3D34] text-white">
-              <div aria-hidden="true" className="absolute -bottom-3 -right-2 font-serif text-[72px] leading-none select-none text-white/10">
-                {card.icon}
-              </div>
-              <span className="font-serif text-3xl font-bold leading-none text-white/90">
-                {card.icon}
+      {/* 프리미엄 사주 — "처음이라면 여기부터". 단독 카드로 승격해 시각적
+          우선순위를 준다(리본 배지는 운명 설계도와 같은 자리, 다른 색으로 구분). */}
+      <section className="px-4 mb-4">
+        <Link href={FLAGSHIP_CARD.href}>
+          <div className="relative overflow-hidden rounded-2xl p-5 min-h-[110px] flex items-center gap-4 active:scale-[0.98] transition-all duration-200 shadow-sm bg-[#1F3D34] text-white">
+            <span className="absolute top-0 right-0 text-[10px] font-semibold px-3 py-1 rounded-bl-xl bg-[#41614B] text-white tracking-wide">
+              처음이라면 여기부터
+            </span>
+            <span className="font-serif text-4xl font-bold leading-none text-white/90 flex-shrink-0">
+              {FLAGSHIP_CARD.icon}
+            </span>
+            <div>
+              <p className="font-semibold text-base leading-snug">{FLAGSHIP_CARD.title}</p>
+              <p className="text-xs mt-0.5 text-white/65">{FLAGSHIP_CARD.subtitle}</p>
+              <span className="inline-block mt-2 text-[10px] font-medium px-2 py-0.5 rounded-full bg-[#C8743A] text-white">
+                {ONE_REPORT_PRICE.toLocaleString()}원
               </span>
-              <div className="relative">
-                <p className="font-semibold text-base leading-snug">{card.title}</p>
-                <p className="text-xs mt-0.5 text-white/65">{card.subtitle}</p>
-                <span className="inline-block mt-2 text-[10px] font-medium px-2 py-0.5 rounded-full bg-[#C8743A] text-white">
-                  {ONE_REPORT_PRICE.toLocaleString()}원
-                </span>
-              </div>
             </div>
-          </Link>
-        ))}
+          </div>
+        </Link>
       </section>
+
+      {MENU_GROUPS.map((group) => (
+        <section key={group.label} className="px-4 mb-4">
+          <p className="text-xs font-semibold text-[#8A8580] uppercase tracking-wider mb-2 px-1">{group.label}</p>
+          <div className="grid grid-cols-2 gap-3">
+            {group.cards.map((card) => (
+              <Link key={card.href} href={card.href}>
+                <div className="relative overflow-hidden rounded-2xl p-5 min-h-[150px] flex flex-col justify-between active:scale-[0.96] transition-all duration-200 shadow-sm bg-[#1F3D34] text-white">
+                  <div aria-hidden="true" className="absolute -bottom-3 -right-2 font-serif text-[72px] leading-none select-none text-white/10">
+                    {card.icon}
+                  </div>
+                  <span className="font-serif text-3xl font-bold leading-none text-white/90">
+                    {card.icon}
+                  </span>
+                  <div className="relative">
+                    <p className="font-semibold text-base leading-snug">{card.title}</p>
+                    <p className="text-xs mt-0.5 text-white/65">{card.subtitle}</p>
+                    <span className="inline-block mt-2 text-[10px] font-medium px-2 py-0.5 rounded-full bg-[#C8743A] text-white">
+                      {ONE_REPORT_PRICE.toLocaleString()}원
+                    </span>
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+      ))}
 
       {/* 기능 설명 — 결제 전 방문자와 크롤러가 읽을 실제 내용 */}
       <section className="px-5 mt-8 pt-7 border-t border-[#E5DFD4] flex flex-col gap-4">
