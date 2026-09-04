@@ -86,9 +86,11 @@ export default function AboutPage() {
             과학적으로 검증되지 않은 내용은 그 위상을 분명히 적어 둡니다.
           </p>
           <p className="mt-2">
-            또한 삼재 연도표나 간지 조견표처럼 손으로 만들기 번거로운 자료는 계산 엔진으로
-            직접 산출해 제공합니다. 잘못된 내용을 발견하시면 문의하기를 통해 알려 주시면
-            확인 후 정정하겠습니다.
+            또한{" "}
+            <Link href="/reference/samjae" className="text-[#C8743A] underline underline-offset-2">삼재 연도표</Link>나{" "}
+            <Link href="/reference/ganji" className="text-[#C8743A] underline underline-offset-2">간지 조견표</Link>처럼
+            손으로 만들기 번거로운 자료는 계산 엔진으로 직접 산출해 제공합니다. 잘못된
+            내용을 발견하시면 문의하기를 통해 알려 주시면 확인 후 정정하겠습니다.
           </p>
         </section>
 
