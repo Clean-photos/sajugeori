@@ -58,7 +58,14 @@ export interface SeunPlan {
   years: SeunYear[];
   /** 3년 창 안에서 대운이 바뀌면 그 지점. 없으면 null */
   transition: SeunTransition | null;
-  /** 3년 내내 배경이 되는 대운 (교체가 없을 때만 채워진다) */
+  /**
+   * 지금(첫 해) 속한 대운 — §5(CEO 결정 2026-09-05, 실물 확인): 3년 안에 교체가
+   * 있으면 이 값이 비어(null) "전환 안내"만 나가 표본마다 표기 형식이 달라지고
+   * 특히 "현재 대운"을 아예 알려주지 않는 경우가 있었다("42세 무렵 대운이
+   * 壬申로 바뀝니다"만 있고 지금 어느 대운인지는 없음). 이제 교체 여부와
+   * 무관하게 **항상** 첫 해의 대운을 담는다 — transition은 부가 정보로 함께
+   * 나간다(buildDaewoonNote 참고).
+   */
   backgroundDaewoon: SeunDaewoon | null;
 }
 
@@ -138,9 +145,8 @@ export function buildSeunPlan(
     }
   }
 
-  const first = years[0].daewoon;
-  const backgroundDaewoon =
-    transition === null && first && years.every((y) => y.daewoon?.ganji === first.ganji) ? first : null;
+  // §5: 교체 여부와 무관하게 지금(첫 해) 대운은 항상 낸다.
+  const backgroundDaewoon = years[0].daewoon;
 
   return { years, transition, backgroundDaewoon };
 }

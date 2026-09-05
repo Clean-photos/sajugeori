@@ -46,7 +46,9 @@ function yearsBlock(plan: SeunPrescriptionPlan): string {
 }
 
 function daewoonLine(plan: SeunPrescriptionPlan): string {
-  return plan.daewoonNote.transition ?? plan.daewoonNote.background ?? "대운 정보 없음";
+  // §5(CEO 결정 2026-09-05): 현재 대운은 항상 내고, 전환은 있으면 이어 붙인다.
+  const parts = [plan.daewoonNote.background, plan.daewoonNote.transition].filter(Boolean);
+  return parts.length > 0 ? parts.join(" ") : "대운 정보 없음";
 }
 
 export function buildSeunNarrativePrompt(chart: SajuChart, cls: Classification, plan: SeunPrescriptionPlan): string {

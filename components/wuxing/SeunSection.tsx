@@ -64,7 +64,9 @@ function YearCard({ y }: { y: YearPrescription }) {
 }
 
 export function SeunSection({ seun, narrative }: { seun: SeunPrescriptionPlan; narrative?: WuxingNarratives["seunFlow"] }) {
-  const daewoonLine = seun.daewoonNote.transition ?? seun.daewoonNote.background;
+  // §5(CEO 결정 2026-09-05): 현재 대운은 항상 표기하고, 전환이 있으면 이어 붙인다
+  // (둘이 더 이상 상호 배타적이지 않다 — buildDaewoonNote 참고).
+  const daewoonLine = [seun.daewoonNote.background, seun.daewoonNote.transition].filter(Boolean).join(" ");
   return (
     <section className="flex flex-col gap-3">
       <h2 className="font-serif text-lg font-bold text-[#1F3D34]">3년 처방 ★</h2>

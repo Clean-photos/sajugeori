@@ -212,7 +212,9 @@ for (const c of CASES) {
   eq(`[${c.name}] 2027 = 정미`, plan.years[1].ganji, "丁未(정미)");
   eq(`[${c.name}] 2028 = 무신`, plan.years[2].ganji, "戊申(무신)");
   check(`[${c.name}] incoming 합 = 2 (천간1+지지1)`, plan.years.every((y) => Object.values(y.incoming).reduce((a, b) => a + b, 0) === 2));
-  check(`[${c.name}] 교체와 배경 대운은 동시에 성립하지 않음`, !(plan.transition && plan.backgroundDaewoon));
+  // §5(CEO 결정 2026-09-05): 배경 대운(=현재 대운)은 교체 여부와 무관하게
+  // 항상 첫 해의 대운과 같다 — 더 이상 교체와 상호 배타적이지 않다.
+  eq(`[${c.name}] 배경 대운 = 첫 해 대운(교체 여부 무관)`, plan.backgroundDaewoon, plan.years[0].daewoon);
 }
 
 // A케이스는 3년 창 안에서 대운이 바뀐다 (2027년 甲申→乙酉, 37세)
@@ -221,7 +223,9 @@ for (const c of CASES) {
   const plan = buildSeunPlan(chart, classify(chart), 2026);
   check("[A] 대운 교체 감지", plan.transition !== null, JSON.stringify(plan.transition));
   eq("[A] 교체 나이 37세", plan.transition?.aroundAge, 37);
-  eq("[A] 교체 후 배경 대운 없음", plan.backgroundDaewoon, null);
+  // 교체가 있어도 "지금(첫 해)" 대운은 여전히 표기된다 — 교체 전 대운과 같다.
+  check("[A] 교체가 있어도 현재 대운 표기됨", plan.backgroundDaewoon !== null);
+  eq("[A] 현재 대운 = 교체 전(from) 대운", plan.backgroundDaewoon?.ganji, plan.transition?.fromGanji);
 }
 
 // C케이스는 3년 내내 같은 대운 (戊戌, 25~34세)
@@ -506,8 +510,10 @@ for (const c of CASES) {
       check(`[${c.name}] ${y.year} 피할 것 2개 이하`, y.avoidItems.length <= 2);
       check(`[${c.name}] ${y.year} 우선 항목에 실행란 존재`, y.priorityItems.every((it) => !!it.action));
     }
-    check(`[${c.name}] 대운 안내는 교체·배경 동시 성립 안 함`, !(plan.daewoonNote.background && plan.daewoonNote.transition));
+    // §5(CEO 결정 2026-09-05): 현재 대운(background)은 교체 여부와 무관하게
+    // 항상 나온다 — 전환이 있을 때도 "지금 어느 대운인지"가 함께 표기돼야 한다.
     if (plan.daewoonNote.transition) {
+      check(`[${c.name}] 전환이 있어도 현재 대운 표기 있음`, !!plan.daewoonNote.background);
       check(`[${c.name}] 전환 안내는 연도를 못 박지 않음(나이만)`, /\d+세 무렵/.test(plan.daewoonNote.transition));
       check(`[${c.name}] 전환 안내에 4자리 연도 없음`, !/\d{4}/.test(plan.daewoonNote.transition));
     }
@@ -522,6 +528,8 @@ for (const c of CASES) {
     const chart = buildChart(CASES[0].iso, "M", true);
     const plan = buildSeunPrescription(chart, classify(chart), 2026);
     eq("[A] 전환 안내", plan.daewoonNote.transition, "37세 무렵 대운이 乙酉(을유)로 바뀝니다");
+    // §5: 전환이 있어도 현재 대운 안내가 함께 있어야 한다(이전엔 null이었다).
+    check("[A] 전환 있어도 현재 대운 안내 존재", !!plan.daewoonNote.background);
   }
   // C케이스는 3년 내내 같은 대운
   {

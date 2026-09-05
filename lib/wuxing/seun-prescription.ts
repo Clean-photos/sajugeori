@@ -143,10 +143,21 @@ export interface YearPrescription {
 const habitEnvFirst: Axis[] = ["habit", "environment", "color", "direction", "food", "material"];
 const habitFirst: Axis[] = ["habit", "color", "direction", "food", "material", "environment"];
 
+/**
+ * §3(CEO 결정 2026-09-05, 실물 확인): A층 사전엔 "밝은 하늘색·청록은 수가
+ * 아닙니다", "짠맛은 미미하게만"처럼 오해 방지용 부정형·주의 문구가 섞여
+ * 있다. dict.ts의 avoidanceItems()가 잡는 "줄이기/회피/자제/피하기" 같은
+ * 명시적 회피 행동과는 다른 카테고리다 — 이건 "하지 마세요"가 아니라 "이건
+ * 효과가 없다/과하면 안 된다"는 설명이라, "올해 우선할 것" 아래 놓이면
+ * 표제와 내용이 정반대로 읽힌다("피할 것" 자리엔 원래도 안 쓰인다 — 그쪽은
+ * avoidanceItems 별도 풀). 우선 항목 후보에서만 걸러낸다.
+ */
+const CAVEAT_PATTERN = /아닙니다|아님|않게|미미하게만/;
+
 /** order 순서대로 그 오행의 전체 항목을 모은다(슬라이스하지 않는다 — 중복 제거용 큰 후보군이 필요해서). */
 function collectByAxisOrderFull(el: Element, order: Axis[], byStrength = false): DictItem[] {
   const pool: DictItem[] = [];
-  for (const ax of order) pool.push(...axisItems(el, ax));
+  for (const ax of order) pool.push(...axisItems(el, ax).filter((it) => !CAVEAT_PATTERN.test(it.item)));
   if (!byStrength) return pool;
   const rank: Record<string, number> = { A: 0, B: 1, C: 2 };
   return [...pool]
@@ -339,16 +350,13 @@ export interface SeunPrescriptionPlan {
 }
 
 function buildDaewoonNote(plan: SeunPlan): DaewoonNote {
-  if (plan.transition) {
-    return {
-      background: null,
-      transition: `${plan.transition.aroundAge}세 무렵 대운이 ${plan.transition.toGanji}로 바뀝니다`,
-    };
-  }
-  if (plan.backgroundDaewoon) {
-    return { background: `지금은 ${plan.backgroundDaewoon.ganji} 대운 안입니다`, transition: null };
-  }
-  return { background: null, transition: null };
+  // §5(CEO 결정 2026-09-05): 교체 여부와 무관하게 현재 대운은 항상 표기하고,
+  // 전환은 있을 때만 부가로 붙인다 — 이전엔 둘이 상호 배타적이라 교체가 있는
+  // 표본은 "지금 어느 대운인지"를 아예 안 알려줬다.
+  return {
+    background: plan.backgroundDaewoon ? `지금은 ${plan.backgroundDaewoon.ganji} 대운 안입니다` : null,
+    transition: plan.transition ? `${plan.transition.aroundAge}세 무렵 대운이 ${plan.transition.toGanji}로 바뀝니다` : null,
+  };
 }
 
 /**
