@@ -99,9 +99,16 @@ export function buildDiagnosis(chart: SajuChart, cls: Classification): Diagnosis
   // 없으면(§3-⑤가 다루는 "부족은 있지만 과다는 없는" 사주) "넘치고"를 붙이지 않는다
   const L = cls.primary;
   const X = cls.excessive[0] ?? null;
+  // §1(CEO 결정 2026-09-05, 실물 확인): classify.ts는 absent(표면 0개)가 없으면
+  // scarce(표면 1개)에서 primary를 고른다 — 그런데 여기서는 두 경우 모두 "비어
+  // 있는"으로 썼다. 실측 31.8%(부재 없는 사주)가 "木이 비어 있는 사주"라는 제목을
+  // 받으면서 바로 아래 분포표·본문엔 "木 1개"가 보인다 — 첫 줄부터 자기 명식과
+  // 어긋나는 문장을 보는 것. 진짜 부재(0개)일 때만 "비어 있는", 1개면 "가장 적은".
+  const Lcount = count.surface[L];
+  const Ltail = Lcount === 0 ? "비어 있는" : "가장 적은";
   const headline = X
-    ? `**${elKr(X)}${josaIga(X)} 넘치고 ${elKr(L)}${josaIga(L)} 비어 있는 사주**`
-    : `**${elKr(L)}${josaIga(L)} 비어 있는 사주**`;
+    ? `**${elKr(X)}${josaIga(X)} 넘치고 ${elKr(L)}${josaIga(L)} ${Ltail} 사주**`
+    : `**${elKr(L)}${josaIga(L)} ${Ltail} 사주**`;
   return {
     pattern: "scarce1",
     headline,
