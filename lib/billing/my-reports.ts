@@ -44,6 +44,14 @@ export type MyReport = {
   created_at: string;
   /** 이 리포트를 만든 대상 사주 표시 문구(예: "1978-03-01(양력) 여성"). 알 수 없으면 null. */
   target: string | null;
+  /**
+   * §4(CEO 결정 2026-09-05): 저장된 리포트를 "다시 보기"로 열 방법이 없어 매번
+   * 입력 폼으로 떨어지던 문제 — 새 열람 라우트 대신, 대상 원본 값을 그대로 담아
+   * 두면 각 상품 페이지가 이미 가진 "확정→캐시 우선 조회" 로직을 그대로 타
+   * 저장된 내용을 돌려받는다(새 ID·새 테이블 불필요). 값이 없으면(정보 유실 등)
+   * 호출부는 기존처럼 정적 href만 쓴다.
+   */
+  viewParams: { birth_date: string; birth_time: string | null; gender: string } | null;
 };
 
 function formatTarget(birthDate: string, gender: string, calendar?: string | null): string {
@@ -58,16 +66,16 @@ export async function listUserReports(userId: string): Promise<MyReport[]> {
   // saju_profile_id로 저장된 리포트들 — 같은 사용자가 과거에 여러 번 재등록했다면
   // 서로 다른 profile row를 가리킬 수 있다(재등록은 INSERT라 옛 row가 남는다).
   // id별로 한 번만 조회해 재사용한다.
-  const profileCache = new Map<string, { birth_date: string; gender: string; calendar: string } | null>();
-  async function targetOfProfile(id: string | null | undefined): Promise<string | null> {
+  type ProfileRow = { birth_date: string; birth_time: string | null; gender: string; calendar: string };
+  const profileCache = new Map<string, ProfileRow | null>();
+  async function loadProfile(id: string | null | undefined): Promise<ProfileRow | null> {
     if (!id) return null;
     if (!profileCache.has(id)) {
       const { data } = await supabaseAdmin
-        .from("saju_profiles").select("birth_date, gender, calendar").eq("id", id).maybeSingle();
+        .from("saju_profiles").select("birth_date, birth_time, gender, calendar").eq("id", id).maybeSingle();
       profileCache.set(id, data ?? null);
     }
-    const p = profileCache.get(id);
-    return p ? formatTarget(p.birth_date, p.gender, p.calendar) : null;
+    return profileCache.get(id) ?? null;
   }
 
   await Promise.all(
@@ -82,9 +90,11 @@ export async function listUserReports(userId: string): Promise<MyReport[]> {
         if (error || !data) return;
         for (const row of data) {
           if (!row?.created_at) continue;
+          const p = await loadProfile(row.saju_profile_id as string | null);
           out.push({
             label: s.label, href: s.href, created_at: row.created_at,
-            target: await targetOfProfile(row.saju_profile_id as string | null),
+            target: p ? formatTarget(p.birth_date, p.gender, p.calendar) : null,
+            viewParams: p ? { birth_date: p.birth_date, birth_time: p.birth_time, gender: p.gender } : null,
           });
         }
       } catch {
@@ -106,6 +116,8 @@ export async function listUserReports(userId: string): Promise<MyReport[]> {
       out.push({
         label: "프리미엄 궁합", href: "/premium/compatibility", created_at: row.created_at,
         target: row.person_a_birth ? formatTarget(row.person_a_birth, row.person_a_gender) : null,
+        // person_a 쪽엔 태어난 시각이 저장돼 있지 않아 재조회 자동제출 대상에서 제외.
+        viewParams: null,
       });
     }
   } catch { /* noop */ }
@@ -114,7 +126,7 @@ export async function listUserReports(userId: string): Promise<MyReport[]> {
   try {
     const { data } = await supabaseAdmin
       .from("premium_saju_adhoc_reports")
-      .select("created_at, birth_date, gender")
+      .select("created_at, birth_date, birth_time, gender")
       .eq("user_id", userId)
       .order("created_at", { ascending: false })
       .limit(20);
@@ -123,6 +135,7 @@ export async function listUserReports(userId: string): Promise<MyReport[]> {
       out.push({
         label: "프리미엄 사주 (직접 입력)", href: "/premium", created_at: row.created_at,
         target: row.birth_date ? formatTarget(row.birth_date, row.gender) : null,
+        viewParams: row.birth_date ? { birth_date: row.birth_date, birth_time: row.birth_time || null, gender: row.gender } : null,
       });
     }
   } catch { /* noop */ }
@@ -132,7 +145,7 @@ export async function listUserReports(userId: string): Promise<MyReport[]> {
   try {
     const { data } = await supabaseAdmin
       .from("premium_adhoc_reports")
-      .select("created_at, product_id, birth_date, gender")
+      .select("created_at, product_id, birth_date, birth_time, gender")
       .eq("user_id", userId)
       .order("created_at", { ascending: false })
       .limit(50);
@@ -143,6 +156,7 @@ export async function listUserReports(userId: string): Promise<MyReport[]> {
       out.push({
         label: meta.label, href: meta.href, created_at: row.created_at,
         target: row.birth_date ? formatTarget(row.birth_date, row.gender) : null,
+        viewParams: row.birth_date ? { birth_date: row.birth_date, birth_time: row.birth_time || null, gender: row.gender } : null,
       });
     }
   } catch { /* noop */ }

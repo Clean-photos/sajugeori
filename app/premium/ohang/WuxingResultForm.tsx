@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { WuxingReportData } from "@/lib/wuxing/report";
 import { wuxingReportToPlainText } from "@/lib/wuxing/report";
 import { WuxingReport } from "@/components/wuxing/WuxingReport";
@@ -16,12 +16,24 @@ type Step = "form" | "loading" | "result" | "deleted";
 
 type Target = { birth_date: string; birth_time: string | null; gender: string };
 
-export function WuxingResultForm({ saved }: { saved: SavedSaju }) {
-  const [step, setStep] = useState<Step>("form");
+export function WuxingResultForm({ saved, autoTarget }: { saved: SavedSaju; autoTarget?: Target | null }) {
+  // autoTarget이 있으면 폼이 잠깐이라도 보이지 않도록 처음부터 loading으로 시작한다.
+  const [step, setStep] = useState<Step>(autoTarget ? "loading" : "form");
   const [report, setReport] = useState<WuxingReportData | null>(null);
   const [error, setError] = useState<PremiumErrorInfo | null>(null);
   // 어떤 대상으로 만든 리포트인지 — 삭제할 때 같은 대상을 지워야 한다.
   const [target, setTarget] = useState<Target | null>(null);
+  // §4(2026-09-05): 마이페이지 "보기 →"로 들어온 경우 폼을 보여주지 않고 바로
+  // 제출한다 — /api/premium/wuxing이 이미 "확정 대상과 같으면 캐시 반환"을
+  // 하므로, 여기서 새 열람 경로를 만들 필요 없이 그 경로를 그대로 태운다.
+  const autoFired = useRef(false);
+  useEffect(() => {
+    if (autoTarget && !autoFired.current) {
+      autoFired.current = true;
+      submit(autoTarget);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function submit(v: Target) {
     setStep("loading");

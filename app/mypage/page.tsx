@@ -9,6 +9,23 @@ import { listUserReports, type MyReport } from "@/lib/billing/my-reports";
 import { loadOwnProfile, type OwnProfile } from "@/lib/billing/report-target";
 import { BirthDateConfirmBanner } from "@/components/BirthDateConfirmBanner";
 
+/**
+ * §4(CEO 결정 2026-09-05): "보기 →"가 저장된 결과가 아니라 입력 폼으로 떨어지던
+ * 문제 — 오행 보완 리포트는 대상 원본 값을 쿼리로 실어 보내 그 페이지가 자동
+ * 제출하게 한다(§1 홈 히어로 폼과 같은 autostart 패턴). 그 페이지의 "확정→캐시
+ * 우선 조회" 로직을 그대로 타므로 저장된 내용을 그대로 돌려받는다. 다른 상품은
+ * 아직 이 자동제출을 안 받아 두어(각자 폼 구조가 달라 검증이 더 필요) 기존
+ * 정적 링크를 유지한다 — 같은 문제가 있는 건 확인했지만 이번 보고 범위 밖.
+ */
+function viewHref(r: { href: string; viewParams: { birth_date: string; birth_time: string | null; gender: string } | null }): string {
+  if (r.href === "/premium/ohang" && r.viewParams) {
+    const q = new URLSearchParams({ birth_date: r.viewParams.birth_date, gender: r.viewParams.gender, autostart: "1" });
+    if (r.viewParams.birth_time) q.set("birth_time", r.viewParams.birth_time);
+    return `/premium/ohang?${q.toString()}`;
+  }
+  return r.href;
+}
+
 export default async function MypagePage() {
   const session = await auth();
   const loggedIn = !!session?.user?.id;
@@ -126,7 +143,7 @@ export default async function MypagePage() {
               <ul className="flex flex-col gap-2">
                 {reports.map((r, i) => (
                   <li key={i}>
-                    <a href={r.href} className="flex items-center justify-between py-1.5 active:opacity-60">
+                    <a href={viewHref(r)} className="flex items-center justify-between py-1.5 active:opacity-60">
                       <span className="flex flex-col">
                         <span className="text-sm text-[#1A1A18]">{r.label}</span>
                         {/* §3(CEO 결정 2026-09-02): 같은 상품을 본인·가족 여러 명 몫으로
