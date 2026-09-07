@@ -21,7 +21,8 @@
         "habit",
         "environment"
       ],
-      "peopleRank": 2
+      "peopleRank": 2,
+      "requiresStrengthCheck": true
     },
     "인성": {
       "label": "인성",
@@ -85,7 +86,8 @@
         "habit",
         "environment"
       ],
-      "peopleRank": 1
+      "peopleRank": 1,
+      "requiresStrengthCheck": true
     },
     "비겁": {
       "label": "비겁",

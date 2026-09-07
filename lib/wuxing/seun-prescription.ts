@@ -16,7 +16,7 @@ import type { Element } from "@/lib/saju-engine/constants";
 import type { SajuChart } from "@/lib/saju-engine/engine";
 import { type Classification } from "./classify";
 import { buildSeunPlan, type SeunPlan, type SeunYear } from "./seun";
-import { type DictItem, avoidanceItems, axisItems, elementDict, AXES, type Axis } from "./dict";
+import { type DictItem, avoidanceItems, axisItems, elementDict, AXES, CAVEAT_PATTERN, type Axis } from "./dict";
 
 export type SeunCase = "A" | "B" | "C" | "D" | "E";
 
@@ -142,17 +142,6 @@ export interface YearPrescription {
 // C: "행동·환경 축 우선" — 둘 다 앞으로. E: "행동 축 우선" — 행동만 앞으로.
 const habitEnvFirst: Axis[] = ["habit", "environment", "color", "direction", "food", "material"];
 const habitFirst: Axis[] = ["habit", "color", "direction", "food", "material", "environment"];
-
-/**
- * §3(CEO 결정 2026-09-05, 실물 확인): A층 사전엔 "밝은 하늘색·청록은 수가
- * 아닙니다", "짠맛은 미미하게만"처럼 오해 방지용 부정형·주의 문구가 섞여
- * 있다. dict.ts의 avoidanceItems()가 잡는 "줄이기/회피/자제/피하기" 같은
- * 명시적 회피 행동과는 다른 카테고리다 — 이건 "하지 마세요"가 아니라 "이건
- * 효과가 없다/과하면 안 된다"는 설명이라, "올해 우선할 것" 아래 놓이면
- * 표제와 내용이 정반대로 읽힌다("피할 것" 자리엔 원래도 안 쓰인다 — 그쪽은
- * avoidanceItems 별도 풀). 우선 항목 후보에서만 걸러낸다.
- */
-const CAVEAT_PATTERN = /아닙니다|아님|않게|미미하게만/;
 
 /** order 순서대로 그 오행의 전체 항목을 모은다(슬라이스하지 않는다 — 중복 제거용 큰 후보군이 필요해서). */
 function collectByAxisOrderFull(el: Element, order: Axis[], byStrength = false): DictItem[] {

@@ -145,8 +145,19 @@ export interface StrengthAdjustment {
 }
 
 /**
- * 일간 강약 연동 (§9). 재성 부족은 일간이 튼튼해야 감당된다 — 일간이 약한데 재성만
- * 채우면 재다신약이 되어 오히려 짐이 된다. 엔진이 `strength`를 이미 주므로 그대로 쓴다.
+ * 재성·관성이 부족한데 일간이 신약이면 재다신약— 채울수록 일간이 더 눌린다.
+ * 재성만 이미 검증된 표준 용어이니 괄호 표기는 재성에만 붙인다(하드룰 2 —
+ * 검증 안 된 4자 한자어를 새로 지어내지 않는다). 관성·식상은 같은 원리를
+ * 용어 없이 풀어 설명한다.
+ */
+const STRENGTH_RISK_TERM: Partial<Record<TenGodRelation, string>> = {
+  재성: "재다신약, 財多身弱 — 재물 기운이 일간의 힘보다 많아지는 상태",
+};
+
+/**
+ * 일간 강약 연동 (§9, P4 — CEO 결정 2026-09-05 확장). 재성·관성 부족은 일간이
+ * 튼튼해야 감당되고, 식상 부족은 채울수록 일간 기운이 빠져나간다(설기) — 셋 다
+ * 신약이면 그대로 채우는 게 역효과다. 엔진이 `strength`를 이미 주므로 그대로 쓴다.
  */
 export function adjustForStrength(
   rel: TenGodRelation,
@@ -162,15 +173,15 @@ export function adjustForStrength(
   for (const [k, v] of Object.entries(C.GENERATES) as [Element, Element][]) {
     if (v === dayElement) inseong = k;
   }
+  const term = STRENGTH_RISK_TERM[rel];
   return {
     needed: true,
     // §2(CEO 결정 2026-09-05, 실물 확인): 원래 문구가 "~한다" 서술형 내부 판정
     // 규칙 그대로 렌더링되고 있었다(다른 caution 필드에서 이미 한 번 겪은 사고와
-    // 같은 종류 — 위 writerNote 주석 참고). 사용자에게는 사실 그대로(비겁·인성을
-    // 먼저 채우도록 구성했다는 것)만 존댓말로 전달하고, 아직 실제로 반영되지
-    // 않은 "재성 항목을 줄인다"는 약속은 §2 본작업(항목 선정 연동)이 끝난 뒤에나
-    // 정확한 문장이 된다 — 지금은 과장 없이 원리만 설명한다.
-    reason: `일간이 ${strength.verdict}인 편이라 재성만 단독으로 채우면 오히려 부담이 될 수 있습니다(재다신약, 財多身弱 — 재물 기운이 일간의 힘보다 많아지는 상태). 비겁·인성 계열도 함께 살펴보시면 균형이 더 안정적입니다.`,
+    // 같은 종류 — 위 writerNote 주석 참고). 존댓말로 정리하고, P4(본작업) 반영
+    // 이후엔 "먼저 세운다"는 말이 실제 항목 순서와 일치하도록 유지한다
+    // (report.ts의 buildAdjustedAxes가 이 preferFirst를 그대로 소비한다).
+    reason: `일간이 ${strength.verdict}인 편이라 ${entry.label}만 단독으로 채우면 오히려 부담이 될 수 있습니다${term ? `(${term})` : ""}. 먼저 나를 세운 뒤에 채워야 합니다 — 비겁·인성 계열을 앞에 두었습니다.`,
     preferFirst: [dayElement, inseong],
   };
 }

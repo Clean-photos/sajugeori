@@ -22,6 +22,8 @@ import {
   dict,
   elementDict,
   pickAxisItems,
+  AXES,
+  CAVEAT_PATTERN,
   type Axis,
   type DictItem,
   type DrainItem,
@@ -171,11 +173,18 @@ export function buildFillSection(chart: SajuChart, cls: Classification): FillSec
     };
   }
 
-  const axes = axisPriority(relation, AXIS_COUNT).map((axis) => ({
-    axis,
-    axisLabel: dict.axisLabels[axis],
-    items: pickAxisItems(target, axis, ITEMS_PER_AXIS),
-  }));
+  // §2(P4, CEO 결정 2026-09-05, 실물 확인): 감지는 되는데(reason 문구) 처방
+  // 조립엔 반영이 안 되고 있었다 — 재성·관성이 부족한데 일간이 신약이거나,
+  // 식상이 부족한데 신약이면 L을 그대로 채우는 게 오히려 역효과다(재다신약·
+  // 관살태과·식상신약). needed일 때만 아래로 axes를 다르게 조립한다.
+  const strengthAdjustment = adjustForStrength(relation, chart.day_master_element, chart.strength);
+  const axes = strengthAdjustment.needed
+    ? buildAdjustedAxes(target, relation, strengthAdjustment.preferFirst)
+    : axisPriority(relation, AXIS_COUNT).map((axis) => ({
+        axis,
+        axisLabel: dict.axisLabels[axis],
+        items: pickAxisItems(target, axis, ITEMS_PER_AXIS),
+      }));
 
   // §4 — primary↔용신 갈림 여부. buildYongsinCard가 이미 이 판정을 하므로 재사용한다
   // (같은 규칙을 두 곳에서 따로 계산하면 언젠가 어긋난다).
@@ -195,11 +204,44 @@ export function buildFillSection(chart: SajuChart, cls: Classification): FillSec
     supportElement: entry.supportElement,
     supportElementKr: C.ELEMENT_KR[entry.supportElement],
     supportNote: entry.supportNote,
-    strengthAdjustment: adjustForStrength(relation, chart.day_master_element, chart.strength),
+    strengthAdjustment,
     excluded: [],
     excludedKr: [],
     peopleAxisPrimary: peopleAxisIsPrimary(relation),
   };
+}
+
+/**
+ * §2(P4): 일간이 약해 L을 그대로 채우면 역효과인 경우의 축 구성.
+ *   ① 먼저 세우기(비겁·인성) — 각 오행에서 강도 A 항목 위주로 2~3개
+ *   ② L 계열 — 강도 A(★★★)만 최대 4개(12개 그대로 밀어내지 않는다)
+ * 둘 다 실제 Axis(색·방향 등) 하나에 묶이는 항목이 아니라 "오행 카테고리"
+ * 묶음이라 axis 필드는 React key 용도로만 쓰고(서로만 다르면 됨), 화면에는
+ * axisLabel만 보인다.
+ */
+function buildAdjustedAxes(target: Element, relation: TenGodRelation, preferFirst: Element[]): FillAxisGroup[] {
+  const boost: DictItem[] = [];
+  for (const el of preferFirst) {
+    for (const ax of AXES) {
+      if (boost.length >= 3) break;
+      const [top] = pickAxisItems(el, ax, 1, { byStrength: true });
+      if (top && top.strength === "A" && !CAVEAT_PATTERN.test(top.item) && !boost.some((it) => it.item === top.item)) boost.push(top);
+    }
+  }
+
+  // "채우세요" 목록에 "~는 아닙니다/미미하게만" 같은 오해방지 주의문구가 섞이면
+  // §3(P4)과 같은 표제-내용 불일치가 생긴다 — 여기도 걸러낸다. ITEMS_PER_AXIS(3)로
+  // 먼저 잘라내면 상위 3개가 하필 캐비어트뿐일 때 후보가 통째로 사라질 수 있어
+  // (실측: 사주 A), 축당 넉넉히(10) 뽑아 필터링 후에 슬라이스한다.
+  const targetItems = axisPriority(relation, AXIS_COUNT)
+    .flatMap((ax) => pickAxisItems(target, ax, 10, { byStrength: true }))
+    .filter((it) => it.strength === "A" && !CAVEAT_PATTERN.test(it.item))
+    .slice(0, 4);
+
+  const groups: FillAxisGroup[] = [];
+  if (boost.length > 0) groups.push({ axis: "habit", axisLabel: "먼저 세우기(비겁·인성)", items: boost });
+  if (targetItems.length > 0) groups.push({ axis: "environment", axisLabel: "채우되 양은 조절하기", items: targetItems });
+  return groups;
 }
 
 // ── §④ 사람 축 ───────────────────────────────────────────────────────

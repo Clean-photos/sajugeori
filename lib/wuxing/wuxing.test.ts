@@ -363,7 +363,10 @@ for (const c of CASES) {
   }
 
   // 재성만 일간 강약 확인이 필요하다 (§2-③ 주의점)
-  eq("재성만 requiresStrengthCheck", RELATIONS.filter((r) => relationEntry(r).requiresStrengthCheck), ["재성"]);
+  // §2(P4, CEO 결정 2026-09-05): 재성만이 아니라 관성·식상도 신약이면 채울수록
+  // 역효과다(재다신약과 같은 원리 — 관살태과·설기). 인성·비겁은 신약일수록
+  // 오히려 필요한 쪽이라 대상이 아니다.
+  eq("재성·관성·식상이 requiresStrengthCheck", RELATIONS.filter((r) => relationEntry(r).requiresStrengthCheck).sort(), ["관성", "식상", "재성"].sort());
 
   // caution에 집필 지침이 섞여 있으면 LLM이 그 문장 자체를 리포트에 출력할 위험이 있다
   // (실측 발견: 관성·재성). "~할 것"/"~말 것" 같은 지시문 어미가 caution 본문에 남아있지
@@ -443,9 +446,15 @@ for (const c of CASES) {
     const adj2 = adjustForStrength("재성", strong.day_master_element, strong.strength);
     check("[A] 신강+재성 → 조정 불필요", !adj2.needed);
 
-    // 재성이 아닌 관계는 신약이어도 조정하지 않는다
+    // §2(P4): 식상도 신약이면 조정 대상이다(설기로 더 약해짐) — 재성 전용이 아니다.
     const adj3 = adjustForStrength("식상", weak.day_master_element, weak.strength);
-    check("[C] 신약+식상 → 조정 대상 아님(재성 전용)", !adj3.needed);
+    check("[C] 신약+식상 → 조정 필요", adj3.needed);
+
+    // 인성·비겁은 신약일수록 오히려 채워야 할 쪽이라 대상이 아니다.
+    const adj4 = adjustForStrength("인성", weak.day_master_element, weak.strength);
+    check("[C] 신약+인성 → 조정 대상 아님", !adj4.needed);
+    const adj5 = adjustForStrength("비겁", weak.day_master_element, weak.strength);
+    check("[C] 신약+비겁 → 조정 대상 아님", !adj5.needed);
   }
 
   // 상대 일간 가이드 — 부족 오행을 채워 줄 상대가 나에게 어떤 관계인지
@@ -1088,10 +1097,20 @@ for (const c of CASES) {
     eq(`[${c.name}] fill.target = ${cls.frame === "follow" ? "dominant" : "primary"}(통합 규칙)`, fill.target, expectedTarget);
 
     if (fill.target && fill.frame === "fill") {
-      check(`[${c.name}] 축 3~4개`, fill.axes.length >= 3 && fill.axes.length <= 4, `${fill.axes.length}개`);
-      check(`[${c.name}] 축 중복 없음`, new Set(fill.axes.map((a) => a.axis)).size === fill.axes.length);
-      check(`[${c.name}] 각 축 상위 3항목`, fill.axes.every((a) => a.items.length <= 3));
-      check(`[${c.name}] A층 항목 총 ${fill.axes.length * 3}개 이하`, countFillItems(fill) <= fill.axes.length * 3, `${countFillItems(fill)}개`);
+      // §2(P4, CEO 결정 2026-09-05): 재다신약류(재성·관성·식상 부족 + 신약)는
+      // 표준 3~4축×3항목 대신 "먼저 세우기(비겁·인성)" + "채우되 조절"의
+      // 최대 2묶음(각 ≤3, ≤4)으로 축소된다 — 표준 규칙과 분기해서 검증한다.
+      if (fill.strengthAdjustment.needed) {
+        check(`[${c.name}] 신약 조정 — 축 1~2개`, fill.axes.length >= 1 && fill.axes.length <= 2, `${fill.axes.length}개`);
+        check(`[${c.name}] 신약 조정 — 축 중복 없음`, new Set(fill.axes.map((a) => a.axis)).size === fill.axes.length);
+        check(`[${c.name}] 신약 조정 — 항목 전부 강도 A`, fill.axes.every((a) => a.items.every((it) => it.strength === "A")));
+        check(`[${c.name}] 신약 조정 — L 항목 4개 이하`, fill.axes.every((a) => a.items.length <= 4));
+      } else {
+        check(`[${c.name}] 축 3~4개`, fill.axes.length >= 3 && fill.axes.length <= 4, `${fill.axes.length}개`);
+        check(`[${c.name}] 축 중복 없음`, new Set(fill.axes.map((a) => a.axis)).size === fill.axes.length);
+        check(`[${c.name}] 각 축 상위 3항목`, fill.axes.every((a) => a.items.length <= 3));
+        check(`[${c.name}] A층 항목 총 ${fill.axes.length * 3}개 이하`, countFillItems(fill) <= fill.axes.length * 3, `${countFillItems(fill)}개`);
+      }
       check(`[${c.name}] intro 문장 존재`, !!fill.intro && fill.intro.length > 0);
       check(`[${c.name}] relationBlock에 writerNote 없음`, !("writerNote" in (fill.relationBlock ?? {})));
       check(`[${c.name}] supportElement가 target을 생함`, fill.supportElement === null || C.GENERATES[fill.supportElement] === fill.target);
