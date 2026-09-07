@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { BottomTabBar } from "@/components/layout/BottomTabBar";
 import { SiteFooter } from "@/components/layout/SiteFooter";
+import { auth } from "@/lib/auth";
+import { loadOwnProfile } from "@/lib/billing/report-target";
 import { ONE_REPORT_PRICE, DESTINY_BLUEPRINT_ONE } from "@/lib/billing/plans";
 
 export const metadata: Metadata = {
@@ -49,7 +51,12 @@ const MENU_GROUPS: { label: string; cards: { href: string; icon: string; title: 
   },
 ];
 
-export default function PremiumMenuPage() {
+export default async function PremiumMenuPage() {
+  // §3(QA 2026-09-05): 하단 탭 라벨 일관성 — 이 페이지가 정적이라 프로필
+  // 여부를 아예 안 봤고, 그래서 항상 기본 라벨("사주추가")만 떴다.
+  const session = await auth();
+  const profile = session?.user?.id ? await loadOwnProfile(session.user.id) : null;
+
   return (
     <div className="flex flex-col min-h-screen pb-24 bg-[#F6F1E7]">
       <header className="relative px-6 pt-14 pb-6 overflow-hidden">
@@ -184,7 +191,7 @@ export default function PremiumMenuPage() {
       </section>
 
       <SiteFooter />
-      <BottomTabBar />
+      <BottomTabBar hasProfile={!!profile} />
     </div>
   );
 }

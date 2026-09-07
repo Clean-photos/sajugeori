@@ -15,27 +15,36 @@ export interface OneTimeOption {
 }
 
 type GateState =
-  | { ok: true }
-  | { ok: false; kind: "login" | "subscribe" | "onboarding" };
+  | { ok: true; hasProfile: true }
+  | { ok: false; kind: "login" | "subscribe" | "onboarding"; hasProfile: boolean };
 
+/**
+ * §3(QA 2026-09-05): 하단 탭 라벨("내 사주" vs "사주추가")이 페이지마다 달랐다
+ * — 예전엔 구독/이용권이 없으면 "subscribe"로 먼저 반환해 프로필 존재 여부를
+ * 아예 확인하지 않았다(프로필이 있어도 "sajuadd" 라벨이 뜸). 프로필 조회를
+ * premium 판정과 병렬로 항상 실행해, gate 결과와 무관하게 hasProfile을 낸다.
+ */
 async function checkGate(oneTime?: OneTimeOption): Promise<GateState> {
   const session = await auth();
   const userId = session?.user?.id;
-  if (!userId) return { ok: false, kind: "login" };
+  if (!userId) return { ok: false, kind: "login", hasProfile: false };
 
-  const premium = await isPremiumUser(userId);
+  const [premium, profileRes] = await Promise.all([
+    isPremiumUser(userId),
+    supabaseAdmin
+      .from("saju_profiles").select("id")
+      .eq("user_id", userId).eq("label", "본인")
+      .order("created_at", { ascending: false }).limit(1).single(),
+  ]);
+  const hasProfile = !!profileRes.data?.id;
+
   const hasPass = !premium && oneTime
     ? (await findUnusedOneTimePass(userId, oneTime.productId)) !== null
     : false;
-  if (!premium && !hasPass) return { ok: false, kind: "subscribe" };
+  if (!premium && !hasPass) return { ok: false, kind: "subscribe", hasProfile };
+  if (!hasProfile) return { ok: false, kind: "onboarding", hasProfile: false };
 
-  const { data: profile } = await supabaseAdmin
-    .from("saju_profiles").select("id")
-    .eq("user_id", userId).eq("label", "본인")
-    .order("created_at", { ascending: false }).limit(1).single();
-  if (!profile?.id) return { ok: false, kind: "onboarding" };
-
-  return { ok: true };
+  return { ok: true, hasProfile: true };
 }
 
 /**
@@ -134,7 +143,7 @@ export async function PremiumGate({
         </>
       )}
 
-      <BottomTabBar />
+      <BottomTabBar hasProfile={gate.hasProfile} />
     </div>
   );
 }

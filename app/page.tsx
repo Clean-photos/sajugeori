@@ -6,7 +6,7 @@ import { KakaoAdFitBanner } from "@/components/ads/KakaoAdFitBanner";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { ONE_REPORT_PRICE, DESTINY_BLUEPRINT_ONE, REPORT_PRODUCTS } from "@/lib/billing/plans";
 import { loadOwnProfile } from "@/lib/billing/report-target";
-import { listUserReports, type MyReport } from "@/lib/billing/my-reports";
+import { listUserReports, viewHref, type MyReport } from "@/lib/billing/my-reports";
 import { isPremiumUser, countRemainingPasses, purchasedProductIds } from "@/lib/billing/access";
 import { HomeSajuForm } from "@/components/home/HomeSajuForm";
 import { HeaderAuth } from "./HeaderAuth";
@@ -123,7 +123,7 @@ export default async function HomePage() {
                 <ul className="flex flex-col gap-1.5">
                   {reports.slice(0, 3).map((r, i) => (
                     <li key={i}>
-                      <Link href={r.href} className="flex items-center justify-between py-1 active:opacity-60">
+                      <Link href={viewHref(r)} className="flex items-center justify-between py-1 active:opacity-60">
                         <span className="text-[13px] text-[#1A1A18]">{r.label}</span>
                         <span className="text-xs text-[#6B6661]">
                           {r.created_at.slice(5, 10).replace("-", "/")} <span className="text-[#C8743A]">다시보기 →</span>
