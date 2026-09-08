@@ -117,7 +117,16 @@ export function relationEntry(rel: TenGodRelation): RelationEntry {
  */
 const FALLBACK_AXES: Axis[] = ["color", "food", "direction", "material", "habit", "environment"];
 
-export function axisPriority(rel: TenGodRelation, count = 4): Axis[] {
+/**
+ * A층 "채우는 법" 본문이 실제로 펼치는 축 수. report.ts(본문)와
+ * seun-prescription.ts(3년 우선 항목, §4 CoS 결정 2026-09-08)가 **같은 값**을
+ * 써야 한다 — 안 그러면 본문엔 없는 축(예: 방위) 항목이 우선 항목에만 나오는
+ * "차선책" 류 불일치가 재발한다. 여기서 하나로 관리한다(순환 참조 방지 —
+ * report.ts가 이 파일을 이미 가져오므로 상수도 여기 둔다).
+ */
+export const AXIS_COUNT = 4;
+
+export function axisPriority(rel: TenGodRelation, count = AXIS_COUNT): Axis[] {
   const named = relationEntry(rel).axisPriority;
   const out: Axis[] = [...named];
   for (const ax of FALLBACK_AXES) {

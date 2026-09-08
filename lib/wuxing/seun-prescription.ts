@@ -16,7 +16,8 @@ import type { Element } from "@/lib/saju-engine/constants";
 import type { SajuChart } from "@/lib/saju-engine/engine";
 import { type Classification } from "./classify";
 import { buildSeunPlan, type SeunPlan, type SeunYear } from "./seun";
-import { type DictItem, avoidanceItems, axisItems, elementDict, AXES, CAVEAT_PATTERN, type Axis } from "./dict";
+import { type DictItem, avoidanceItems, axisItems, elementDict, AXES, CAVEAT_PATTERN, AVOID_PATTERN, type Axis } from "./dict";
+import { computeRelation, axisPriority, AXIS_COUNT, type TenGodRelation } from "./relation";
 
 export type SeunCase = "A" | "B" | "C" | "D" | "E";
 
@@ -143,10 +144,18 @@ export interface YearPrescription {
 const habitEnvFirst: Axis[] = ["habit", "environment", "color", "direction", "food", "material"];
 const habitFirst: Axis[] = ["habit", "color", "direction", "food", "material", "environment"];
 
-/** order 순서대로 그 오행의 전체 항목을 모은다(슬라이스하지 않는다 — 중복 제거용 큰 후보군이 필요해서). */
+/**
+ * order 순서대로 그 오행의 전체 항목을 모은다(슬라이스하지 않는다 — 중복 제거용
+ * 큰 후보군이 필요해서). "우선 항목"(채우세요 목록) 전용 수집기라 CAVEAT_PATTERN
+ * ("~는 아닙니다" 류)뿐 아니라 AVOID_PATTERN("~줄이기" 류)도 걸러낸다(§4) — 둘
+ * 다 "채우세요"와 반대로 읽히는 문구라는 점은 같다. avoidanceItems()로 명시적
+ * "피할 것" 목록을 뽑는 pickAvoidItems()는 이 함수를 쓰지 않으니 영향 없다.
+ */
 function collectByAxisOrderFull(el: Element, order: Axis[], byStrength = false): DictItem[] {
   const pool: DictItem[] = [];
-  for (const ax of order) pool.push(...axisItems(el, ax).filter((it) => !CAVEAT_PATTERN.test(it.item)));
+  for (const ax of order) {
+    pool.push(...axisItems(el, ax).filter((it) => !CAVEAT_PATTERN.test(it.item) && !AVOID_PATTERN.test(it.item)));
+  }
   if (!byStrength) return pool;
   const rank: Record<string, number> = { A: 0, B: 1, C: 2 };
   return [...pool]
@@ -187,49 +196,73 @@ function pickUniqueItems(pool: DictItem[], count: number, used: Set<string>): Di
 }
 
 /**
+ * 우선 항목이 뽑을 수 있는 축을 본문("채우는 법")이 실제로 펼치는 축으로 좁힌다.
+ *
+ * §4(CoS 실물 확인, 2026-09-08): 우선 항목이 primary(부족 오행)의 전체 6축(AXES)에서
+ * 뽑히는데, 본문은 관계별로 4축만 보여준다(report.ts의 axisPriority(relation,
+ * AXIS_COUNT)). 그 결과 본문엔 아예 없는 축(예: 비겁 관계엔 방위가 없음) 항목이
+ * 우선 항목에만 나왔다 — "남서·북동도 차선책"(방위) 실측 사례. 본문에도 나온 축만
+ * 허용해 이 불일치를 없앤다. relation이 없으면(주로 안 쓰이는 경로) 제한 없음.
+ */
+function restrictToBodyAxes(order: Axis[], relation: TenGodRelation | null): Axis[] {
+  if (!relation) return order;
+  const visible = new Set(axisPriority(relation, AXIS_COUNT));
+  return order.filter((ax) => visible.has(ax));
+}
+
+/**
  * 우선 항목 후보군(중복 제거 전, 큰 풀) — 케이스마다 기준이 다르다:
  *   A 부족 보충, 강도 A·B 우선 — 효과가 확실한 것부터
  *   B 과다 오행 설기 항목 우선 — 보충보다 설기(모자라면 그 오행 나머지 축으로 이어서)
  *   C 부족 보충, 행동·환경 축 우선 — 습관화가 잘 되는 시기
- *   D 부족 보충(강도 우선) + 과다 회피 항목 최대 1개
+ *   D 부족 보충(강도 우선)
  *   E 부족 보충, 행동 축 우선 — 루틴 정착
  *
  * primary(부족 오행)가 없으면(균형형) 과다 오행 쪽으로 폴백한다 — 상품이 빈손으로
  * 끝나지 않도록 하는 것이 §3-⑤의 요구다.
+ *
+ * §4(CoS 실물 확인, 2026-09-08): D케이스가 "회피 항목 최대 1개"를 우선 항목에
+ * 섞던 것을 없앴다 — "붉은 계열 면적 줄이기" 같은 회피(줄이기) 문구가 "우선
+ * 항목"(채우세요 목록) 표제와 반대로 읽힌다는 지적. 그 회피 항목은 이미 이 해의
+ * "피할 것"(avoidItems, pickAvoidItems)에 따로 나가므로 내용이 사라지지 않는다.
  */
-function priorityPool(seunCase: SeunCase, cls: Classification, dominantExcess: Element | null, used: Set<string>): DictItem[] {
+function priorityPool(
+  seunCase: SeunCase,
+  cls: Classification,
+  dominantExcess: Element | null,
+  relation: TenGodRelation | null
+): DictItem[] {
   const primary = cls.primary;
   const excessEl = dominantExcess ?? cls.excessive[0] ?? cls.dominant ?? null;
 
   if (seunCase === "B") {
-    if (!excessEl) return primary ? collectByAxisOrderFull(primary, AXES, true) : [];
+    if (!excessEl) return primary ? collectByAxisOrderFull(primary, restrictToBodyAxes(AXES, relation), true) : [];
     // 설기 항목(오행당 5개)이 3년 반복에 부족할 수 있어, 소진되면 그 오행의
     // 나머지 축(AXES)으로 이어서 후보를 늘린다 — 여전히 "그 오행에 대한
-    // 처방"이라 주제는 벗어나지 않는다.
+    // 처방"이라 주제는 벗어나지 않는다. 과다 오행 설기는 본문 축 제한과 무관한
+    // 별도 섹션이라 restrictToBodyAxes를 적용하지 않는다.
     return [...dictDrainAsItems(excessEl), ...collectByAxisOrderFull(excessEl, AXES, true)];
   }
 
   if (!primary) {
-    // 균형형 — 부족이 없다. 과다 오행 설기로 폴백
+    // 균형형 — 부족이 없다. 과다 오행 설기로 폴백(위와 동일한 이유로 축 제한 없음)
     return excessEl ? [...dictDrainAsItems(excessEl), ...collectByAxisOrderFull(excessEl, AXES, true)] : [];
   }
 
-  if (seunCase === "C") return collectByAxisOrderFull(primary, habitEnvFirst);
-  if (seunCase === "E") return collectByAxisOrderFull(primary, habitFirst);
-  if (seunCase === "D") {
-    // 회피 항목은 최대 1개만 섞는다(원래 규칙 유지) — 매년 그 해에 아직 안 쓴
-    // 회피 항목 중 첫 번째를 고르고, 나머지는 강도 우선 AXES로 채운다.
-    const avoidPool = excessEl ? avoidanceItems(excessEl, 20) : [];
-    const bestAvoid = avoidPool.find((a) => !used.has(a.item)) ?? avoidPool[0] ?? null;
-    const axesPool = collectByAxisOrderFull(primary, AXES, true).filter((it) => !bestAvoid || it.item !== bestAvoid.item);
-    return bestAvoid ? [bestAvoid, ...axesPool] : axesPool;
-  }
-  // A — 강도 A·B 우선
-  return collectByAxisOrderFull(primary, AXES, true);
+  if (seunCase === "C") return collectByAxisOrderFull(primary, restrictToBodyAxes(habitEnvFirst, relation));
+  if (seunCase === "E") return collectByAxisOrderFull(primary, restrictToBodyAxes(habitFirst, relation));
+  // A·D 공통 — 강도 A·B 우선
+  return collectByAxisOrderFull(primary, restrictToBodyAxes(AXES, relation), true);
 }
 
-function pickPriorityItems(seunCase: SeunCase, cls: Classification, dominantExcess: Element | null, used: Set<string>): DictItem[] {
-  const pool = priorityPool(seunCase, cls, dominantExcess, used);
+function pickPriorityItems(
+  seunCase: SeunCase,
+  cls: Classification,
+  dominantExcess: Element | null,
+  relation: TenGodRelation | null,
+  used: Set<string>
+): DictItem[] {
+  const pool = priorityPool(seunCase, cls, dominantExcess, relation);
   return pickUniqueItems(pool, 3, used);
 }
 
@@ -294,7 +327,12 @@ interface DedupState {
   usedGuideline: Set<string>;
 }
 
-function buildYearPrescription(y: SeunYear, cls: Classification, state: DedupState): YearPrescription {
+function buildYearPrescription(
+  y: SeunYear,
+  cls: Classification,
+  relation: TenGodRelation | null,
+  state: DedupState
+): YearPrescription {
   const incoming = y.stemElement === y.branchElement ? [y.stemElement] : [y.stemElement, y.branchElement];
   const detail = classifySeunCaseDetail(y.stemElement, y.branchElement, cls.primary, cls.excessive);
   const seunCase = detail.case;
@@ -317,7 +355,7 @@ function buildYearPrescription(y: SeunYear, cls: Classification, state: DedupSta
     divergesByAxis: detail.diverges,
     axisNote: buildAxisNote(detail, copy.conditionNote),
     statusLine,
-    priorityItems: pickPriorityItems(seunCase, cls, dominantExcess, state.usedPriorityItems),
+    priorityItems: pickPriorityItems(seunCase, cls, dominantExcess, relation, state.usedPriorityItems),
     avoidItems: pickAvoidItems(cls, dominantExcess, state.usedAvoidItems),
     guidelineLine,
   };
@@ -366,12 +404,16 @@ export function buildSeunPrescription(
   fromYear?: number
 ): SeunPrescriptionPlan {
   const plan = buildSeunPlan(chart, cls, fromYear);
+  // §4(CoS 결정 2026-09-08): 본문("채우는 법")이 실제로 펼치는 축(관계별 4개)으로
+  // 우선 항목 후보를 좁히려면 관계(TenGodRelation)가 필요하다 — report.ts와 똑같이
+  // day_master_element·primary로 한 번만 계산해 재사용한다.
+  const relation: TenGodRelation | null = cls.primary ? computeRelation(chart.day_master_element, cls.primary) : null;
   const state: DedupState = {
     usedPriorityItems: new Set(),
     usedAvoidItems: new Set(),
     usedStatus: new Set(),
     usedGuideline: new Set(),
   };
-  const years = plan.years.map((y) => buildYearPrescription(y, cls, state));
+  const years = plan.years.map((y) => buildYearPrescription(y, cls, relation, state));
   return { years, daewoonNote: buildDaewoonNote(plan) };
 }
