@@ -19,6 +19,7 @@ import { countElements, type ElementCount } from "./count";
 import { CIRCLE_ORDER } from "./circle-diagram";
 import { josaWaGwa, josaEunNeun, josaEulReul } from "./josa";
 import { buildYongsinDualTrack, type YongsinTrackRelation } from "@/lib/premium/yongsin-track";
+import { computeRelation, adjustForStrength } from "./relation";
 
 /**
  * §② 도입 서술 (docs/wuxing_pending_copy_v1.md §1, CEO 승인 2026-08-31).
@@ -244,6 +245,19 @@ export function buildYongsinCard(chart: SajuChart, cls: Classification): Yongsin
   if (cls.frame === "fill" && main !== null) avoidSet.add(controllerOf(main));
   // 주 처방 오행이 피해야 할 목록에 동시에 들어가면 자기모순이라 제거한다
   if (main !== null) avoidSet.delete(main);
+
+  // §4-2(CoS+CEO 실물 확인, 2026-09-08, 신규 회귀): P4(재다신약류) 발동 시
+  // 본문 「먼저 세우기」가 비겁(일간 자신의 오행)·인성을 맨 앞으로 승격하는데,
+  // 이 카드는 그 사실을 모르고 "main을 극하는 오행"을 기계적으로 피할 것에
+  // 넣는다 — main이 재성/관성/식상이면 그 오행을 극하는 쪽이 종종 비겁과
+  // 같아서(예: 재성의 극자는 비겁), 같은 화면이 "먼저 채우세요"와 "피하세요"를
+  // 동시에 말하는 사고가 났다(실측: 庚 신약·부족 木=재성 사주에서 金을 두 번
+  // 다르게 부름). P4가 걸리면 preferFirst(비겁·인성)는 avoid에서 뺀다.
+  if (cls.frame === "fill" && main !== null) {
+    const relation = computeRelation(chart.day_master_element, main);
+    const adjustment = adjustForStrength(relation, chart.day_master_element, chart.strength);
+    if (adjustment.needed) for (const el of adjustment.preferFirst) avoidSet.delete(el);
+  }
   const avoid = CIRCLE_ORDER.filter((el) => avoidSet.has(el));
 
   const divergesFromPrimary = main !== null && track.yongsinByTrack.length > 0 && !track.yongsinByTrack.includes(main);
