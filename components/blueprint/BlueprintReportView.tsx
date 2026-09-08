@@ -108,7 +108,7 @@ export function BlueprintReportView({ report, showPrintButton = true }: { report
         {/* 명식 표 */}
         {chart && facts && p && (
         <div className="print-card border border-[#E5DFD4] rounded-2xl p-4 bg-[#FBF8F2]">
-          <p className="text-sm font-semibold text-[#1F3D34] mb-3">명식</p>
+          <p className="font-serif text-[17px] font-bold text-[#1F3D34] mb-3">명식</p>
           <div className="grid grid-cols-4 gap-2">
             <PillarCell label="시" stem={p.hour ? `${p.hour.stem}(${C.STEM_KR[p.hour.stem]})` : undefined} branch={p.hour ? `${p.hour.branch}(${C.BRANCH_KR[p.hour.branch]})` : undefined} tgStem={chart.ten_gods.hour_stem} tgBranch={chart.ten_gods.hour_branch} />
             <PillarCell label="일" stem={`${p.day.stem}(${C.STEM_KR[p.day.stem]})`} branch={`${p.day.branch}(${C.BRANCH_KR[p.day.branch]})`} tgStem="일간(본원)" tgBranch={chart.ten_gods.day_branch} />
@@ -127,7 +127,7 @@ export function BlueprintReportView({ report, showPrintButton = true }: { report
         {/* 6대 지표 */}
         {facts && (
         <div className="print-card border border-[#E5DFD4] rounded-2xl p-4 bg-[#FBF8F2] flex flex-col gap-3">
-          <p className="text-sm font-semibold text-[#1F3D34]">6대 지표</p>
+          <p className="font-serif text-[17px] font-bold text-[#1F3D34]">6대 지표</p>
           <Gauge label="축적력" value={facts.indicators.accumulation} />
           <Gauge label="확장력" value={facts.indicators.expansion} />
           <Gauge label="지구력" value={facts.indicators.endurance} />
@@ -141,11 +141,11 @@ export function BlueprintReportView({ report, showPrintButton = true }: { report
         {narrative ? (
         <div className="print-card grid grid-cols-1 gap-3">
           <div className="border border-[#E5DFD4] rounded-2xl p-4 bg-[#FBF8F2]">
-            <p className="text-sm font-semibold text-[#1F3D34] mb-2">구조적 제약</p>
+            <p className="font-serif text-[17px] font-bold text-[#1F3D34] mb-2">구조적 제약</p>
             {narrative.constraints.map((c, i) => <p key={i} className="text-base text-[#1A1A18] leading-relaxed mb-1.5">{c}</p>)}
           </div>
           <div className="border border-[#E5DFD4] rounded-2xl p-4 bg-[#FBF8F2]">
-            <p className="text-sm font-semibold text-[#1F3D34] mb-2">지렛대</p>
+            <p className="font-serif text-[17px] font-bold text-[#1F3D34] mb-2">지렛대</p>
             {narrative.leverages.map((c, i) => <p key={i} className="text-base text-[#1A1A18] leading-relaxed mb-1.5">{c}</p>)}
           </div>
         </div>
@@ -158,7 +158,7 @@ export function BlueprintReportView({ report, showPrintButton = true }: { report
             근거가 같아야 "32~41세만 유일한 창" 같은 자기모순이 재발하지 않는다. */}
         {chart && facts && (
         <div className="print-card border border-[#E5DFD4] rounded-2xl p-4 bg-[#FBF8F2]">
-          <p className="text-sm font-semibold text-[#1F3D34] mb-1">대운 로드맵</p>
+          <p className="font-serif text-[17px] font-bold text-[#1F3D34] mb-1">대운 로드맵</p>
           <div className="flex items-center gap-3 text-[10px] text-[#6B6661] mb-2.5">
             <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#1F3D34]" />보강기</span>
             <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#C8743A]" />소진기</span>
@@ -210,7 +210,7 @@ export function BlueprintReportView({ report, showPrintButton = true }: { report
         {/* 실행 설계 */}
         {closing ? (
         <div className="print-card border border-[#E5DFD4] rounded-2xl p-4 bg-[#FBF8F2] flex flex-col gap-3">
-          <p className="text-sm font-semibold text-[#1F3D34]">운명 실행 설계</p>
+          <p className="font-serif text-[17px] font-bold text-[#1F3D34]">운명 실행 설계</p>
           <div>
             <p className="text-xs font-semibold text-[#8A5228] mb-1">유지</p>
             {closing.keep.map((k, i) => <p key={i} className="text-xs text-[#1A1A18] mb-1">· {k}</p>)}

@@ -94,16 +94,19 @@ export function ReportBody({
       {lines.map((line, i) => {
         const heading = line.match(/^【\s*(.+?)\s*】\s*(.*)$/);
         if (heading) {
+          // U1(CEO 지시, 2026-09-08): 제목(13px)이 본문(16px)보다 작아 제목처럼
+          // 안 보였다 — 본문 대비 뚜렷하게 키우고, 옆 가로선을 굵게, 위 여백을
+          // 늘려 섹션이 나뉘는 것이 스크롤 중에도 체감되게 한다.
           return (
             <Fragment key={i}>
-              <div className="flex items-center gap-2.5 mt-6 first:mt-0 mb-3 break-after-avoid">
+              <div className="flex items-center gap-2.5 mt-9 first:mt-0 mb-3.5 break-after-avoid">
                 <span
-                  className="text-[13px] font-semibold tracking-wide whitespace-nowrap"
+                  className="font-serif text-[18px] font-bold tracking-wide whitespace-nowrap"
                   style={{ color: BRAND }}
                 >
                   {heading[1]}
                 </span>
-                <span className="flex-1 h-px" style={{ backgroundColor: "#E5DFD4" }} />
+                <span className="flex-1 h-[2px] rounded-full" style={{ backgroundColor: "#E5DFD4" }} />
               </div>
               {heading[2] && (
                 <p className="leading-[1.85] mb-3.5 last:mb-0">
