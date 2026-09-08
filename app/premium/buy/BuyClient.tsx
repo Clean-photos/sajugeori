@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { getPlan, REPORT_PRODUCTS } from "@/lib/billing/plans";
+import { getPlan, REPORT_PRODUCTS, DESTINY_BLUEPRINT_ONE } from "@/lib/billing/plans";
 import { Spinner } from "@/components/ui/Spinner";
 import { LaunchNotifyForm } from "@/components/premium/LaunchNotifyForm";
 import { CouponForm } from "@/components/premium/CouponForm";
@@ -130,7 +130,9 @@ export function BuyClient({ planId, returnTo }: { planId: string; returnTo: stri
   const benefits = BENEFITS[plan.id] ?? [];
   const reportProduct = REPORT_PRODUCTS.find((r) => r.productId === plan.id);
   const label = reportProduct?.label ?? plan.name;
-  const isReportProduct = !!reportProduct;
+  // 쿠폰은 990원 리포트 7종 + 운명 설계도 정가 직구매까지(업그레이드가는 제외 —
+  // API도 동일 기준으로 막아 둔다. app/api/coupons/redeem/route.ts 참고).
+  const couponEligible = !!reportProduct || plan.id === DESTINY_BLUEPRINT_ONE.id;
 
   return (
     <div className="flex-1 px-5 py-7 max-w-sm mx-auto w-full flex flex-col gap-4">
@@ -149,8 +151,8 @@ export function BuyClient({ planId, returnTo }: { planId: string; returnTo: stri
         </p>
       </div>
 
-      {/* 쿠폰은 990원 리포트 6종 전용. 결제창을 타지 않으므로 오픈 전에도 쓸 수 있다. */}
-      {isReportProduct && <CouponForm productId={plan.id} returnTo={returnTo} />}
+      {/* 쿠폰은 990원 리포트 7종 + 운명 설계도 직구매. 결제창을 타지 않으므로 오픈 전에도 쓸 수 있다. */}
+      {couponEligible && <CouponForm productId={plan.id} returnTo={returnTo} />}
 
       {error && <p className="text-xs text-[#C0392B] px-1">{error}</p>}
 

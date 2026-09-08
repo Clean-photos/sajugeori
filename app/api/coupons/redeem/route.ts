@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/db/client";
-import { REPORT_PRODUCTS } from "@/lib/billing/plans";
+import { REPORT_PRODUCTS, DESTINY_BLUEPRINT_ONE } from "@/lib/billing/plans";
 
 const REASON_MESSAGE: Record<string, string> = {
   not_found: "존재하지 않는 쿠폰 코드입니다.",
@@ -28,8 +28,11 @@ export async function POST(req: NextRequest) {
   if (!code) {
     return NextResponse.json({ error: "쿠폰 코드를 입력해주세요." }, { status: 400 });
   }
-  // 쿠폰은 990원 리포트 6종에만 쓸 수 있다(운명 설계도 7,900원은 대상 아님).
-  if (!REPORT_PRODUCTS.some((p) => p.productId === productId)) {
+  // 쿠폰은 990원 리포트 7종 + 운명 설계도 정가(7,900원) 직구매에만 쓸 수 있다.
+  // 업그레이드가(destiny_upgrade)는 "이미 프리미엄 사주를 봤다"는 별도 자격이
+  // 전제라 쿠폰 발급 대상에서 뺀다 — 쿠폰은 그 자격 확인을 대신하지 않는다.
+  const couponEligible = REPORT_PRODUCTS.some((p) => p.productId === productId) || productId === DESTINY_BLUEPRINT_ONE.id;
+  if (!couponEligible) {
     return NextResponse.json({ error: "이 상품에는 쿠폰을 사용할 수 없습니다." }, { status: 400 });
   }
 
