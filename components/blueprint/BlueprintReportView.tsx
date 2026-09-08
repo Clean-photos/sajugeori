@@ -1,10 +1,19 @@
 import type { BlueprintReport, BlueprintPartial } from "@/lib/blueprint-engine/generate";
 import { AXES } from "@/lib/blueprint-engine/questions";
+import { buildDaewoonRoadmap, type DaewoonPhase } from "@/lib/blueprint-engine/daewoon-roadmap";
 import { PrintButton, PrintReportFooter } from "@/components/premium/PrintReport";
 import * as C from "@/lib/saju-engine/constants";
 
 const GRADE_LABEL: Record<string, string> = { A: "근거 강도 A", B: "근거 강도 B", C: "근거 강도 C" };
 const GRADE_COLOR: Record<string, string> = { A: "#1F3D34", B: "#8A5228", C: "#6B6661" };
+// §2-4: 겁을 주지 않는 톤(브랜드 규칙)을 지키려 소진기도 경고색(빨강)이 아니라
+// 브랜드 코퍼(#C8743A)로 — "나쁘다"가 아니라 "쉬어가는 시기"로 읽히게 한다.
+const DAEWOON_PHASE_COLOR: Record<DaewoonPhase, string> = {
+  boost: "#1F3D34",
+  drain: "#C8743A",
+  mixed: "#9B968F",
+  neutral: "#9B968F",
+};
 
 function Gauge({ label, value }: { label: string; value: number }) {
   return (
@@ -142,15 +151,35 @@ export function BlueprintReportView({ report, showPrintButton = true }: { report
         </div>
         ) : chart && <SkeletonCard label="구조적 제약 · 지렛대" />}
 
-        {/* 대운 로드맵 */}
-        {chart && (
+        {/* 대운 로드맵 — §2-4(CoS+CEO 실물 확인, 2026-09-08): 예전엔 간지·나이만
+            나열해 "평생 대운은 어떻게 흘러가는가"(Q6) 본문이 참고할 시기 정보가
+            실질적으로 없었다. 이제 구간마다 용신·기신 판정(daewoon-roadmap.ts —
+            Q6 프롬프트에 넣는 것과 같은 함수)을 색으로 보여준다. 서술과 그림의
+            근거가 같아야 "32~41세만 유일한 창" 같은 자기모순이 재발하지 않는다. */}
+        {chart && facts && (
         <div className="print-card border border-[#E5DFD4] rounded-2xl p-4 bg-[#FBF8F2]">
-          <p className="text-sm font-semibold text-[#1F3D34] mb-3">대운 로드맵</p>
-          <div className="flex flex-col gap-1.5">
-            {chart.precise_daewoon.list.map((d) => (
-              <div key={d.index} className="flex items-center justify-between text-xs">
-                <span className="text-[#6B6661]">{d.start_age}~{d.end_age}세</span>
-                <span className="font-medium text-[#1A1A18]">{d.ganji}</span>
+          <p className="text-sm font-semibold text-[#1F3D34] mb-1">대운 로드맵</p>
+          <div className="flex items-center gap-3 text-[10px] text-[#6B6661] mb-2.5">
+            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#1F3D34]" />보강기</span>
+            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#C8743A]" />소진기</span>
+            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#9B968F]" />혼재·완만</span>
+          </div>
+          <div className="flex flex-col gap-1">
+            {buildDaewoonRoadmap(chart.precise_daewoon.list, facts.yongsin, facts.gisin, facts.daewoonNow?.ganji ?? null).map((d) => (
+              <div
+                key={d.index}
+                className="flex items-center gap-2.5 text-xs rounded-lg px-2 py-1.5"
+                style={{
+                  backgroundColor: d.isCurrent ? "#1F3D3414" : "transparent",
+                  borderLeft: `3px solid ${DAEWOON_PHASE_COLOR[d.phase]}`,
+                }}
+              >
+                <span className="text-[#6B6661] w-16 flex-shrink-0">{d.start_age}~{d.end_age}세</span>
+                <span className="font-medium text-[#1A1A18] w-14 flex-shrink-0">{d.ganji}</span>
+                <span className="text-[10px] font-medium flex-shrink-0" style={{ color: DAEWOON_PHASE_COLOR[d.phase] }}>
+                  {d.phaseLabel}
+                </span>
+                {d.isCurrent && <span className="text-[10px] text-[#C8743A] font-semibold">← 현재</span>}
               </div>
             ))}
           </div>

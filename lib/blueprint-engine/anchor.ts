@@ -16,6 +16,7 @@ import type { BlueprintChart } from "./engine";
 import { computeIndicators, type Indicators } from "./indicators";
 import { buildYongsinDualTrack, type YongsinDualTrack } from "@/lib/premium/yongsin-track";
 import { josaEunNeun } from "@/lib/wuxing/josa";
+import { buildDaewoonRoadmap, daewoonRoadmapPromptText, type DaewoonRoadmapEntry } from "./daewoon-roadmap";
 
 export interface AnchorFacts {
   dayMaster: string;
@@ -42,6 +43,14 @@ export interface AnchorFacts {
   salNames: string[];
   indicators: Indicators;
   daewoonNow: { ganji: string; ageRange: string } | null;
+  /**
+   * §2-4(CoS+CEO 실물 확인, 2026-09-08): 예전엔 daewoonNow(현재 구간) 하나만
+   * 사실 시트에 넣어서, "평생 대운은 어떻게 흘러가는가?"(s6)를 답할 재료 자체가
+   * 없었다 — 나머지 8구간은 이미 chart.precise_daewoon.list에 있는데 안 줬다.
+   * 전 구간을 용신·기신 기준으로 미리 판정해 준다(daewoon-roadmap.ts, 화면
+   * 시각화와 같은 함수 공유 — 서술과 그림이 다른 근거로 어긋나는 사고 방지).
+   */
+  daewoonRoadmap: DaewoonRoadmapEntry[];
 }
 
 function elementThatGenerates(el: Element): Element {
@@ -99,6 +108,12 @@ export function computeAnchorFacts(chart: BlueprintChart): AnchorFacts {
     ?? (currentAge < list[0]?.start_age ? list[0] : list[list.length - 1])
     ?? null;
 
+  // §2-4(CoS+CEO 실물 확인, 2026-09-08): 8구간 전부를 용신·기신 기준으로
+  // 미리 판정해 사실 시트에 싣는다(daewoon-roadmap.ts 주석 참고). 화면
+  // 시각화(BlueprintReportView.tsx)도 같은 함수를 불러 서술·그림이 어긋나지
+  // 않게 한다.
+  const daewoonRoadmap = buildDaewoonRoadmap(list, yongsin, gisin, dw?.ganji ?? null);
+
   return {
     dayMaster: `${chart.day_master}(${C.STEM_KR[chart.day_master]})`,
     dayMasterElement: chart.day_master_element,
@@ -116,6 +131,7 @@ export function computeAnchorFacts(chart: BlueprintChart): AnchorFacts {
     salNames: chart.sal.map((s) => `${s.name}(${s.where})`),
     indicators,
     daewoonNow: dw ? { ganji: dw.ganji, ageRange: `${dw.start_age}~${dw.end_age}세` } : null,
+    daewoonRoadmap,
   };
 }
 
@@ -146,7 +162,13 @@ export function anchorFactsToPromptText(f: AnchorFacts): string {
 합충형해파: ${f.interactionsSummary.join(", ") || "특기할 합충 없음"}
 신살: ${f.salNames.join(", ") || "없음"}
 6대 지표(0~100): 축적력 ${f.indicators.accumulation} · 확장력 ${f.indicators.expansion} · 지구력 ${f.indicators.endurance} · 연결력 ${f.indicators.connection} · 회복력 ${f.indicators.recovery} · 변동성 ${f.indicators.volatility}
-현재 대운: ${f.daewoonNow ? `${f.daewoonNow.ganji} (${f.daewoonNow.ageRange})` : "정보 없음"}`.trim();
+현재 대운: ${f.daewoonNow ? `${f.daewoonNow.ganji} (${f.daewoonNow.ageRange})` : "정보 없음"}
+
+[평생 대운 로드맵 — 전 구간을 용신·기신 기준으로 미리 판정한 것. "평생 대운은
+어떻게 흘러가는가" 류 질문에는 이 표의 구간·시기를 그대로 인용할 것. 여러 구간이
+연달아 "보강기"면 그 구간 전체를 하나의 흐름으로 묶어 말할 것 — 그중 한 구간만
+"유일한 시기"처럼 쓰지 말 것(아래 표와 어긋나는 서술 금지)]
+${daewoonRoadmapPromptText(f.daewoonRoadmap)}`.trim();
 }
 
 export interface AnchorNarrative {
