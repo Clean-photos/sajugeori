@@ -12,6 +12,7 @@ import { SALPURI_ONE } from "@/lib/billing/plans";
 import { buildChart, stemBranchKr } from "@/lib/saju-engine";
 import { generateSalpuriReport } from "@/lib/premium/salpuri-generate";
 import { sinsalHanja, PILLAR_POSITION_NOTE } from "@/lib/premium/sinsal-glossary";
+import { buildYongsinDualTrack, yongsinDualTrackPromptLine } from "@/lib/premium/yongsin-track";
 
 // 살풀이 리포트 생성이 병렬 2콜로 나뉘어 있어도(lib/premium/salpuri-generate.ts 참고)
 // 전체 요청 처리 시간은 Vercel Hobby 플랜의 60초 제한 안에 들어와야 한다.
@@ -117,16 +118,18 @@ export async function POST(req: NextRequest) {
 
   // B-3: "일지=태어난 시간"처럼 자리 정의를 섹션마다 다르게(때로는 틀리게)
   // 쓰는 사고를 막기 위해 4콜 전부가 보는 engineSummary에 고정 정의를 둔다.
-  // A: 상품마다 용신을 다르게(오행은 병기, 살풀이는 단정) 제시하던 문제 —
-  // wuxing과 같은 원칙(억부·조후는 목적이 달라 하나로 단정하지 않는다)을
-  // 여기도 명시한다.
+  // §1(CoS+CEO 실물 확인, 2026-09-08): 상품마다 용신을 다르게(오행은 병기,
+  // 살풀이는 "용신인 X" 단정) 제시하던 문제 — 이전 회차에도 같은 지시를
+  // 넣었으나 실제 생성에서 재발했다(재현 시점의 리포트가 그 수정 이전
+  // 캐시였을 가능성이 있다). 오행 리포트·운명 설계도와 완전히 같은 문구를
+  // 내도록 공용 모듈(lib/premium/yongsin-track.ts)의 표준 문구를 그대로
+  // 쓴다 — 세 상품이 각자 비슷하게 다시 쓰다 미묘하게 갈리는 사고를 막는다.
+  const yongsinLine = yongsinDualTrackPromptLine(buildYongsinDualTrack(chart));
   const engineSummary = `
 일주(日柱): ${stemBranchKr(chart.pillars.day.stem, chart.pillars.day.branch)}
 일간(日干): ${chart.day_master} / 오행 ${chart.day_master_element}
 신강·신약: ${chart.strength.verdict} (${chart.strength.detail})
-용신 후보: 억부 ${chart.yongsin.eokbu_candidates.join("·") || "없음"} / 조후 ${chart.yongsin.johu_candidates.join("·") || "없음"}
-(억부와 조후는 목적이 달라 하나로 단정하지 않는다 — "용신인 X"처럼 단일 확정
-표기 금지. 억부·조후 후보를 함께 제시하고 최종 판단은 격국까지 봐야 한다고 쓸 것)
+${yongsinLine}
 
 ${PILLAR_POSITION_NOTE}
 

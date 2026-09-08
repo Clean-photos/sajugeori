@@ -18,6 +18,7 @@ import { THRESHOLD, generatorOf, controllerOf, type Classification } from "./cla
 import { countElements, type ElementCount } from "./count";
 import { CIRCLE_ORDER } from "./circle-diagram";
 import { josaWaGwa, josaEunNeun, josaEulReul } from "./josa";
+import { buildYongsinDualTrack, type YongsinTrackRelation } from "@/lib/premium/yongsin-track";
 
 /**
  * §② 도입 서술 (docs/wuxing_pending_copy_v1.md §1, CEO 승인 2026-08-31).
@@ -176,8 +177,6 @@ export function buildImbalanceRows(count: ElementCount): ImbalanceRow[] {
  *   conflict  — 교집합이 없다. 조후를 주 처방, 억부를 보조로 병기한다
  *   single    — 한쪽만 후보가 있다(조후가 "한난 중화"면 johu가 빈 배열이다)
  */
-export type YongsinTrackRelation = "intersect" | "conflict" | "single";
-
 export interface YongsinCardData {
   /** 채우기(fill) / 순응하기(follow) — 극단형이면 프레임이 뒤집힌다 */
   frame: "fill" | "follow";
@@ -225,16 +224,14 @@ export interface YongsinCardData {
   conflictNote: string | null;
 }
 
-const YONGSIN_DISCLAIMER =
-  "억부(힘의 균형)와 조후(기후)는 목적이 다르므로 하나로 단정하지 않고 함께 제시합니다. 최종 용신은 격국까지 종합해 판단해야 합니다.";
-
+/**
+ * §1(CoS+CEO 결정 2026-09-08): 억부·조후 병기 계산 자체는 lib/premium/yongsin-track.ts로
+ * 옮겨 상품 공통으로 쓴다(운명 설계도가 이 계산을 따로 하다 조후를 사실상
+ * 무시하던 문제 — dev 문서 §1 참고). 여기서는 그 공용 계산에 wuxing 전용인
+ * main/helper/avoid(표면 계수 기반 처방)만 더한다.
+ */
 export function buildYongsinCard(chart: SajuChart, cls: Classification): YongsinCardData {
-  const eokbu = chart.yongsin.eokbu_candidates;
-  const johu = chart.yongsin.johu_candidates;
-  const intersection = eokbu.filter((el) => johu.includes(el));
-
-  const trackRelation: YongsinTrackRelation =
-    eokbu.length === 0 || johu.length === 0 ? "single" : intersection.length > 0 ? "intersect" : "conflict";
+  const track = buildYongsinDualTrack(chart);
 
   const main = cls.frame === "follow" ? cls.dominant : cls.primary;
 
@@ -249,9 +246,7 @@ export function buildYongsinCard(chart: SajuChart, cls: Classification): Yongsin
   if (main !== null) avoidSet.delete(main);
   const avoid = CIRCLE_ORDER.filter((el) => avoidSet.has(el));
 
-  // 결정 ① 규칙: 교집합 > 조후 > (조후가 비면) 억부
-  const yongsinByTrack = intersection.length > 0 ? intersection : johu.length > 0 ? johu : eokbu;
-  const divergesFromPrimary = main !== null && yongsinByTrack.length > 0 && !yongsinByTrack.includes(main);
+  const divergesFromPrimary = main !== null && track.yongsinByTrack.length > 0 && !track.yongsinByTrack.includes(main);
 
   return {
     frame: cls.frame,
@@ -261,18 +256,18 @@ export function buildYongsinCard(chart: SajuChart, cls: Classification): Yongsin
     helperKr: helper ? C.ELEMENT_KR[helper] : null,
     avoid,
     avoidKr: avoid.map((el) => C.ELEMENT_KR[el]),
-    eokbu,
-    eokbuKr: eokbu.map((el) => C.ELEMENT_KR[el]),
-    johu,
-    johuKr: johu.map((el) => C.ELEMENT_KR[el]),
-    climate: chart.yongsin.climate,
-    trackRelation,
-    intersection,
-    yongsinByTrack,
-    yongsinByTrackKr: yongsinByTrack.map((el) => C.ELEMENT_KR[el]),
+    eokbu: track.eokbu,
+    eokbuKr: track.eokbuKr,
+    johu: track.johu,
+    johuKr: track.johuKr,
+    climate: track.climate,
+    trackRelation: track.trackRelation,
+    intersection: track.intersection,
+    yongsinByTrack: track.yongsinByTrack,
+    yongsinByTrackKr: track.yongsinByTrackKr,
     divergesFromPrimary,
-    disclaimer: YONGSIN_DISCLAIMER,
-    conflictNote: trackRelation === "conflict" ? YONGSIN_CONFLICT_NOTE : null,
+    disclaimer: track.disclaimer,
+    conflictNote: track.trackRelation === "conflict" ? YONGSIN_CONFLICT_NOTE : null,
   };
 }
 

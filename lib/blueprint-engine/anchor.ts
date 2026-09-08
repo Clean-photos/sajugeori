@@ -14,15 +14,27 @@ import * as C from "@/lib/saju-engine/constants";
 import type { Element } from "@/lib/saju-engine/constants";
 import type { BlueprintChart } from "./engine";
 import { computeIndicators, type Indicators } from "./indicators";
+import { buildYongsinDualTrack, type YongsinDualTrack } from "@/lib/premium/yongsin-track";
+import { josaEunNeun } from "@/lib/wuxing/josa";
 
 export interface AnchorFacts {
   dayMaster: string;
   dayMasterElement: Element;
   strengthVerdict: string;
   strengthDetail: string;
+  /**
+   * §1(CoS+CEO 실물 확인, 2026-09-08): 예전엔 "억부 있으면 억부, 없으면 조후"만
+   * 봐서 조후를 사실상 무시했다(丁卯乙巳辛巳戊子 사주에서 조후가 필요로 하는
+   * 水를 "기신"으로 단정하고, 다른 섹션에서는 그 水를 채우라고 처방하는
+   * 자기모순 실측). lib/premium/yongsin-track.ts(오행 리포트와 공용)의 병기
+   * 계산으로 교체 — yongsin은 이제 그 결과("교집합 > 조후 > 억부 폴백")다.
+   */
+  yongsinTrack: YongsinDualTrack;
   yongsin: Element[];
   huisin: Element[];   // 희신 — 용신을 돕는 오행
   gisin: Element[];    // 기신 — 용신을 해치는 오행
+  /** gisin과 겹치는 조후 후보 — 억부상 부담이나 조후상 필요한 오행(단정 금지 대상) */
+  gisinJohuConflict: Element[];
   climate: string;
   elements: Record<Element, number>;
   tenGodCounts: Record<string, number>;
@@ -65,8 +77,12 @@ function summarizeInteractions(chart: BlueprintChart): string[] {
 
 export function computeAnchorFacts(chart: BlueprintChart): AnchorFacts {
   const indicators = computeIndicators(chart);
-  const yongsin = chart.yongsin.eokbu_candidates.length ? chart.yongsin.eokbu_candidates : chart.yongsin.johu_candidates;
+  const yongsinTrack = buildYongsinDualTrack(chart);
+  const yongsin = yongsinTrack.yongsinByTrack;
   const { huisin, gisin } = deriveHuisinGisin(yongsin, chart.strength.is_strong, chart.day_master_element);
+  // §1: gisin(억부 기준 기신)이 조후 후보와 겹치면 "억부상 부담이나 조후상
+  // 필요"인 경우다 — 무조건 피할 오행으로 단정하면 안 된다(실측: 水).
+  const gisinJohuConflict = gisin.filter((el) => chart.yongsin.johu_candidates.includes(el));
 
   const tenGodCounts: Record<string, number> = {};
   for (const label of Object.values(chart.ten_gods)) {
@@ -88,9 +104,11 @@ export function computeAnchorFacts(chart: BlueprintChart): AnchorFacts {
     dayMasterElement: chart.day_master_element,
     strengthVerdict: chart.strength.verdict,
     strengthDetail: chart.strength.detail,
+    yongsinTrack,
     yongsin,
     huisin,
     gisin,
+    gisinJohuConflict,
     climate: chart.yongsin.climate,
     elements: chart.elements,
     tenGodCounts,
@@ -106,11 +124,22 @@ export function anchorFactsToPromptText(f: AnchorFacts): string {
   const elemLine = (Object.entries(f.elements) as [Element, number][])
     .map(([e, v]) => `${C.ELEMENT_KR[e]}${v}`).join(" ");
   const tgLine = Object.entries(f.tenGodCounts).map(([k, v]) => `${k}${v}`).join(" ") || "없음";
+  const t = f.yongsinTrack;
+  // §1(CoS+CEO 실물 확인, 2026-09-08): "용신 X / 기신 Y" 한 줄 단정을 억부·조후
+  // 병기로 바꾼다 — 오행 리포트와 같은 구조(lib/premium/yongsin-track.ts).
+  // 억부상 기신이 조후상 필요한 오행이면(gisinJohuConflict) 그 모순을 감추지
+  // 않고 명시한다 — 감추면 다른 축이 "습도를 올리라"면서 같은 오행을 "기신"
+  // 이라 부르는 자기모순이 재발한다(실측: 조열 사주의 水).
+  const gisinLine = f.gisinJohuConflict.length > 0
+    ? `기신(억부 기준): ${f.gisin.map((e) => C.ELEMENT_KR[e]).join("·") || "없음"} — 단, ${f.gisinJohuConflict.map((e) => C.ELEMENT_KR[e]).join("·")}${josaEunNeun(f.gisinJohuConflict[f.gisinJohuConflict.length - 1])} 조후상 필요한 기운이기도 하다. "억부상 부담이나 조후상 필요"로 함께 밝히고, 무조건 피할 기운으로 단정하지 말 것`
+    : `기신: ${f.gisin.map((e) => C.ELEMENT_KR[e]).join("·") || "없음"}`;
   return `
 [명식 사실 시트 — 모든 서술은 이 시트와 모순되면 안 됨]
 일간: ${f.dayMaster} (${C.ELEMENT_KR[f.dayMasterElement]})
 신강/신약: ${f.strengthVerdict} — ${f.strengthDetail}
-용신: ${f.yongsin.map((e) => C.ELEMENT_KR[e]).join("·") || "없음"} / 희신: ${f.huisin.map((e) => C.ELEMENT_KR[e]).join("·") || "없음"} / 기신: ${f.gisin.map((e) => C.ELEMENT_KR[e]).join("·") || "없음"}
+억부 용신: ${t.eokbuKr.join("·") || "없음"} / 조후 용신: ${t.johuKr.join("·") || "없음(한난 중화)"} / 종합: ${t.yongsinByTrackKr.join("·") || "없음"}
+(${t.disclaimer} "용신은 X다"처럼 한 오행만 단정하지 말 것 — 위 세 값을 함께 밝힐 것)
+희신: ${f.huisin.map((e) => C.ELEMENT_KR[e]).join("·") || "없음"} / ${gisinLine}
 조후: ${f.climate}
 오행 분포: ${elemLine}
 십성: ${tgLine}
