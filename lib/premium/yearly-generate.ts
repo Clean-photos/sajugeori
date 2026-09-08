@@ -1,4 +1,5 @@
-import type { MonthScore, YearlyResult } from "@/lib/saju-engine";
+import type { MonthScore, YearlyResult, SajuChart } from "@/lib/saju-engine";
+import { buildYongsinDualTrack, yongsinDualTrackPromptLine } from "@/lib/premium/yongsin-track";
 
 // Vercel이 Hobby 플랜이라 함수 실행시간이 60초로 묶여 있다(lib/blueprint-engine와
 // 동일 제약). 3배 분량 요구를 한 번의 긴 LLM 호출로 채우면 60초를 넘기기 쉬워,
@@ -35,17 +36,30 @@ function quarterLines(months: MonthScore[], from: number, to: number): string {
     .map((m) => `- ${m.month}월 ${m.ganji} [${m.score}]: ${m.note}`).join("\n");
 }
 
-/** 세운·12개월 월운 데이터로 프리미엄 연운세 리포트 전문을 생성한다. */
-export async function generateYearlyReport(yr: YearlyResult, year: number): Promise<string> {
+/**
+ * 세운·12개월 월운 데이터로 프리미엄 연운세 리포트 전문을 생성한다.
+ *
+ * R1(CoS+CEO 실물 확인, 2026-09-08): 예전엔 "용신" 사실 자체를 프롬프트에
+ * 안 줬다 — 월별 점수(scoreYear, 계산 엔진)는 억부∪조후 합집합을 이미 보고
+ * 매기는데, "총운"·"조언" 문단은 그 근거 없이 LLM이 매번 다시 추정하다
+ * 월별과 다른 용신을 말하는 사고가 났다(총운 "금·토" vs 월별 "용신인 수").
+ * 상품 표준 병기 문구(억부/조후/종합)를 명시적으로 줘서 총운도 월별과
+ * 같은 근거를 보게 한다.
+ */
+export async function generateYearlyReport(yr: YearlyResult, year: number, chart: SajuChart): Promise<string> {
   const monthLines = yr.months
     .map((m) => `- ${m.month}월 ${m.ganji} [${m.score}]: ${m.note}`)
     .join("\n");
+  const yongsinLine = yongsinDualTrackPromptLine(buildYongsinDualTrack(chart));
 
   const baseFacts = `
 대상 연도: ${year}년
 세운(그 해 간지): ${yr.yearGanji} [종합 ${yr.yearScore}]
 세운 특징: ${yr.yearNotes.join(" / ") || "특별한 합충 없음"}
 현재 대운: ${yr.daewoon ? `${yr.daewoon.ganji} (${yr.daewoon.ageRange}, ${yr.daewoon.favorability})` : "정보 없음"}
+${yongsinLine}
+(아래 월별 점수는 이 용신·기신 기준으로 이미 계산된 값이다 — 총운·조언도 이와
+다른 용신을 새로 계산하지 말고 위 값을 그대로 인용할 것)
 
 [월별 흐름 전체 — 점수가 높을수록 순조로운 달]
 ${monthLines}`.trim();

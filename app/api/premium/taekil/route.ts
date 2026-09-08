@@ -11,6 +11,7 @@ import {
 import { buildChart, rankDates } from "@/lib/saju-engine";
 import type { TaekilPurpose } from "@/lib/saju-engine";
 import { generateTaekilReport } from "@/lib/premium/taekil-generate";
+import { buildYongsinDualTrack, yongsinDualTrackPromptLine } from "@/lib/premium/yongsin-track";
 
 // 택일 리포트 생성이 병렬 2콜로 나뉘어 있어도(lib/premium/taekil-generate.ts 참고)
 // 전체 요청 처리 시간은 Vercel Hobby 플랜의 60초 제한 안에 들어와야 한다.
@@ -93,8 +94,9 @@ export async function POST(req: NextRequest) {
 
   // 확정한 대상 사주로 차트 구성 후 일진 스코어링
   let ranked;
+  let chart;
   try {
-    const chart = buildChart(isoOf(target), target.gender, !!target.birthTime);
+    chart = buildChart(isoOf(target), target.gender, !!target.birthTime);
     ranked = rankDates(chart, from, to, purpose);
   } catch (e) {
     console.error("premium taekil engine error:", e);
@@ -109,10 +111,18 @@ export async function POST(req: NextRequest) {
     ? ranked.avoid.map((d) => `- ${d.date} (${d.weekday}) ${d.ganji}: ${d.notes.join("; ")}`).join("\n")
     : "- 해당 기간 내 뚜렷하게 피해야 할 날(충)은 없음";
 
+  // R1(CoS+CEO 실물 확인, 2026-09-08): ranked.criteria(억부∪조후 합집합, 계산
+  // 엔진이 스코어링에 실제로 쓴 값 — 그 자체는 정확하다)를 그대로 "용신"인
+  // 것처럼 단정 노출하면 다른 상품과 표기가 갈린다("합집합" 문제로 지적됨).
+  // 상품 표준 병기 문구를 덧붙여, 이 리포트도 같은 근거(억부/조후/종합)를
+  // 공유하게 한다 — 스코어링 기준(criteria) 설명은 그대로 두되 단정처럼
+  // 안 읽히도록 옆에 병기한다.
+  const yongsinLine = yongsinDualTrackPromptLine(buildYongsinDualTrack(chart));
   const engineSummary = `
 목적: ${PURPOSE_LABEL[purpose] ?? purpose}
 조회 기간: ${from} ~ ${to}
-택일 기준: ${ranked.criteria.join(" / ")}
+택일 기준(점수 산정에 실제로 쓴 기준): ${ranked.criteria.join(" / ")}
+${yongsinLine}
 
 [실제 계산한 최길일 후보 — 실제 일진 기준]
 ${bestLines || "- 조건에 맞는 좋은 날을 찾지 못함"}

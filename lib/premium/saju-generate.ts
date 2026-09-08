@@ -1,3 +1,6 @@
+import { buildYongsinDualTrack, yongsinDualTrackPromptLine } from "@/lib/premium/yongsin-track";
+import type { Element } from "@/lib/saju-engine/constants";
+
 // 프리미엄 사주 풀이 8개 섹션 키 (프리미엄 페이지 SECTIONS와 일치)
 const SECTION_KEYS = [
   "personality", "career", "money", "love",
@@ -63,7 +66,18 @@ export async function generateReport(j: Record<string, unknown>, birthDate?: str
   const luckCycles = (j.luck_cycles as Array<{ start_age: number; end_age: number; ganji: string; favorability: string }>) ?? [];
   const coreTags = (j.core_tags as Array<{ tag: string }>) ?? [];
 
-  const yongsin = (yongsinObj?.eokbu?.length ? yongsinObj.eokbu : yongsinObj?.johu) ?? [];
+  // R1(CoS+CEO 실물 확인, 2026-09-08): "억부 있으면 억부, 없으면 조후"만 보는
+  // 옛 규칙이 조후를 사실상 무시했다 — 오행 리포트·운명 설계도·살풀이와 같은
+  // 상품군 표준 규칙(교집합 > 조후 > 억부 폴백)으로 교체한다.
+  const yongsinTrack = buildYongsinDualTrack({
+    yongsin: {
+      eokbu_candidates: (yongsinObj?.eokbu ?? []) as Element[],
+      johu_candidates: (yongsinObj?.johu ?? []) as Element[],
+      climate: yongsinObj?.climate ?? "한난 중화",
+      note: "",
+    },
+  });
+  const yongsin = yongsinTrack.yongsinByTrack;
   const kaiun = yongsin.map((e) => elementGuide[e] ?? e).join(", ");
   const fmtCycle = (c: { start_age: number; end_age: number; ganji: string; favorability: string }) =>
     `${c.start_age}~${c.end_age}세 ${c.ganji}(${c.favorability})`;
@@ -90,7 +104,8 @@ export async function generateReport(j: Record<string, unknown>, birthDate?: str
 강점: ${personality?.strengths?.slice(0, 4).join(", ") ?? ""}
 약점: ${personality?.weaknesses?.slice(0, 4).join(", ") ?? ""}
 오행 분포: ${elements ? Object.entries(elements).map(([e, v]) => `${e}${v}`).join(" ") : ""}
-용신: ${yongsin.join(", ")} / 개운 장소: ${kaiun || "없음"}
+${yongsinDualTrackPromptLine(yongsinTrack)}
+개운 장소: ${kaiun || "없음"}
 대운 흐름(전 구간): ${allLuck || "없음"}
 핵심 태그: ${coreTags.map((t) => t.tag).join(", ")}
 현재 연도: ${new Date().getFullYear()}년${currentAge !== null ? ` / 현재 나이: 만 ${currentAge}세` : ""}

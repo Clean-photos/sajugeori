@@ -69,8 +69,9 @@ export async function POST(req: NextRequest) {
   }
 
   let yr;
+  let chart;
   try {
-    const chart = buildChart(isoOf(input), input.gender, !!input.birthTime);
+    chart = buildChart(isoOf(input), input.gender, !!input.birthTime);
     yr = scoreYear(chart, year);
   } catch (e) {
     console.error("premium yearly engine error:", e);
@@ -79,7 +80,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const report = await generateYearlyReport(yr, year);
+    const report = await generateYearlyReport(yr, year, chart);
 
     // 캐시 저장 (테이블 없으면 무시)
     if (isAdhoc) {

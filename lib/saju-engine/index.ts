@@ -123,8 +123,17 @@ export function toSajuCompact(saju_json: ReturnType<typeof runSajuEngine>["saju_
     "金": { direction: "서쪽", place: "도시·금속 산업 지역", color: "흰색·은색" },
     "水": { direction: "북쪽", place: "바다·강변·호수", color: "검정·진남색" },
   };
-  const yongsinElements = saju_json.yongsin.eokbu.length > 0 ? saju_json.yongsin.eokbu : saju_json.yongsin.johu;
-  const kaiun = yongsinElements.map((e: string) => elementGuide[e] ?? null).filter(Boolean);
+  // R1(CoS+CEO 실물 확인, 2026-09-08): "억부 있으면 억부, 없으면 조후"만 보면
+  // 조후를 사실상 무시한다 — 오행 리포트·운명 설계도·살풀이에서 이미 확인된
+  // 것과 같은 버그(lib/premium/yongsin-track.ts 참고). 이 레이어는 "계산만,
+  // 외부 의존 0"이 원칙이라 그 공용 모듈을 가져오는 대신 같은 규칙(교집합 >
+  // 조후 > 억부 폴백)을 그대로 인라인한다 — chart.yongsin.eokbu/johu_candidates
+  // 자체(계산)는 손대지 않고, 그중 어느 쪽을 개운 가이드에 우선할지만 고친다.
+  const eokbu = saju_json.yongsin.eokbu;
+  const johu = saju_json.yongsin.johu;
+  const intersection = eokbu.filter((e) => johu.includes(e));
+  const yongsinElements = intersection.length > 0 ? intersection : johu.length > 0 ? johu : eokbu;
+  const kaiun = yongsinElements.map((e) => elementGuide[e] ?? null).filter(Boolean);
 
   return {
     // 기본 정체성

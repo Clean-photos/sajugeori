@@ -291,9 +291,16 @@ export function petCompatibility(owner: SajuChart, input: PetCompatInput): PetCo
     .map((e) => C.ELEMENT_KR[e]);
 
   // 개운 제안: 주인은 필요한 기운(용신 우선), 아이는 타고난 기운을 살리는 쪽으로.
-  const ownerNeed: Element = owner.yongsin.eokbu_candidates[0]
-    ?? owner.yongsin.johu_candidates[0]
-    ?? ownerEl;
+  // R1(CoS+CEO 실물 확인, 2026-09-08): "억부 있으면 첫 번째 억부, 없으면 첫
+  // 번째 조후"만 보면 조후를 사실상 무시한다 — 오행 리포트·운명 설계도 등
+  // 다른 상품에서 이미 확인된 것과 같은 버그(lib/premium/yongsin-track.ts
+  // 참고). 상품 표준 규칙(교집합 > 조후 > 억부 폴백)으로 교체 — 계산 자체
+  // (eokbu/johu_candidates)는 그대로, 그중 어느 후보를 대표로 세울지만 고친다.
+  const ownerEokbu = owner.yongsin.eokbu_candidates;
+  const ownerJohu = owner.yongsin.johu_candidates;
+  const ownerIntersection = ownerEokbu.filter((e) => ownerJohu.includes(e));
+  const ownerNeed: Element =
+    ownerIntersection[0] ?? ownerJohu[0] ?? ownerEokbu[0] ?? ownerEl;
 
   return {
     species: input.species,
