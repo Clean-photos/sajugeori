@@ -30,6 +30,9 @@ export interface TaekilResult {
 
 const WEEKDAY_KR = ["일", "월", "화", "수", "목", "금", "토"];
 
+/** 천간합의 표준 표기 순서(甲己·乙庚·丙辛·丁壬·戊癸) — 이름 표기 방향을 여기서 고정한다. */
+const STEM_COMBINE_CANONICAL_ORDER = ["甲己", "乙庚", "丙辛", "丁壬", "戊癸"];
+
 /** 목적별 가중치 — 조화(합) 중시 vs 기운(용신) 중시 vs 안정(충 회피) 중시 */
 const PURPOSE_WEIGHTS: Record<TaekilPurpose, { harmony: number; yongsin: number; clashPenalty: number }> = {
   wedding: { harmony: 1.4, yongsin: 1.0, clashPenalty: 1.2 },
@@ -84,7 +87,14 @@ export function scoreDate(chart: SajuChart, y: number, m: number, d: number, pur
   const stemKey = [myStem, day.stem].sort().join("");
   if (C.STEM_COMBINE.has(stemKey)) {
     score += 1.5 * W.harmony;
-    notes.push(`일진 천간과 천간합(${C.STEM_KR[myStem]}${C.STEM_KR[day.stem]}합) — 순조로운 기운`);
+    // R2(CoS+CEO 실물 확인, 2026-09-08): [myStem, day.stem]를 그대로 이어 붙이면
+    // 순서가 내 일간이 어느 쪽이냐에 따라 뒤집혀 "신병합"처럼 표준 표기(병신합)와
+    // 다른 이름이 나갔다(하필 그날 일진이 병신丙申이라 申·辛 혼동까지 유발).
+    // 전통적으로 고정된 순서(甲己·乙庚·丙辛·丁壬·戊癸)로 항상 같은 이름이 나가게 한다.
+    const [first, second] = STEM_COMBINE_CANONICAL_ORDER.includes(`${myStem}${day.stem}`)
+      ? [myStem, day.stem]
+      : [day.stem, myStem];
+    notes.push(`일진 천간과 천간합(${C.STEM_KR[first]}${C.STEM_KR[second]}합) — 순조로운 기운`);
   } else if (C.STEM_CLASH_PAIRS.has(stemKey)) {
     score -= 2.0 * W.clashPenalty;
     notes.push(`일진 천간과 천간충 — 마찰·번복 주의`);
