@@ -11,6 +11,7 @@ import {
 import { SALPURI_ONE } from "@/lib/billing/plans";
 import { buildChart, stemBranchKr } from "@/lib/saju-engine";
 import { generateSalpuriReport } from "@/lib/premium/salpuri-generate";
+import { sinsalHanja, PILLAR_POSITION_NOTE } from "@/lib/premium/sinsal-glossary";
 
 // 살풀이 리포트 생성이 병렬 2콜로 나뉘어 있어도(lib/premium/salpuri-generate.ts 참고)
 // 전체 요청 처리 시간은 Vercel Hobby 플랜의 60초 제한 안에 들어와야 한다.
@@ -96,8 +97,17 @@ export async function POST(req: NextRequest) {
   const isDense = salEntries.length >= 6;
   const majorEntries = isDense ? salEntries.slice(0, 3) : salEntries;
   const minorEntries = isDense ? salEntries.slice(3) : [];
+  // QA(2026-09-05) B-2: 엔진은 신살을 한글 이름으로만 검출해 한자가 없다.
+  // 병렬 4콜이 각자 한자를 "알아서" 채우면서 寡宿殺/孤宿殺처럼 같은 살이
+  // 호출마다 다른 한자로 나가는 사고가 났다 — 검증된 한자(용어 백과, 13종
+  // 전부 커버)를 미리 붙여 정답으로 준다.
   const formatSal = (entries: typeof salEntries) =>
-    entries.map(([name, v]) => `- ${name} (${v.where.join(", ")}): ${v.meaning}`).join("\n");
+    entries
+      .map(([name, v]) => {
+        const hanja = sinsalHanja(name);
+        return `- ${name}${hanja ? `(${hanja})` : ""} (${v.where.join(", ")}): ${v.meaning}`;
+      })
+      .join("\n");
 
   const salSection = majorEntries.length === 0
     ? "검출된 신살 없음"
@@ -105,13 +115,22 @@ export async function POST(req: NextRequest) {
       ? `주요 신살 (자세히 설명할 것):\n${formatSal(majorEntries)}\n\n그 외 신살 (간결하게 한 줄씩만 언급할 것):\n${formatSal(minorEntries)}`
       : formatSal(majorEntries);
 
+  // B-3: "일지=태어난 시간"처럼 자리 정의를 섹션마다 다르게(때로는 틀리게)
+  // 쓰는 사고를 막기 위해 4콜 전부가 보는 engineSummary에 고정 정의를 둔다.
+  // A: 상품마다 용신을 다르게(오행은 병기, 살풀이는 단정) 제시하던 문제 —
+  // wuxing과 같은 원칙(억부·조후는 목적이 달라 하나로 단정하지 않는다)을
+  // 여기도 명시한다.
   const engineSummary = `
 일주(日柱): ${stemBranchKr(chart.pillars.day.stem, chart.pillars.day.branch)}
 일간(日干): ${chart.day_master} / 오행 ${chart.day_master_element}
 신강·신약: ${chart.strength.verdict} (${chart.strength.detail})
 용신 후보: 억부 ${chart.yongsin.eokbu_candidates.join("·") || "없음"} / 조후 ${chart.yongsin.johu_candidates.join("·") || "없음"}
+(억부와 조후는 목적이 달라 하나로 단정하지 않는다 — "용신인 X"처럼 단일 확정
+표기 금지. 억부·조후 후보를 함께 제시하고 최종 판단은 격국까지 봐야 한다고 쓸 것)
 
-[이 사주에서 실제로 검출된 신살]
+${PILLAR_POSITION_NOTE}
+
+[이 사주에서 실제로 검출된 신살 — 위에 표기된 한자를 그대로 쓰고 다른 한자를 새로 짓지 말 것]
 ${salSection}`.trim();
 
   try {
