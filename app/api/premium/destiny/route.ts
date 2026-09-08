@@ -212,6 +212,10 @@ export async function GET(req: NextRequest) {
       {
         saju_profile_id: profile.id, user_id: userId, status: "generating", content: {}, parts_done: [],
         attempt_id: started.attemptId, pass_id: passId,
+        // QA(2026-09-05) D-2: upsert는 충돌 시 DEFAULT now()를 다시 안 태워
+        // created_at이 처음 생성일에 그대로 묶여 있었다 — "이게 최신인지" 판단
+        // 불가 문제. 재생성 시작 시점을 명시적으로 갱신한다.
+        created_at: new Date().toISOString(),
       },
       { onConflict: "saju_profile_id" }
     );

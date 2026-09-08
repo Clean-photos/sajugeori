@@ -45,32 +45,31 @@ export type MyReport = {
   /** 이 리포트를 만든 대상 사주 표시 문구(예: "1978-03-01(양력) 여성"). 알 수 없으면 null. */
   target: string | null;
   /**
-   * §4(CEO 결정 2026-09-05): 저장된 리포트를 "다시 보기"로 열 방법이 없어 매번
-   * 입력 폼으로 떨어지던 문제 — 새 열람 라우트 대신, 대상 원본 값을 그대로 담아
-   * 두면 각 상품 페이지가 이미 가진 "확정→캐시 우선 조회" 로직을 그대로 타
-   * 저장된 내용을 돌려받는다(새 ID·새 테이블 불필요). 값이 없으면(정보 유실 등)
-   * 호출부는 기존처럼 정적 href만 쓴다.
+   * §1(CoS 결정 2026-09-08, 재설계): 이 리포트를 저장한 saju_profile_id.
+   * viewHref()가 이 값으로 "/premium/{product}/{id}" 형태의 영구 링크를 만든다.
+   *
+   * ⚠️ 예전엔 birth_date 등 원본 대상 값을 쿼리로 실어 보내 그 페이지가 자동
+   * 제출하게 했다(autostart) — 그런데 그건 "다시 보기"가 아니라 "같은 조건으로
+   * 다시 만들기" 요청이라, 1회권을 이미 소진한 사용자는 결제 게이트에 막혀
+   * 재열람이 안 됐다(실측: 990원 결제 → 정상 생성 → 재진입 시 페이월 재노출).
+   * 부수적으로 생년월일·성별이 URL에 평문으로 남는 문제도 있었다. saju_profile_id
+   * 기반 열람 라우트(이용권 검사 없음)로 교체해 두 문제를 함께 없앤다.
    */
-  viewParams: { birth_date: string; birth_time: string | null; gender: string } | null;
+  id: string | null;
 };
 
 /**
- * §4(CEO 결정 2026-09-05): "보기 →"가 저장된 결과가 아니라 입력 폼으로 떨어지던
- * 문제 — 오행 보완 리포트는 대상 원본 값을 쿼리로 실어 보내 그 페이지가 자동
- * 제출하게 한다(§1 홈 히어로 폼과 같은 autostart 패턴). 그 페이지의 "확정→캐시
- * 우선 조회" 로직을 그대로 타므로 저장된 내용을 그대로 돌려받는다. 다른 상품은
- * 아직 이 자동제출을 안 받아 두어(각자 폼 구조가 달라 검증이 더 필요) 기존
- * 정적 링크를 유지한다 — 같은 문제가 있는 건 확인했지만 이번 보고 범위 밖.
+ * §1(CoS 결정 2026-09-08): "보기 →"가 저장된 결과를 열지 못하고 재생성을
+ * 요청해 1회권 소진자를 결제 게이트로 되돌리던 문제 — id 기반 영구 링크로
+ * 교체한다. 오행만 전용 열람 라우트(app/premium/ohang/[id])가 있고, 나머지
+ * 상품은 아직 없어(구조가 제각각이라 검증이 더 필요) 기존 정적 href를 쓴다 —
+ * 같은 문제가 있는 것은 확인했으나 이번 회차 범위 밖(다음 회차로 이월).
  *
  * 홈·마이페이지 둘 다 리포트 목록을 보여주므로(QA 2026-09-05: "홈·마이페이지
  * 양쪽 동일" 지적) 한 곳에만 두면 나중에 한쪽만 고치는 사고가 난다 — 공용으로 뺀다.
  */
-export function viewHref(r: { href: string; viewParams: MyReport["viewParams"] }): string {
-  if (r.href === "/premium/ohang" && r.viewParams) {
-    const q = new URLSearchParams({ birth_date: r.viewParams.birth_date, gender: r.viewParams.gender, autostart: "1" });
-    if (r.viewParams.birth_time) q.set("birth_time", r.viewParams.birth_time);
-    return `/premium/ohang?${q.toString()}`;
-  }
+export function viewHref(r: { href: string; id: MyReport["id"] }): string {
+  if (r.href === "/premium/ohang" && r.id) return `/premium/ohang/${r.id}`;
   return r.href;
 }
 
@@ -114,7 +113,7 @@ export async function listUserReports(userId: string): Promise<MyReport[]> {
           out.push({
             label: s.label, href: s.href, created_at: row.created_at,
             target: p ? formatTarget(p.birth_date, p.gender, p.calendar) : null,
-            viewParams: p ? { birth_date: p.birth_date, birth_time: p.birth_time, gender: p.gender } : null,
+            id: (row.saju_profile_id as string | null) ?? null,
           });
         }
       } catch {
@@ -136,8 +135,7 @@ export async function listUserReports(userId: string): Promise<MyReport[]> {
       out.push({
         label: "프리미엄 궁합", href: "/premium/compatibility", created_at: row.created_at,
         target: row.person_a_birth ? formatTarget(row.person_a_birth, row.person_a_gender) : null,
-        // person_a 쪽엔 태어난 시각이 저장돼 있지 않아 재조회 자동제출 대상에서 제외.
-        viewParams: null,
+        id: null, // 궁합은 전용 열람 라우트가 아직 없다 — 정적 href로 폴백.
       });
     }
   } catch { /* noop */ }
@@ -155,7 +153,7 @@ export async function listUserReports(userId: string): Promise<MyReport[]> {
       out.push({
         label: "프리미엄 사주 (직접 입력)", href: "/premium", created_at: row.created_at,
         target: row.birth_date ? formatTarget(row.birth_date, row.gender) : null,
-        viewParams: row.birth_date ? { birth_date: row.birth_date, birth_time: row.birth_time || null, gender: row.gender } : null,
+        id: null, // 016(직접입력) 전용 열람 라우트가 아직 없다 — 정적 href로 폴백.
       });
     }
   } catch { /* noop */ }
@@ -176,7 +174,7 @@ export async function listUserReports(userId: string): Promise<MyReport[]> {
       out.push({
         label: meta.label, href: meta.href, created_at: row.created_at,
         target: row.birth_date ? formatTarget(row.birth_date, row.gender) : null,
-        viewParams: row.birth_date ? { birth_date: row.birth_date, birth_time: row.birth_time || null, gender: row.gender } : null,
+        id: null, // 018(가족·지인 대상) 전용 열람 라우트가 아직 없다 — 정적 href로 폴백.
       });
     }
   } catch { /* noop */ }

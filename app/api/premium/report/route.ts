@@ -73,8 +73,10 @@ export async function GET(req: NextRequest) {
 
   // 캐시 저장 (테이블 없으면 무시)
   try {
+    // QA(2026-09-05) D-2: upsert 충돌 시 created_at DEFAULT가 다시 안 타 재생성해도
+    // 생성일이 그대로였다 — 명시적으로 갱신한다.
     await supabaseAdmin.from("premium_reports").upsert(
-      { saju_profile_id: profile.id, user_id: userId, content: report, expires_at: reportExpiresAtIso() },
+      { saju_profile_id: profile.id, user_id: userId, content: report, expires_at: reportExpiresAtIso(), created_at: new Date().toISOString() },
       { onConflict: "saju_profile_id" }
     );
   } catch { /* noop */ }
@@ -174,7 +176,7 @@ export async function POST(req: NextRequest) {
       await supabaseAdmin.from("premium_saju_adhoc_reports").upsert(
         {
           user_id: userId, birth_date: birthDate, birth_time: timeKey, gender,
-          content: report, expires_at: reportExpiresAtIso(),
+          content: report, expires_at: reportExpiresAtIso(), created_at: new Date().toISOString(),
         },
         { onConflict: "user_id,birth_date,birth_time,gender" }
       );
@@ -189,7 +191,7 @@ export async function POST(req: NextRequest) {
   if (created?.id) {
     try {
       await supabaseAdmin.from("premium_reports").upsert(
-        { saju_profile_id: created.id, user_id: userId, content: report, expires_at: reportExpiresAtIso() },
+        { saju_profile_id: created.id, user_id: userId, content: report, expires_at: reportExpiresAtIso(), created_at: new Date().toISOString() },
         { onConflict: "saju_profile_id" }
       );
     } catch { /* noop */ }

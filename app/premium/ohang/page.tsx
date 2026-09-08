@@ -11,11 +11,12 @@ export const metadata: Metadata = {
   alternates: { canonical: "/premium/ohang" },
 };
 
-export default async function PremiumWuxingPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ birth_date?: string; birth_time?: string; gender?: string; autostart?: string }>;
-}) {
+// §1(CoS 결정 2026-09-08): autostart 자동제출(쿼리로 birth_date 등을 받아 재생성을
+// 태우는 방식)을 폐기했다 — 그건 "다시 보기"가 아니라 "다시 만들기" 요청이라
+// 1회권을 이미 쓴 사람은 여기서 결제 게이트에 막혔다(실측 재현). 저장된 리포트를
+// 다시 여는 경로는 app/premium/ohang/[id](이용권 검사 없음)가 전담한다. 이 페이지는
+// 순수하게 "새로 만들기" 전용이라 검색 파라미터를 더 이상 받지 않는다.
+export default async function PremiumWuxingPage() {
   // 생성 직전 확정 화면에 등록된 내 사주를 채워 두기 위해 서버에서 미리 읽는다.
   // 없으면 null — 확정 화면이 빈 폼으로 뜨고, 입력값이 본인 프로필로 저장된다(016 규칙).
   const session = await auth();
@@ -24,15 +25,6 @@ export default async function PremiumWuxingPage({
     ? { birth_date: profile.birth_date, birth_time: profile.birth_time, gender: profile.gender }
     : null;
 
-  // §4(2026-09-05): 마이페이지 "보기 →"가 저장된 리포트로 돌아오게 하는 자동제출
-  // 파라미터 — 값이 있으면 폼을 건너뛰고 바로 제출해 기존 캐시 우선 조회를 태운다.
-  // 유효할 때만 채운다 — 깨진 쿼리(즐겨찾기 등)는 조용히 평소 폼으로 둔다.
-  const sp = await searchParams;
-  const autoTarget =
-    sp.autostart === "1" && sp.birth_date && (sp.gender === "M" || sp.gender === "F")
-      ? { birth_date: sp.birth_date, birth_time: sp.birth_time || null, gender: sp.gender }
-      : null;
-
   return (
     <PremiumGate
       title="오행 보완 리포트"
@@ -40,7 +32,7 @@ export default async function PremiumWuxingPage({
       path="/premium/ohang"
       oneTime={{ productId: "wuxing_one", buyPath: "/premium/buy?product=wuxing_one", priceLabel: "990원" }}
     >
-      <WuxingResultForm saved={saved} autoTarget={autoTarget} />
+      <WuxingResultForm saved={saved} />
     </PremiumGate>
   );
 }

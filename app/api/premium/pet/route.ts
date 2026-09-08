@@ -115,8 +115,10 @@ export async function POST(req: NextRequest) {
       const profileId = await ensureOwnProfileId(userId, target, ownProfile);
       if (profileId) {
         try {
+          // QA(2026-09-05) D-2: upsert 충돌 시 created_at DEFAULT가 다시 안 타
+          // 재생성해도 생성일이 그대로였다 — 명시적으로 갱신한다.
           await supabaseAdmin.from("premium_pet_reports").upsert(
-            { ...cacheKey, saju_profile_id: profileId, user_id: userId, content: report, expires_at: reportExpiresAtIso() },
+            { ...cacheKey, saju_profile_id: profileId, user_id: userId, content: report, expires_at: reportExpiresAtIso(), created_at: new Date().toISOString() },
             { onConflict: "saju_profile_id,species,pet_name,pet_year,pet_month,pet_day" }
           );
         } catch { /* noop */ }

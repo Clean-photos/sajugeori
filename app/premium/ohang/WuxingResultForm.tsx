@@ -1,39 +1,35 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import type { WuxingReportData } from "@/lib/wuxing/report";
-import { wuxingReportToPlainText } from "@/lib/wuxing/report";
-import { WuxingReport } from "@/components/wuxing/WuxingReport";
-import { SaveReportButtons } from "@/components/premium/SaveReportButtons";
-import { DeleteReportButton } from "@/components/premium/DeleteReportButton";
+import { WuxingReportResultView } from "@/components/wuxing/WuxingReportResultView";
 import { WaitingCards } from "@/components/premium/WaitingCards";
-import { PrintReportFooter } from "@/components/premium/PrintReport";
 import { SajuInputForm, type SavedSaju } from "@/components/premium/SajuInputForm";
 import { premiumErrorInfo, type PremiumErrorInfo } from "@/components/premium/premiumError";
 import { PremiumErrorBanner } from "@/components/premium/PremiumErrorBanner";
 
-type Step = "form" | "loading" | "result" | "deleted";
+type Step = "form" | "loading" | "result";
 
 type Target = { birth_date: string; birth_time: string | null; gender: string };
 
-export function WuxingResultForm({ saved, autoTarget }: { saved: SavedSaju; autoTarget?: Target | null }) {
-  // autoTarget이 있으면 폼이 잠깐이라도 보이지 않도록 처음부터 loading으로 시작한다.
-  const [step, setStep] = useState<Step>(autoTarget ? "loading" : "form");
+/**
+ * §1(CoS 결정 2026-09-08): 이 폼은 "새로 만들기" 전용이다. 예전엔 마이페이지
+ * "보기 →"가 birth_date 등을 쿼리로 실어 이 폼을 자동 제출시켰는데(autostart),
+ * 그건 재열람이 아니라 재생성 요청이라 1회권 소진자는 결제 게이트에 막혔다
+ * (실측: 990원 결제 → 정상 생성·열람 → 재진입 시 페이월 재노출). 저장된
+ * 리포트를 다시 보는 경로는 이제 이용권 검사가 아예 없는
+ * app/premium/ohang/[id]가 맡는다 — 이 폼은 되돌아오지 않는다.
+ */
+export function WuxingResultForm({ saved }: { saved: SavedSaju }) {
+  const router = useRouter();
+  const [step, setStep] = useState<Step>("form");
   const [report, setReport] = useState<WuxingReportData | null>(null);
   const [error, setError] = useState<PremiumErrorInfo | null>(null);
+  // 저장된 saju_profile_id — 생성 직후 "다시보기" 영구 링크로 안내하기 위해 보관.
+  const [profileId, setProfileId] = useState<string | null>(null);
   // 어떤 대상으로 만든 리포트인지 — 삭제할 때 같은 대상을 지워야 한다.
   const [target, setTarget] = useState<Target | null>(null);
-  // §4(2026-09-05): 마이페이지 "보기 →"로 들어온 경우 폼을 보여주지 않고 바로
-  // 제출한다 — /api/premium/wuxing이 이미 "확정 대상과 같으면 캐시 반환"을
-  // 하므로, 여기서 새 열람 경로를 만들 필요 없이 그 경로를 그대로 태운다.
-  const autoFired = useRef(false);
-  useEffect(() => {
-    if (autoTarget && !autoFired.current) {
-      autoFired.current = true;
-      submit(autoTarget);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   async function submit(v: Target) {
     setStep("loading");
@@ -58,6 +54,7 @@ export function WuxingResultForm({ saved, autoTarget }: { saved: SavedSaju; auto
         return;
       }
       setReport(data.report as WuxingReportData);
+      setProfileId(typeof data.profileId === "string" ? data.profileId : null);
       setStep("result");
     } catch {
       setError({ message: "네트워크 연결을 확인한 뒤 다시 시도해주세요." });
@@ -76,34 +73,19 @@ export function WuxingResultForm({ saved, autoTarget }: { saved: SavedSaju; auto
     }
     const res = await fetch(`/api/premium/wuxing?${q.toString()}`, { method: "DELETE" });
     if (!res.ok) throw new Error("delete failed");
-    setStep("deleted");
-  }
-
-  if (step === "deleted") {
-    return (
-      <div className="px-4 py-8 flex flex-col items-center gap-2 text-center">
-        <p className="text-sm text-[#1A1A18]">결과를 삭제했습니다.</p>
-        <p className="text-xs text-[#6B6661]">다시 보려면 오행 보완 리포트를 새로 결제해 주세요.</p>
-      </div>
-    );
+    router.push("/mypage");
+    router.refresh();
   }
 
   if (step === "result" && report) {
     return (
-      <div className="flex flex-col gap-4">
-        <div className="print-area">
-          <div className="print-card">
-            <WuxingReport data={report} />
-          </div>
-          <PrintReportFooter />
-        </div>
-        <div className="px-5">
-          <SaveReportButtons text={wuxingReportToPlainText(report)} title="오행 보완 리포트" />
-        </div>
-        <p className="no-print text-center text-[11px] text-[#9B968F] px-5">생성된 결과는 1년간 다시 볼 수 있습니다</p>
-        <div className="px-5 pb-4">
-          <DeleteReportButton onConfirm={handleDelete} />
-        </div>
+      <div className="flex flex-col gap-2">
+        <WuxingReportResultView report={report} onDelete={handleDelete} />
+        {profileId && (
+          <p className="no-print text-center text-[11px] text-[#9B968F] px-5 -mt-2">
+            마이페이지에서 언제든 다시 열어볼 수 있어요
+          </p>
+        )}
       </div>
     );
   }
