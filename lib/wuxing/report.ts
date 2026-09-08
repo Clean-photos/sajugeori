@@ -25,6 +25,7 @@ import {
   AXES,
   CAVEAT_PATTERN,
   conflictsWithClimate,
+  supportElementConflictsWithClimate,
   type Axis,
   type DictItem,
   type DrainItem,
@@ -191,6 +192,12 @@ export function buildFillSection(chart: SajuChart, cls: Classification): FillSec
   // (같은 규칙을 두 곳에서 따로 계산하면 언젠가 어긋난다).
   const yongsin = buildYongsinCard(chart, cls);
 
+  // §4-1(CoS+CEO 실물 확인, 2026-09-08): supportElement는 오행마다 고정된
+  // 생성자라 조후와 무관하게 항상 같다 — 부족 오행이 木인 寒濕(춥고 습함)
+  // 사주에 "水를 함께 쓰면 안정적"을 그대로 권해 조후와 정반대가 됐다.
+  // 이 사주에서 조후를 악화시키는 오행이면 support 제안 자체를 접는다.
+  const supportConflicts = supportElementConflictsWithClimate(entry.supportElement, climate);
+
   return {
     frame: "fill",
     target,
@@ -202,9 +209,9 @@ export function buildFillSection(chart: SajuChart, cls: Classification): FillSec
     extremeDirection: null,
     drainItems: [],
     divergenceNote: buildDivergenceNote(target, yongsin.yongsinByTrack, yongsin.divergesFromPrimary),
-    supportElement: entry.supportElement,
-    supportElementKr: C.ELEMENT_KR[entry.supportElement],
-    supportNote: entry.supportNote,
+    supportElement: supportConflicts ? null : entry.supportElement,
+    supportElementKr: supportConflicts ? null : C.ELEMENT_KR[entry.supportElement],
+    supportNote: supportConflicts ? null : entry.supportNote,
     strengthAdjustment,
     excluded: [],
     excludedKr: [],

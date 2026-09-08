@@ -182,6 +182,28 @@ export function conflictsWithClimate(item: string, climate: string): boolean {
 }
 
 /**
+ * §4-1(CoS+CEO 실물 확인, 2026-09-08): 각 오행의 supportElement(직접 채우기
+ * 어려울 때 함께 쓰면 좋은 오행 — 언제나 그 오행의 생성자, 예: 木의
+ * supportElement=水)는 조후와 무관하게 고정돼 있다. 부족 오행이 木인 寒濕
+ * (춥고 습함) 사주에 "水를 함께 쓰면 안정적"이라고 권하면, 이미 습한 사주에
+ * 물을 더 얹는 셈이라 조후와 정반대다(실측).
+ *
+ * lib/saju-engine/engine.ts가 조후를 판정할 때 쓰는 두 johu 페어({水,金}=
+ * 燥熱용, {火,木}=寒濕용)는 서로 배타적인 세트다(계산 엔진 무접촉 — 엔진이
+ * 이미 산출한 두 페어를 그대로 인용만 한다). 그래서 "반대 계절의 페어에
+ * 속한다"가 곧 "이 조후를 악화시킨다"와 같다.
+ */
+const OPPOSITE_JOHU_PAIR: Record<string, Element[]> = {
+  "덥고 건조(燥熱)": ["火", "木"],
+  "춥고 습함(寒濕)": ["水", "金"],
+};
+
+/** supportElement 제안이 이 사주의 조후와 정반대 방향인가(§4-1). */
+export function supportElementConflictsWithClimate(supportEl: Element, climate: string): boolean {
+  return OPPOSITE_JOHU_PAIR[climate]?.includes(supportEl) ?? false;
+}
+
+/**
  * "~줄이기·~회피" 계열 항목만 6축 전체에서 모은다 (세운 처방 §1-6 "피할 것" 소스).
  * 어느 오행에나 6개 안팎 있어 limit=2를 채우기에 항상 충분하다(검증됨).
  */
