@@ -16,7 +16,7 @@ import type { Element } from "@/lib/saju-engine/constants";
 import type { SajuChart } from "@/lib/saju-engine/engine";
 import { type Classification } from "./classify";
 import { buildSeunPlan, type SeunPlan, type SeunYear } from "./seun";
-import { type DictItem, avoidanceItems, axisItems, elementDict, AXES, CAVEAT_PATTERN, AVOID_PATTERN, type Axis } from "./dict";
+import { type DictItem, avoidanceItems, axisItems, elementDict, AXES, CAVEAT_PATTERN, AVOID_PATTERN, conflictsWithClimate, type Axis } from "./dict";
 import { computeRelation, axisPriority, AXIS_COUNT, type TenGodRelation } from "./relation";
 
 export type SeunCase = "A" | "B" | "C" | "D" | "E";
@@ -150,11 +150,19 @@ const habitFirst: Axis[] = ["habit", "color", "direction", "food", "material", "
  * ("~는 아닙니다" 류)뿐 아니라 AVOID_PATTERN("~줄이기" 류)도 걸러낸다(§4) — 둘
  * 다 "채우세요"와 반대로 읽히는 문구라는 점은 같다. avoidanceItems()로 명시적
  * "피할 것" 목록을 뽑는 pickAvoidItems()는 이 함수를 쓰지 않으니 영향 없다.
+ *
+ * §2(CoS 실물 확인, 2026-09-08): "환경" 축 항목이 사주의 조후 판정과 정반대
+ * 방향을 권하는 경우도 같은 이유로 걸러낸다(report.ts와 동일 필터, dict.ts의
+ * conflictsWithClimate 참고).
  */
-function collectByAxisOrderFull(el: Element, order: Axis[], byStrength = false): DictItem[] {
+function collectByAxisOrderFull(el: Element, order: Axis[], climate: string, byStrength = false): DictItem[] {
   const pool: DictItem[] = [];
   for (const ax of order) {
-    pool.push(...axisItems(el, ax).filter((it) => !CAVEAT_PATTERN.test(it.item) && !AVOID_PATTERN.test(it.item)));
+    pool.push(
+      ...axisItems(el, ax).filter(
+        (it) => !CAVEAT_PATTERN.test(it.item) && !AVOID_PATTERN.test(it.item) && !conflictsWithClimate(it.item, climate)
+      )
+    );
   }
   if (!byStrength) return pool;
   const rank: Record<string, number> = { A: 0, B: 1, C: 2 };
@@ -230,29 +238,30 @@ function priorityPool(
   seunCase: SeunCase,
   cls: Classification,
   dominantExcess: Element | null,
-  relation: TenGodRelation | null
+  relation: TenGodRelation | null,
+  climate: string
 ): DictItem[] {
   const primary = cls.primary;
   const excessEl = dominantExcess ?? cls.excessive[0] ?? cls.dominant ?? null;
 
   if (seunCase === "B") {
-    if (!excessEl) return primary ? collectByAxisOrderFull(primary, restrictToBodyAxes(AXES, relation), true) : [];
+    if (!excessEl) return primary ? collectByAxisOrderFull(primary, restrictToBodyAxes(AXES, relation), climate, true) : [];
     // 설기 항목(오행당 5개)이 3년 반복에 부족할 수 있어, 소진되면 그 오행의
     // 나머지 축(AXES)으로 이어서 후보를 늘린다 — 여전히 "그 오행에 대한
     // 처방"이라 주제는 벗어나지 않는다. 과다 오행 설기는 본문 축 제한과 무관한
     // 별도 섹션이라 restrictToBodyAxes를 적용하지 않는다.
-    return [...dictDrainAsItems(excessEl), ...collectByAxisOrderFull(excessEl, AXES, true)];
+    return [...dictDrainAsItems(excessEl), ...collectByAxisOrderFull(excessEl, AXES, climate, true)];
   }
 
   if (!primary) {
     // 균형형 — 부족이 없다. 과다 오행 설기로 폴백(위와 동일한 이유로 축 제한 없음)
-    return excessEl ? [...dictDrainAsItems(excessEl), ...collectByAxisOrderFull(excessEl, AXES, true)] : [];
+    return excessEl ? [...dictDrainAsItems(excessEl), ...collectByAxisOrderFull(excessEl, AXES, climate, true)] : [];
   }
 
-  if (seunCase === "C") return collectByAxisOrderFull(primary, restrictToBodyAxes(habitEnvFirst, relation));
-  if (seunCase === "E") return collectByAxisOrderFull(primary, restrictToBodyAxes(habitFirst, relation));
+  if (seunCase === "C") return collectByAxisOrderFull(primary, restrictToBodyAxes(habitEnvFirst, relation), climate);
+  if (seunCase === "E") return collectByAxisOrderFull(primary, restrictToBodyAxes(habitFirst, relation), climate);
   // A·D 공통 — 강도 A·B 우선
-  return collectByAxisOrderFull(primary, restrictToBodyAxes(AXES, relation), true);
+  return collectByAxisOrderFull(primary, restrictToBodyAxes(AXES, relation), climate, true);
 }
 
 function pickPriorityItems(
@@ -260,9 +269,10 @@ function pickPriorityItems(
   cls: Classification,
   dominantExcess: Element | null,
   relation: TenGodRelation | null,
+  climate: string,
   used: Set<string>
 ): DictItem[] {
-  const pool = priorityPool(seunCase, cls, dominantExcess, relation);
+  const pool = priorityPool(seunCase, cls, dominantExcess, relation, climate);
   return pickUniqueItems(pool, 3, used);
 }
 
@@ -331,6 +341,7 @@ function buildYearPrescription(
   y: SeunYear,
   cls: Classification,
   relation: TenGodRelation | null,
+  climate: string,
   state: DedupState
 ): YearPrescription {
   const incoming = y.stemElement === y.branchElement ? [y.stemElement] : [y.stemElement, y.branchElement];
@@ -355,7 +366,7 @@ function buildYearPrescription(
     divergesByAxis: detail.diverges,
     axisNote: buildAxisNote(detail, copy.conditionNote),
     statusLine,
-    priorityItems: pickPriorityItems(seunCase, cls, dominantExcess, relation, state.usedPriorityItems),
+    priorityItems: pickPriorityItems(seunCase, cls, dominantExcess, relation, climate, state.usedPriorityItems),
     avoidItems: pickAvoidItems(cls, dominantExcess, state.usedAvoidItems),
     guidelineLine,
   };
@@ -408,12 +419,15 @@ export function buildSeunPrescription(
   // 우선 항목 후보를 좁히려면 관계(TenGodRelation)가 필요하다 — report.ts와 똑같이
   // day_master_element·primary로 한 번만 계산해 재사용한다.
   const relation: TenGodRelation | null = cls.primary ? computeRelation(chart.day_master_element, cls.primary) : null;
+  // §2(CoS 결정 2026-09-08): "환경" 축 우선 항목이 사주의 조후 판정과 정반대
+  // 방향을 권하지 않도록, report.ts와 같은 조후 값을 여기도 그대로 재사용한다.
+  const climate = chart.yongsin.climate;
   const state: DedupState = {
     usedPriorityItems: new Set(),
     usedAvoidItems: new Set(),
     usedStatus: new Set(),
     usedGuideline: new Set(),
   };
-  const years = plan.years.map((y) => buildYearPrescription(y, cls, relation, state));
+  const years = plan.years.map((y) => buildYearPrescription(y, cls, relation, climate, state));
   return { years, daewoonNote: buildDaewoonNote(plan) };
 }

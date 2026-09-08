@@ -24,6 +24,7 @@ import {
   pickAxisItems,
   AXES,
   CAVEAT_PATTERN,
+  conflictsWithClimate,
   type Axis,
   type DictItem,
   type DrainItem,
@@ -177,12 +178,13 @@ export function buildFillSection(chart: SajuChart, cls: Classification): FillSec
   // 식상이 부족한데 신약이면 L을 그대로 채우는 게 오히려 역효과다(재다신약·
   // 관살태과·식상신약). needed일 때만 아래로 axes를 다르게 조립한다.
   const strengthAdjustment = adjustForStrength(relation, chart.day_master_element, chart.strength);
+  const climate = chart.yongsin.climate;
   const axes = strengthAdjustment.needed
-    ? buildAdjustedAxes(target, relation, strengthAdjustment.preferFirst)
+    ? buildAdjustedAxes(target, relation, strengthAdjustment.preferFirst, climate)
     : axisPriority(relation, AXIS_COUNT).map((axis) => ({
         axis,
         axisLabel: dict.axisLabels[axis],
-        items: pickFillAxisItems(target, axis),
+        items: pickFillAxisItems(target, axis, climate),
       }));
 
   // §4 — primary↔용신 갈림 여부. buildYongsinCard가 이미 이 판정을 하므로 재사용한다
@@ -217,10 +219,14 @@ export function buildFillSection(chart: SajuChart, cls: Classification): FillSec
  * 채로 대부분의(P4 미해당) 유저에게 노출되고 있었다. buildAdjustedAxes와
  * 같은 방식(넉넉히 뽑아 필터 후 슬라이스)으로 맞춘다 — 원래 순서(사전 원문
  * 배열 순서, byStrength 아님)는 그대로 보존한다.
+ *
+ * §2(CoS 실물 확인, 2026-09-08): "환경" 축 항목 중 사주의 조후 판정과 정반대
+ * 방향을 권하는 것도 같은 이유로 걸러낸다(예: 燥熱 사주에 "건조한 환경 유지").
+ * dict.ts의 conflictsWithClimate 주석 참고.
  */
-function pickFillAxisItems(el: Element, axis: Axis): DictItem[] {
+function pickFillAxisItems(el: Element, axis: Axis, climate: string): DictItem[] {
   return pickAxisItems(el, axis, 10)
-    .filter((it) => !CAVEAT_PATTERN.test(it.item))
+    .filter((it) => !CAVEAT_PATTERN.test(it.item) && !conflictsWithClimate(it.item, climate))
     .slice(0, ITEMS_PER_AXIS);
 }
 
@@ -232,13 +238,13 @@ function pickFillAxisItems(el: Element, axis: Axis): DictItem[] {
  * 묶음이라 axis 필드는 React key 용도로만 쓰고(서로만 다르면 됨), 화면에는
  * axisLabel만 보인다.
  */
-function buildAdjustedAxes(target: Element, relation: TenGodRelation, preferFirst: Element[]): FillAxisGroup[] {
+function buildAdjustedAxes(target: Element, relation: TenGodRelation, preferFirst: Element[], climate: string): FillAxisGroup[] {
   const boost: DictItem[] = [];
   for (const el of preferFirst) {
     for (const ax of AXES) {
       if (boost.length >= 3) break;
       const [top] = pickAxisItems(el, ax, 1, { byStrength: true });
-      if (top && top.strength === "A" && !CAVEAT_PATTERN.test(top.item) && !boost.some((it) => it.item === top.item)) boost.push(top);
+      if (top && top.strength === "A" && !CAVEAT_PATTERN.test(top.item) && !conflictsWithClimate(top.item, climate) && !boost.some((it) => it.item === top.item)) boost.push(top);
     }
   }
 
@@ -246,9 +252,10 @@ function buildAdjustedAxes(target: Element, relation: TenGodRelation, preferFirs
   // §3(P4)과 같은 표제-내용 불일치가 생긴다 — 여기도 걸러낸다. ITEMS_PER_AXIS(3)로
   // 먼저 잘라내면 상위 3개가 하필 캐비어트뿐일 때 후보가 통째로 사라질 수 있어
   // (실측: 사주 A), 축당 넉넉히(10) 뽑아 필터링 후에 슬라이스한다.
+  // §2(CoS 실물 확인, 2026-09-08): 조후 반대 방향 환경 항목도 같이 걸러낸다.
   const targetItems = axisPriority(relation, AXIS_COUNT)
     .flatMap((ax) => pickAxisItems(target, ax, 10, { byStrength: true }))
-    .filter((it) => it.strength === "A" && !CAVEAT_PATTERN.test(it.item))
+    .filter((it) => it.strength === "A" && !CAVEAT_PATTERN.test(it.item) && !conflictsWithClimate(it.item, climate))
     .slice(0, 4);
 
   const groups: FillAxisGroup[] = [];

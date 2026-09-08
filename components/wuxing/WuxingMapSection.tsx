@@ -14,6 +14,14 @@ export function WuxingMapSection({ data }: { data: WuxingMapData }) {
       {/* 결정 ④ — "부족하다고 다 채우는 것이 아니라…" 도입 서술(승인 완료, docs/wuxing_pending_copy_v1.md §1) */}
       <p className="text-sm text-[#1A1A18] leading-relaxed">{data.intro}</p>
 
+      {/* §2(CoS 결정 2026-09-08): 동률로 밀린 오행(특히 조후가 가리키는 오행)이
+          본문 어디에도 안 나오던 문제 — 한 줄로 짚어 준다. */}
+      {data.tieNote && (
+        <p className="text-[12.5px] leading-relaxed text-[#6B6661] bg-[#FBF8F2] border border-[#E5DFD4] rounded-xl px-3 py-2.5">
+          {data.tieNote}
+        </p>
+      )}
+
       <ElementBars bars={data.bars} charCount={data.count.charCount} />
       <ImbalanceTable rows={data.imbalance} hourUnknown={data.hourUnknown} />
       <OhaengCircleDiagram surface={data.count.surface} />

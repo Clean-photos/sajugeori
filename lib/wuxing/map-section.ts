@@ -17,6 +17,7 @@ import type { SajuChart } from "@/lib/saju-engine/engine";
 import { THRESHOLD, generatorOf, controllerOf, type Classification } from "./classify";
 import { countElements, type ElementCount } from "./count";
 import { CIRCLE_ORDER } from "./circle-diagram";
+import { josaWaGwa, josaEunNeun, josaEulReul } from "./josa";
 
 /**
  * §② 도입 서술 (docs/wuxing_pending_copy_v1.md §1, CEO 승인 2026-08-31).
@@ -42,6 +43,31 @@ const MAP_INTRO_CONNECTOR = {
  */
 const YONGSIN_CONFLICT_NOTE =
   "이 사주는 몸을 보강하는 관점(억부)과 계절의 온도를 맞추는 관점(조후)이 서로 다른 기운을 가리킵니다. 두 관점이 갈리는 것은 흔한 일이며, 이 리포트는 조후를 우선하고 억부를 보조로 함께 제시합니다.";
+
+/**
+ * §2(CoS 실물 확인, 2026-09-08, 부수 지적): 표면 개수가 동률인 후보 중 primary로
+ * 뽑히지 않은 오행은 지금까지 어느 서술에도 등장하지 않았다(분포 막대·표에는
+ * 숫자로는 있지만, "왜 중요한지"를 짚어 주는 문장이 전혀 없었다) — 특히 그 오행이
+ * 조후가 가리키는 오행이면(실측: 부족 金과 동률인 水가 燥熱 사주의 조후 후보이자
+ * 표면 최소값인데도 본문 어디에도 이름이 안 나옴) 놓치면 안 되는 정보다. classify.ts가
+ * 이미 계산해 둔 cls.secondary(동률로 밀린 후보)를 한 줄로 명시한다. biased(부재
+ * 2개 이상) 패턴은 diagnosis.ts 헤드라인이 이미 L1·L2를 함께 짚으므로 중복을
+ * 피해 여기서는 다루지 않는다 — scarce1(균형형인데 동률로 하나만 뽑힌 경우)에서만
+ * 필요한 보완이다.
+ */
+function buildTieNote(cls: Classification, chart: SajuChart): string | null {
+  if (cls.pattern !== "balanced" || !cls.primary || cls.secondary.length === 0) return null;
+  const primary = cls.primary;
+  const primaryKr = `${primary}(${C.ELEMENT_KR[primary]})`;
+  const secondaryKr = cls.secondary.map((el) => `${el}(${C.ELEMENT_KR[el]})`).join("·");
+  const johuTied = cls.secondary.filter((el) => chart.yongsin.johu_candidates.includes(el));
+  if (johuTied.length > 0) {
+    const johuTiedKr = johuTied.map((el) => `${el}(${C.ELEMENT_KR[el]})`).join("·");
+    const johuLast = johuTied[johuTied.length - 1];
+    return `${secondaryKr}도 ${primaryKr}${josaWaGwa(primary)} 표면 개수가 똑같이 가장 적습니다. 특히 ${johuTiedKr}${josaEunNeun(johuLast)} 이 사주의 조후(계절) 판정이 필요로 하는 기운이기도 해, 이번에 ${primaryKr}${josaEulReul(primary)} 먼저 다루더라도 함께 눈여겨볼 만합니다.`;
+  }
+  return `${secondaryKr}도 ${primaryKr}${josaWaGwa(primary)} 표면 개수가 똑같이 가장 적어, 함께 부족한 오행입니다.`;
+}
 
 // ── ① 오행 분포 막대 ──────────────────────────────────────────────────
 export type ElementTier = "absent" | "scarce" | "normal" | "mildlyMany" | "excessive";
@@ -260,6 +286,8 @@ export interface WuxingMapData {
   hourUnknown: boolean;
   /** §② 도입 서술 — 고정 도입문 + 판정 결과 연결문(4갈래 중 하나) */
   intro: string;
+  /** §2(2026-09-08) 동률 오행 안내 — 해당 없으면 null */
+  tieNote: string | null;
 }
 
 /**
@@ -283,5 +311,6 @@ export function buildWuxingMap(chart: SajuChart, cls: Classification): WuxingMap
     yongsin,
     hourUnknown: cls.hourUnknown,
     intro: `${MAP_INTRO_FIXED} ${pickMapIntroConnector(cls, yongsin.divergesFromPrimary)}`,
+    tieNote: buildTieNote(cls, chart),
   };
 }
