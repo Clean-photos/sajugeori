@@ -82,11 +82,13 @@ export async function POST(req: NextRequest) {
   } else if (ownProfile?.id) {
     try {
       const { data: cached } = await supabaseAdmin
-        .from("premium_compatibility_reports").select("content, score")
+        .from("premium_compatibility_reports").select("id, content, score")
         .match(cacheKey).or(notExpiredFilter()).limit(1).maybeSingle();
       if (cached?.content) {
         await discardAttempt(started.attemptId);
-        return NextResponse.json({ report: cached.content, score: cached.score, context, cached: true });
+        // §1(CoS 결정 2026-09-08): id를 함께 돌려줘야 마이페이지 "보기 →"가
+        // /premium/compatibility/{id}(이용권 검사 없는 열람 라우트)로 연결할 수 있다.
+        return NextResponse.json({ report: cached.content, score: cached.score, context, cached: true, id: cached.id });
       }
     } catch { /* 테이블 없음 또는 미저장 → 생성 진행 */ }
   }
@@ -121,6 +123,7 @@ export async function POST(req: NextRequest) {
     );
 
     // 캐시 저장 (테이블 없으면 무시)
+    let savedId: string | null = null;
     if (isAdhoc) {
       // 1회성 — 본인 프로필도, 본인 리포트 캐시도 건드리지 않는다.
       await writeAdhocCache(userId, PRODUCT_ID, personA, { content: report, score: normalizedScore }, variant);
@@ -129,10 +132,13 @@ export async function POST(req: NextRequest) {
       const profileId = await ensureOwnProfileId(userId, personA, ownProfile);
       if (profileId) {
         try {
-          await supabaseAdmin.from("premium_compatibility_reports").insert({
+          // §1(CoS 결정 2026-09-08): 생성된 행의 id를 돌려줘야 "보기 →"가
+          // /premium/compatibility/{id}로 연결할 수 있다.
+          const { data: inserted } = await supabaseAdmin.from("premium_compatibility_reports").insert({
             ...cacheKey, saju_profile_id: profileId, user_id: userId,
             content: report, score: normalizedScore, expires_at: reportExpiresAtIso(),
-          });
+          }).select("id").single();
+          savedId = inserted?.id ?? null;
         } catch { /* noop */ }
       }
     }
@@ -141,7 +147,7 @@ export async function POST(req: NextRequest) {
     if (access.passId) await consumeOneTimePass(access.passId);
     await finishAttemptDone(started.attemptId);
 
-    return NextResponse.json({ report, score: normalizedScore, context, cached: false });
+    return NextResponse.json({ report, score: normalizedScore, context, cached: false, id: savedId });
   } catch (e) {
     console.error("premium compatibility LLM error:", e);
     await finishAttemptFailed(started.attemptId, "LLM 호출 오류");
@@ -158,6 +164,16 @@ export async function DELETE(req: NextRequest) {
   const userId = session.user.id;
 
   const body = await req.json().catch(() => ({}));
+
+  // §1(CoS 결정 2026-09-08): /premium/compatibility/[id](저장된 결과 재열람
+  // 전용, 이용권 검사 없음)는 이 행의 정확한 PK(id)를 이미 알고 있다 — 상대
+  // 정보로 되짚어 찾는 아래 기존 방식과 달리 본인 사주 재등록으로 프로필이
+  // 바뀌어도 엉뚱한 행을 건드릴 여지가 없다(pet.ts와 동일한 이유).
+  if (typeof body.id === "string" && body.id) {
+    await supabaseAdmin.from("premium_compatibility_reports").delete().eq("id", body.id).eq("user_id", userId);
+    return NextResponse.json({ ok: true });
+  }
+
   const partnerBirth = body.partner_birth as string;
   const partnerGender = (body.partner_gender ?? "F") as "M" | "F";
   const context = (body.context ?? "romance") as Ctx;

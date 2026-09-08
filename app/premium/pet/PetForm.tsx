@@ -2,14 +2,11 @@
 
 import { useState } from "react";
 import { cleanReportText } from "@/lib/report-format";
-import { PrintReportFooter } from "@/components/premium/PrintReport";
-import { SaveReportButtons } from "@/components/premium/SaveReportButtons";
-import { DeleteReportButton } from "@/components/premium/DeleteReportButton";
 import { WaitingCards } from "@/components/premium/WaitingCards";
-import { ReportBody } from "@/components/premium/ReportBody";
 import { SajuInputForm, type SavedSaju } from "@/components/premium/SajuInputForm";
 import { premiumErrorInfo, type PremiumErrorInfo } from "@/components/premium/premiumError";
 import { PremiumErrorBanner } from "@/components/premium/PremiumErrorBanner";
+import { PetReportResultView } from "@/components/premium/PetReportResultView";
 
 type Step = "form" | "loading" | "result" | "deleted";
 type Species = "dog" | "cat";
@@ -116,32 +113,14 @@ export function PetForm({ saved }: { saved: SavedSaju }) {
 
   if (step === "result") {
     return (
-      <div className="px-5 py-6 flex flex-col gap-4">
-        <div className="print-area flex flex-col gap-4">
-          <div className="print-card bg-[#FBF8F2] border border-[#E5DFD4] rounded-2xl p-5 shadow-sm">
-            <div className="flex items-center gap-2 mb-4 pb-3 border-b border-[#E5DFD4]">
-              <span className="text-base">{species === "cat" ? "🐈" : "🐕"}</span>
-              <span className="text-xs font-medium text-[#6B6661] tracking-wide">{petLabel}</span>
-            </div>
-            <ReportBody text={report} highlight={[name.trim()]} />
-          </div>
-
-          <div className="print-card bg-[#C8743A]/8 border border-[#C8743A]/25 rounded-2xl p-4 text-xs text-[#6B6661] leading-relaxed">
-            반려동물 사주는 사람의 사주만큼 정밀하게 풀이하기 어려운 영역입니다.
-            본 풀이는 오락 및 참고 목적으로 제공되며, 아이의 건강과 관련한 문제는 반드시 수의사와 상담해 주세요.
-          </div>
-          <PrintReportFooter />
-        </div>
-
-        <SaveReportButtons text={report} title="반려동물 궁합" />
+      <div className="flex flex-col gap-2">
+        <PetReportResultView report={report} species={species} petLabel={petLabel} petName={name.trim()} onDelete={handleDelete} />
         <button
           onClick={() => { setStep("form"); setReport(""); }}
-          className="no-print text-sm text-[#6B6661] text-center py-2 active:opacity-60"
+          className="no-print text-sm text-[#6B6661] text-center py-2 -mt-4 active:opacity-60"
         >
           다른 아이 보기
         </button>
-        <p className="no-print text-center text-[11px] text-[#9B968F] -mt-2">생성된 결과는 1년간 다시 볼 수 있습니다</p>
-        <DeleteReportButton onConfirm={handleDelete} />
       </div>
     );
   }

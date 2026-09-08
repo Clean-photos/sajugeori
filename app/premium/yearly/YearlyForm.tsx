@@ -2,14 +2,11 @@
 
 import { useState } from "react";
 import { cleanReportText } from "@/lib/report-format";
-import { PrintReportFooter } from "@/components/premium/PrintReport";
-import { SaveReportButtons } from "@/components/premium/SaveReportButtons";
-import { DeleteReportButton } from "@/components/premium/DeleteReportButton";
 import { WaitingCards } from "@/components/premium/WaitingCards";
-import { ReportBody } from "@/components/premium/ReportBody";
 import { SajuInputForm, type SavedSaju } from "@/components/premium/SajuInputForm";
 import { premiumErrorInfo, type PremiumErrorInfo } from "@/components/premium/premiumError";
 import { PremiumErrorBanner } from "@/components/premium/PremiumErrorBanner";
+import { YearlyReportResultView } from "@/components/premium/YearlyReportResultView";
 
 type Step = "form" | "loading" | "result" | "deleted";
 
@@ -71,24 +68,12 @@ export function YearlyForm({ saved }: { saved: SavedSaju }) {
 
   if (step === "result") {
     return (
-      <div className="px-5 py-6 flex flex-col gap-4">
-        <div className="print-area flex flex-col gap-4">
-          <div className="print-card bg-[#FBF8F2] border border-[#E5DFD4] rounded-2xl p-5 shadow-sm">
-            <div className="flex items-center gap-2 mb-4 pb-3 border-b border-[#E5DFD4]">
-              <span className="text-base">運</span>
-              <span className="text-xs font-medium text-[#6B6661] tracking-wide">{year}년 프리미엄 연운세</span>
-            </div>
-            <ReportBody text={report} />
-          </div>
-          <PrintReportFooter />
-        </div>
-        <SaveReportButtons text={report} title="프리미엄 연운세" />
+      <div className="flex flex-col gap-2">
+        <YearlyReportResultView report={report} year={year} onDelete={handleDelete} />
         <button onClick={() => { setStep("form"); setReport(""); }}
-          className="no-print text-sm text-[#6B6661] text-center py-2 active:opacity-60">
+          className="no-print text-sm text-[#6B6661] text-center py-2 -mt-4 active:opacity-60">
           다른 해 보기
         </button>
-        <p className="no-print text-center text-[11px] text-[#9B968F] -mt-2">생성된 결과는 1년간 다시 볼 수 있습니다</p>
-        <DeleteReportButton onConfirm={handleDelete} />
       </div>
     );
   }

@@ -16,16 +16,32 @@ import { supabaseAdmin } from "@/lib/db/client";
  * 발견 — report-target.ts가 018을 쓰는 5개 라우트: 연운세·살풀이·오행·궁합·펫).
  * 이번에 그 누락을 메우고, 모든 리포트에 대상 사주(생년월일·성별)를 함께 붙인다.
  */
-type ProfileJoinSource = { table: string; label: string; href: string };
+/**
+ * idColumn: 이 테이블에서 "보기 →" 열람 라우트가 식별자로 쓸 컬럼.
+ *   - "saju_profile_id" — 프로필당 1행(PK 자체가 saju_profile_id). 살풀이·오행·
+ *     연운세(+year)·프리미엄 사주가 여기 해당.
+ *   - "id" — 프로필당 여러 행 가능(자체 PK 보유). 택일·펫이 여기 해당(같은
+ *     프로필로도 목적·기간, 아이가 다르면 별도 행이라 saju_profile_id만으로는
+ *     어느 행인지 특정할 수 없다).
+ * hasYear: 연운세 전용 — year도 함께 select해 링크에 쿼리로 붙인다(개인정보
+ * 아니므로 쿼리 노출 무방 — §1이 없앤 것은 생년월일·시각·성별이었다).
+ */
+type ProfileJoinSource = { table: string; label: string; href: string; idColumn: "saju_profile_id" | "id"; hasYear?: boolean };
 
 const PROFILE_JOIN_SOURCES: ProfileJoinSource[] = [
-  { table: "premium_reports", label: "프리미엄 사주", href: "/premium" },
-  { table: "premium_salpuri_reports", label: "프리미엄 살풀이", href: "/premium/salpuri" },
-  { table: "premium_taekil_reports", label: "프리미엄 택일", href: "/premium/taekil" },
-  { table: "premium_yearly_reports", label: "프리미엄 연운세", href: "/premium/yearly" },
-  { table: "premium_pet_reports", label: "반려동물 궁합", href: "/premium/pet" },
-  { table: "premium_wuxing_reports", label: "오행 보완 리포트", href: "/premium/ohang" },
-  { table: "blueprint_reports", label: "운명 설계도", href: "/premium/destiny" },
+  { table: "premium_reports", label: "프리미엄 사주", href: "/premium", idColumn: "saju_profile_id" },
+  { table: "premium_salpuri_reports", label: "프리미엄 살풀이", href: "/premium/salpuri", idColumn: "saju_profile_id" },
+  { table: "premium_taekil_reports", label: "프리미엄 택일", href: "/premium/taekil", idColumn: "id" },
+  { table: "premium_yearly_reports", label: "프리미엄 연운세", href: "/premium/yearly", idColumn: "saju_profile_id", hasYear: true },
+  { table: "premium_pet_reports", label: "반려동물 궁합", href: "/premium/pet", idColumn: "id" },
+  { table: "premium_wuxing_reports", label: "오행 보완 리포트", href: "/premium/ohang", idColumn: "saju_profile_id" },
+  // 운명 설계도는 전용 열람 라우트가 없다 — §1(CoS 결정 2026-09-08) 검토 결과,
+  // 이 상품은 페이지 자체 게이트(canView = premium || hasPass || hasReport)가
+  // 이미 "리포트 보유"만으로 통과시키고, API도 status:"done"이면 이용권 검사
+  // 전에 바로 내용을 돌려줘 오행과 같은 재결제 요구 문제가 원래 없다(확인:
+  // app/premium/destiny/page.tsx, app/api/premium/destiny/route.ts). 그래서
+  // 정적 href를 그대로 둔다.
+  { table: "blueprint_reports", label: "운명 설계도", href: "/premium/destiny", idColumn: "saju_profile_id" },
 ];
 
 // 018(premium_adhoc_reports)의 product_id → 표시 라벨/링크. report-target.ts가
@@ -54,8 +70,13 @@ export type MyReport = {
    * 재열람이 안 됐다(실측: 990원 결제 → 정상 생성 → 재진입 시 페이월 재노출).
    * 부수적으로 생년월일·성별이 URL에 평문으로 남는 문제도 있었다. saju_profile_id
    * 기반 열람 라우트(이용권 검사 없음)로 교체해 두 문제를 함께 없앤다.
+   *
+   * idColumn이 "id"인 소스(택일·펫)에서는 그 테이블 자체의 PK가 들어간다 —
+   * 프로필당 여러 행일 수 있어 saju_profile_id만으로는 특정 행을 가리킬 수 없다.
    */
   id: string | null;
+  /** 연운세 전용 — 어느 연도의 리포트인지. 다른 상품에서는 항상 null. */
+  year: number | null;
 };
 
 /**
@@ -67,10 +88,25 @@ export type MyReport = {
  *
  * 홈·마이페이지 둘 다 리포트 목록을 보여주므로(QA 2026-09-05: "홈·마이페이지
  * 양쪽 동일" 지적) 한 곳에만 두면 나중에 한쪽만 고치는 사고가 난다 — 공용으로 뺀다.
+ *
+ * §1 확장(2026-09-08): 오행에서 검증된 패턴(id 기반 열람, 이용권 검사 없음)을
+ * 같은 게이트를 쓰는 살풀이·택일·연운세·펫·궁합에도 적용했다. 운명 설계도는
+ * 이 문제가 원래 없어(PROFILE_JOIN_SOURCES 주석 참고) 정적 href 그대로다.
  */
-export function viewHref(r: { href: string; id: MyReport["id"] }): string {
-  if (r.href === "/premium/ohang" && r.id) return `/premium/ohang/${r.id}`;
-  return r.href;
+export function viewHref(r: { href: string; id: MyReport["id"]; year?: MyReport["year"] }): string {
+  if (!r.id) return r.href;
+  switch (r.href) {
+    case "/premium/ohang":
+    case "/premium/salpuri":
+    case "/premium/taekil":
+    case "/premium/pet":
+    case "/premium/compatibility":
+      return `${r.href}/${r.id}`;
+    case "/premium/yearly":
+      return r.year ? `/premium/yearly/${r.id}?year=${r.year}` : r.href;
+    default:
+      return r.href;
+  }
 }
 
 function formatTarget(birthDate: string, gender: string, calendar?: string | null): string {
@@ -100,20 +136,24 @@ export async function listUserReports(userId: string): Promise<MyReport[]> {
   await Promise.all(
     PROFILE_JOIN_SOURCES.map(async (s) => {
       try {
+        const cols = ["created_at", "saju_profile_id"];
+        if (s.idColumn === "id") cols.push("id");
+        if (s.hasYear) cols.push("year");
         const { data, error } = await supabaseAdmin
           .from(s.table)
-          .select("created_at, saju_profile_id")
+          .select(cols.join(", "))
           .eq("user_id", userId)
           .order("created_at", { ascending: false })
           .limit(20);
         if (error || !data) return;
-        for (const row of data) {
+        for (const row of data as unknown as Record<string, unknown>[]) {
           if (!row?.created_at) continue;
           const p = await loadProfile(row.saju_profile_id as string | null);
           out.push({
-            label: s.label, href: s.href, created_at: row.created_at,
+            label: s.label, href: s.href, created_at: row.created_at as string,
             target: p ? formatTarget(p.birth_date, p.gender, p.calendar) : null,
-            id: (row.saju_profile_id as string | null) ?? null,
+            id: (s.idColumn === "id" ? (row.id as string | null) : (row.saju_profile_id as string | null)) ?? null,
+            year: s.hasYear ? ((row.year as number | null) ?? null) : null,
           });
         }
       } catch {
@@ -123,10 +163,12 @@ export async function listUserReports(userId: string): Promise<MyReport[]> {
   );
 
   // 궁합(011)은 person_a_birth/gender를 이미 직접 들고 있어 join이 필요 없다.
+  // §1(CoS 결정 2026-09-08): 프로필당 여러 행(상대·관계유형 조합별)이라 이
+  // 테이블 자체의 PK(id)를 열람 라우트 식별자로 쓴다(택일·펫과 동일 이유).
   try {
     const { data } = await supabaseAdmin
       .from("premium_compatibility_reports")
-      .select("created_at, person_a_birth, person_a_gender")
+      .select("id, created_at, person_a_birth, person_a_gender")
       .eq("user_id", userId)
       .order("created_at", { ascending: false })
       .limit(20);
@@ -135,7 +177,8 @@ export async function listUserReports(userId: string): Promise<MyReport[]> {
       out.push({
         label: "프리미엄 궁합", href: "/premium/compatibility", created_at: row.created_at,
         target: row.person_a_birth ? formatTarget(row.person_a_birth, row.person_a_gender) : null,
-        id: null, // 궁합은 전용 열람 라우트가 아직 없다 — 정적 href로 폴백.
+        id: row.id ?? null,
+        year: null,
       });
     }
   } catch { /* noop */ }
@@ -154,6 +197,7 @@ export async function listUserReports(userId: string): Promise<MyReport[]> {
         label: "프리미엄 사주 (직접 입력)", href: "/premium", created_at: row.created_at,
         target: row.birth_date ? formatTarget(row.birth_date, row.gender) : null,
         id: null, // 016(직접입력) 전용 열람 라우트가 아직 없다 — 정적 href로 폴백.
+        year: null,
       });
     }
   } catch { /* noop */ }
@@ -175,6 +219,7 @@ export async function listUserReports(userId: string): Promise<MyReport[]> {
         label: meta.label, href: meta.href, created_at: row.created_at,
         target: row.birth_date ? formatTarget(row.birth_date, row.gender) : null,
         id: null, // 018(가족·지인 대상) 전용 열람 라우트가 아직 없다 — 정적 href로 폴백.
+        year: null,
       });
     }
   } catch { /* noop */ }

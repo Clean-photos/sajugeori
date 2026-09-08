@@ -146,6 +146,18 @@ export async function DELETE(req: NextRequest) {
   const userId = session.user.id;
 
   const body = await req.json().catch(() => ({}));
+
+  // §1(CoS 결정 2026-09-08): /premium/pet/[id](저장된 결과 재열람 전용, 이용권
+  // 검사 없음)는 이 행의 정확한 PK(id)를 이미 알고 있다. species·이름 등으로
+  // "본인 프로필과 일치하는지"를 되짚어 찾는 아래의 기존 방식은, 본인 사주를
+  // 재등록해 saju_profiles 행이 새로 생긴 경우 "지금의 본인 프로필"과 이 리포트가
+  // 실제로 속한(과거) 프로필이 달라질 수 있어 엉뚱한 행을 건드릴 여지가 있다.
+  // id가 오면 그 모호함 없이 바로, 소유자만 확인하고 지운다.
+  if (typeof body.id === "string" && body.id) {
+    await supabaseAdmin.from("premium_pet_reports").delete().eq("id", body.id).eq("user_id", userId);
+    return NextResponse.json({ ok: true });
+  }
+
   const species: PetSpecies = body.species === "cat" ? "cat" : "dog";
   const petYear = parseInt(String(body.petYear));
   const petMonth = parseInt(String(body.petMonth)) || PET_DEFAULT_MONTH;

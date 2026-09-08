@@ -73,11 +73,13 @@ export async function POST(req: NextRequest) {
   } else if (ownProfile?.id) {
     try {
       const { data: cached } = await supabaseAdmin
-        .from("premium_taekil_reports").select("content, best")
+        .from("premium_taekil_reports").select("id, content, best")
         .match(cacheKey).or(notExpiredFilter()).limit(1).maybeSingle();
       if (cached?.content) {
         await discardAttempt(started.attemptId);
-        return NextResponse.json({ report: cached.content, best: cached.best ?? [], purpose, range: { from, to }, cached: true });
+        // §1(CoS 결정 2026-09-08): id를 함께 돌려줘야 마이페이지 "보기 →"가
+        // /premium/taekil/{id}(이용권 검사 없는 열람 라우트)로 연결할 수 있다.
+        return NextResponse.json({ report: cached.content, best: cached.best ?? [], purpose, range: { from, to }, cached: true, id: cached.id });
       }
     } catch { /* 테이블 없음 또는 미저장 → 생성 진행 */ }
   }
@@ -123,6 +125,7 @@ ${avoidLines}`.trim();
     const bestForClient = ranked.best.map((d) => ({ date: d.date, weekday: d.weekday, ganji: d.ganji }));
 
     // 캐시 저장 (테이블 없으면 무시)
+    let savedId: string | null = null;
     if (isAdhoc) {
       // 1회성 — 본인 프로필도, 본인 리포트 캐시도 건드리지 않는다.
       // 이 상품은 content와 best를 함께 돌려주므로 묶어서 캐시한다.
@@ -132,10 +135,13 @@ ${avoidLines}`.trim();
       const profileId = await ensureOwnProfileId(userId, target, ownProfile);
       if (profileId) {
         try {
-          await supabaseAdmin.from("premium_taekil_reports").insert({
+          // §1(CoS 결정 2026-09-08): 생성된 행의 id를 돌려줘야 "보기 →"가
+          // /premium/taekil/{id}로 연결할 수 있다.
+          const { data: inserted } = await supabaseAdmin.from("premium_taekil_reports").insert({
             ...cacheKey, saju_profile_id: profileId, user_id: userId,
             content: report, best: bestForClient, expires_at: reportExpiresAtIso(),
-          });
+          }).select("id").single();
+          savedId = inserted?.id ?? null;
         } catch { /* noop */ }
       }
     }
@@ -150,10 +156,36 @@ ${avoidLines}`.trim();
       purpose,
       range: ranked.range,
       cached: false,
+      id: savedId,
     });
   } catch (e) {
     console.error("premium taekil LLM error:", e);
     await finishAttemptFailed(started.attemptId, "LLM 호출 오류");
     return NextResponse.json({ error: "분석 중 오류가 발생했습니다. 같은 정보로 다시 시도해주세요.", attemptId: started.attemptId }, { status: 500 });
   }
+}
+
+/**
+ * DELETE /api/premium/taekil — 로그인 필수. §1(CoS 결정 2026-09-08)에서 추가.
+ *
+ * 이 라우트는 원래 DELETE가 없었다 — TaekilForm의 삭제 버튼이 존재하지도 않는
+ * 엔드포인트를 호출하고 있었다(실제로는 항상 실패). premium_taekil_reports는
+ * 프로필당 여러 행(목적·기간 조합별)이라 이 행의 PK(id)로 바로 지운다 — species
+ * 유무 매칭 같은 되짚기 방식은 본인 사주 재등록으로 saju_profiles 행이 새로
+ * 생기면 엉뚱한 행을 건드릴 여지가 있다(pet.ts에서 같은 이유로 이미 id 우선
+ * 방식을 도입했다).
+ */
+export async function DELETE(req: NextRequest) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "login_required" }, { status: 401 });
+  }
+  const userId = session.user.id;
+
+  const body = await req.json().catch(() => ({}));
+  if (typeof body.id !== "string" || !body.id) {
+    return NextResponse.json({ error: "id is required" }, { status: 400 });
+  }
+  await supabaseAdmin.from("premium_taekil_reports").delete().eq("id", body.id).eq("user_id", userId);
+  return NextResponse.json({ ok: true });
 }

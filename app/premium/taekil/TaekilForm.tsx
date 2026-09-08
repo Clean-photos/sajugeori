@@ -2,14 +2,11 @@
 
 import { useState } from "react";
 import { cleanReportText } from "@/lib/report-format";
-import { PrintReportFooter } from "@/components/premium/PrintReport";
-import { SaveReportButtons } from "@/components/premium/SaveReportButtons";
-import { DeleteReportButton } from "@/components/premium/DeleteReportButton";
 import { WaitingCards } from "@/components/premium/WaitingCards";
-import { ReportBody } from "@/components/premium/ReportBody";
 import { SajuInputForm, type SavedSaju } from "@/components/premium/SajuInputForm";
 import { premiumErrorInfo, type PremiumErrorInfo } from "@/components/premium/premiumError";
 import { PremiumErrorBanner } from "@/components/premium/PremiumErrorBanner";
+import { TaekilReportResultView, type TaekilBestDate } from "@/components/premium/TaekilReportResultView";
 
 type Step = "form" | "loading" | "result" | "deleted";
 
@@ -43,12 +40,15 @@ export function TaekilForm({ saved }: { saved: SavedSaju }) {
   const [step, setStep] = useState<Step>("form");
   const [form, setForm] = useState({ purpose: "wedding", range_from: range.from, range_to: range.to });
   const [report, setReport] = useState("");
-  const [best, setBest] = useState<{ date: string; weekday: string; ganji: string }[]>([]);
+  const [best, setBest] = useState<TaekilBestDate[]>([]);
   const [error, setError] = useState<PremiumErrorInfo | null>(null);
   // 실패한 시도의 id. 있으면 "같은 정보로 재생성" — 서버에 저장된 입력값을 그대로 재사용한다.
   const [attemptId, setAttemptId] = useState<string | null>(null);
   // 어떤 대상 사주로 만든 리포트인지. 재생성 때도 같은 대상을 다시 보내야 한다.
   const [target, setTarget] = useState<Target | null>(null);
+  // §1(CoS 결정 2026-09-08): 저장된 행의 PK — 삭제를 이 값으로 바로 한다(기존엔
+  // DELETE 라우트 자체가 없어 삭제 버튼이 항상 실패하고 있었다).
+  const [reportId, setReportId] = useState<string | null>(null);
 
   async function submit(regenerate = false, v?: Target) {
     const t = v ?? target;
@@ -72,6 +72,7 @@ export function TaekilForm({ saved }: { saved: SavedSaju }) {
       setAttemptId(null);
       setReport(cleanReportText(data.report));
       setBest(data.best ?? []);
+      setReportId(typeof data.id === "string" ? data.id : null);
       setStep("result");
     } catch {
       setError({ message: "네트워크 연결을 확인한 뒤 다시 시도해주세요." });
@@ -89,10 +90,15 @@ export function TaekilForm({ saved }: { saved: SavedSaju }) {
   }
 
   async function handleDelete() {
+    // §1(CoS 결정 2026-09-08): 예전엔 라우트 자체가 없어(DELETE 미구현) 이 버튼이
+    // 항상 실패했다 — 이제 생성 시 돌려받은 행 PK로 바로 지운다. 가족·지인 대상
+    // (adhoc) 결과는 018 테이블에 저장돼 id가 없다 — 그 경우는 여전히 지원하지
+    // 않으므로(범위 밖) 조용히 성공한 척하지 않고 에러로 알린다.
+    if (!reportId) throw new Error("delete unsupported: no reportId (adhoc target)");
     const res = await fetch("/api/premium/taekil", {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ purpose: form.purpose, range_from: form.range_from, range_to: form.range_to }),
+      body: JSON.stringify({ id: reportId }),
     });
     if (!res.ok) throw new Error("delete failed");
     setStep("deleted");
@@ -109,34 +115,12 @@ export function TaekilForm({ saved }: { saved: SavedSaju }) {
 
   if (step === "result") {
     return (
-      <div className="px-5 py-6 flex flex-col gap-4">
-        <div className="print-area flex flex-col gap-4">
-          {best.length > 0 && (
-            <div className="print-card flex flex-wrap gap-2">
-              {best.map((d) => (
-                <div key={d.date} className="bg-[#1F3D34] text-white rounded-xl px-3 py-2 text-center">
-                  <p className="text-sm font-bold">{d.date.slice(5)}</p>
-                  <p className="text-[10px] text-white/60">{d.weekday} · {d.ganji}</p>
-                </div>
-              ))}
-            </div>
-          )}
-          <div className="print-card bg-[#FBF8F2] border border-[#E5DFD4] rounded-2xl p-5 shadow-sm">
-            <div className="flex items-center gap-2 mb-4 pb-3 border-b border-[#E5DFD4]">
-              <span className="text-base">📅</span>
-              <span className="text-xs font-medium text-[#6B6661] tracking-wide">프리미엄 택일 분석</span>
-            </div>
-            <ReportBody text={report} />
-          </div>
-          <PrintReportFooter />
-        </div>
-        <SaveReportButtons text={report} title="프리미엄 택일" />
-        <button onClick={() => { setStep("form"); setReport(""); setBest([]); }}
-          className="no-print text-sm text-[#6B6661] text-center py-2 active:opacity-60">
+      <div className="flex flex-col gap-2">
+        <TaekilReportResultView report={report} best={best} onDelete={handleDelete} />
+        <button onClick={() => { setStep("form"); setReport(""); setBest([]); setReportId(null); }}
+          className="no-print text-sm text-[#6B6661] text-center py-2 -mt-4 active:opacity-60">
           다시 조회하기
         </button>
-        <p className="text-center text-[11px] text-[#9B968F] -mt-2">생성된 결과는 1년간 다시 볼 수 있습니다</p>
-        <DeleteReportButton onConfirm={handleDelete} />
       </div>
     );
   }
