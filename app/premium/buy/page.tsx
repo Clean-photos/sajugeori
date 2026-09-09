@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { auth } from "@/lib/auth";
 import { hasSajuReport } from "@/lib/billing/access";
-import { REPORT_PRODUCTS, getPlan } from "@/lib/billing/plans";
+import { REPORT_PRODUCTS, DESTINY_PRODUCT_IDS, getPlan } from "@/lib/billing/plans";
 import { BuyClient } from "./BuyClient";
 
 export const metadata: Metadata = {
@@ -31,7 +31,11 @@ export default async function BuyPage({
   }
 
   const item = REPORT_PRODUCTS.find((r) => r.productId === planId);
-  const returnTo = item?.path ?? "/premium/menu";
+  // U3(CoS+CEO 실물 확인, 2026-09-08): 운명 설계도는 REPORT_PRODUCTS(6종
+  // 단건 리포트) 목록에 없어(별도 상품 체계) item이 항상 undefined였다 —
+  // 결제 후 리포트 생성 화면 대신 상품 목록(/premium/menu)으로 튕겼다.
+  // 결제 완료 후에는 항상 해당 상품 생성 화면으로 보낸다는 원칙에 맞춘다.
+  const returnTo = item?.path ?? (DESTINY_PRODUCT_IDS.includes(planId as (typeof DESTINY_PRODUCT_IDS)[number]) ? "/premium/destiny" : "/premium/menu");
   const title = item?.label ?? getPlan(planId)?.name ?? "프리미엄 리포트";
 
   return (

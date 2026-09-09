@@ -30,11 +30,14 @@ type Report = Record<string, string>;
 export function PremiumReport({
   hasProfile = true,
   saved = null,
+  hasDestiny = false,
 }: {
   /** 등록된 본인 사주가 있는지. 없으면 곧장 입력 폼을 띄운다. */
   hasProfile?: boolean;
   /** 등록된 사주 요약 — 입력 폼의 "입력된 사주 사용" 버튼에 쓴다. */
   saved?: SavedSaju;
+  /** §5-2: 운명 설계도를 이미 구매·생성했는지 — 있으면 업그레이드 배너를 숨긴다. */
+  hasDestiny?: boolean;
 } = {}) {
   const [report, setReport] = useState<Report | null>(null);
   // 대상 확정 화면부터 시작한다. 등록된 사주가 있어도 자동 생성하지 않는다 —
@@ -172,7 +175,10 @@ export function PremiumReport({
       {/* 이 컴포넌트는 리포트 생성에 성공했을 때만 렌더되므로, 렌더되는 시점에는
           이미 premium_reports에 행이 있다 — 곧 업그레이드 자격이 있다는 뜻이라
           별도 자격 조회 없이 배너를 보여준다(lib/billing/access.ts hasSajuReport
-          와 같은 조건). */}
+          와 같은 조건). §5-2(CoS+CEO 실물 확인, 2026-09-08): 다만 운명 설계도를
+          이미 구매·생성한 사람에게는 이 배너 자체가 "이미 산 것을 또 팔기"가
+          되므로, hasDestiny가 true면 렌더하지 않는다. */}
+      {!hasDestiny && (
       <Link
         href="/premium/buy?product=destiny_upgrade"
         className="no-print relative overflow-hidden rounded-2xl bg-[#1F3D34] p-5 text-white shadow-lg active:scale-[0.98] transition-all"
@@ -187,6 +193,7 @@ export function PremiumReport({
           이미 본 사주 리포트에 이어서 보는 거라 지금이 가장 저렴하게 보는 방법이에요.
         </p>
       </Link>
+      )}
 
       {/* 8개 섹션을 "제목 + 본문" 한 덩어리로 합쳐 복사·공유에 그대로 쓴다. */}
       <SaveReportButtons

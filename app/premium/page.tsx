@@ -29,6 +29,10 @@ export default async function PremiumPage() {
   let subtitle = "내 사주 풀이";
   let hasProfile = false;
   let hasReport = false;   // 이미 생성해 둔 풀이(이용권 소진 후 재열람용)
+  // §5-2(CoS+CEO 실물 확인, 2026-09-08): 운명 설계도를 이미 구매·생성한
+  // 사람에게도 "업그레이드하세요" 배너를 계속 보여주고 있었다 — 보유 여부를
+  // 확인해 이미 있으면 배너 자체를 숨긴다.
+  let hasDestiny = false;
   // 입력 폼의 "입력된 사주 사용" 버튼에 쓸 요약
   let savedSaju: { birth_date: string; birth_time: string | null; gender: string } | null = null;
   if (userId) {
@@ -42,6 +46,12 @@ export default async function PremiumPage() {
           .from("premium_reports").select("saju_profile_id", { count: "exact", head: true })
           .eq("saju_profile_id", p.id);
         hasReport = (count ?? 0) > 0;
+      } catch { /* 테이블 없음 → 미보유로 간주 */ }
+      try {
+        const { count } = await supabaseAdmin
+          .from("blueprint_reports").select("saju_profile_id", { count: "exact", head: true })
+          .eq("saju_profile_id", p.id);
+        hasDestiny = (count ?? 0) > 0;
       } catch { /* 테이블 없음 → 미보유로 간주 */ }
     }
     if (p?.saju_json?.identity) {
@@ -91,7 +101,7 @@ export default async function PremiumPage() {
 
       {canView ? (
         // 사주가 없어도 다른 페이지로 보내지 않는다 — 리포트 화면에서 바로 입력받는다.
-        <PremiumReport hasProfile={hasProfile} saved={savedSaju} />
+        <PremiumReport hasProfile={hasProfile} saved={savedSaju} hasDestiny={hasDestiny} />
       ) : (
         <>
           <div className="px-4 pt-4">
