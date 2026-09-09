@@ -15,11 +15,14 @@ const DAEWOON_PHASE_COLOR: Record<DaewoonPhase, string> = {
   neutral: "#9B968F",
 };
 
+// R3(CoS+CEO 실물 확인, 2026-09-08): 지표를 논거로 쓰면서 정작 범위·산출
+// 기준을 밝히지 않았다 — 궁합의 "74점/100점" 방식으로 맞춘다.
 function Gauge({ label, value }: { label: string; value: number }) {
   return (
     <div>
       <div className="flex justify-between text-xs text-[#6B6661] mb-0.5">
-        <span>{label}</span><span className="font-semibold text-[#1A1A18]">{value}</span>
+        <span>{label}</span>
+        <span className="font-semibold text-[#1A1A18]">{value}<span className="text-[#9B968F] font-normal">/100</span></span>
       </div>
       <div className="h-2 rounded-full bg-[#E5DFD4] overflow-hidden">
         <div className="h-full bg-[#C8743A]" style={{ width: `${value}%` }} />
@@ -134,7 +137,12 @@ export function BlueprintReportView({ report, showPrintButton = true }: { report
         {/* 6대 지표 */}
         {facts && (
         <div className="print-card border border-[#E5DFD4] rounded-2xl p-4 bg-[#FBF8F2] flex flex-col gap-3">
-          <p className="font-serif text-[17px] font-bold text-[#1F3D34]">6대 지표</p>
+          <div>
+            <p className="font-serif text-[17px] font-bold text-[#1F3D34]">6대 지표</p>
+            <p className="text-[11px] text-[#6B6661] mt-1 leading-relaxed">
+              0~100 범위. 명식의 십성 구성·오행 분포·합충형해파를 가중합해 산출합니다.
+            </p>
+          </div>
           <Gauge label="축적력" value={facts.indicators.accumulation} />
           <Gauge label="확장력" value={facts.indicators.expansion} />
           <Gauge label="지구력" value={facts.indicators.endurance} />
