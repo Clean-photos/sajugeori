@@ -42,8 +42,8 @@ function buildEngineSummary(
   return `
 [반려동물]
 이름: ${petName} (${sp.label})
-띠: ${facts.pet.zodiac}띠 / 년주 ${facts.pet.yearGanji} / 대표 오행 ${facts.pet.element}
-${facts.pet.hasDay ? `일주까지 세움: ${facts.pet.dayGanji}` : "태어난 날은 몰라 띠·월 기준으로 봄"}
+띠: ${facts.pet.zodiac}띠 / 년주 ${facts.pet.yearGanji} / 월주 ${facts.pet.monthGanji} / 대표 오행 ${facts.pet.element}
+${facts.pet.hasDay ? `일주까지 세움: ${facts.pet.dayGanji}` : "태어난 날은 몰라 년주·월주 기준으로 봄"}
 
 [${sp.label}의 행동 심리 — 동물행동학 연구로 확인된 사실. 사주 해석에 이 결을 반드시 얹을 것]
 ${sp.traits.map((t) => `· ${t}`).join("\n")}

@@ -157,6 +157,7 @@ export const PET_BRANCH_HINT: Record<PetBranchRelation, string> = {
   삼합: "두 사람의 띠가 한 팀을 이루는 삼합(三合)에 들어, 함께 있을수록 시너지가 커지는 잘 맞는 짝입니다.",
   충: "두 사람의 띠가 서로를 자극하는 충(沖)이지만, 티격태격하면서도 미워할 수 없는 활기찬 케미로 나타납니다.",
   해: "두 사람의 띠가 은근히 신경 쓰이는 해(害)의 결이지만, 그만큼 서로를 더 살뜰히 챙기게 되는 사이입니다.",
+  형: "두 사람의 띠가 서로 긁는 형(刑)의 결이라 사소한 일로 신경전이 붙기 쉽지만, 그만큼 서로에게 예민하게 반응하는 사이이기도 합니다.",
   평범: "두 사람의 띠는 특별한 합충 없이 무난해, 담백하고 오래가는 편안한 관계입니다.",
 };
 
@@ -164,7 +165,7 @@ function pad(n: number): string {
   return String(n).padStart(2, "0");
 }
 
-export type PetBranchRelation = "육합" | "삼합" | "충" | "해" | "평범";
+export type PetBranchRelation = "육합" | "삼합" | "충" | "해" | "형" | "평범";
 
 /** 주인과 반려동물의 오행 흐름 — "반려동물이 주인을 어떻게 느끼는지"의 근거가 된다. */
 export type PetFlow =
@@ -251,6 +252,12 @@ export function petCompatibility(owner: SajuChart, input: PetCompatInput): PetCo
   ) {
     branch = "육합";
   } else if (
+    // §8-2 확인 중 발견(부수) — 같은 지지가 우연히 겹칠 때(예: 12년 차이로 둘 다
+    // 辰띠) trio.includes()를 양쪽에 따로 걸면 "같은 지지 하나"만으로도 조건이
+    // 참이 되어 "삼합"으로 잘못 뜬다(삼합은 서로 다른 지지 조합이어야 함).
+    // 辰·午·酉·亥는 전부 어떤 삼합의 구성원이라 자형(형) 케이스가 이 버그에
+    // 가려 한 번도 발동하지 못했다 — 다른 지지일 때만 삼합을 인정한다.
+    ownerBranch !== petBranch &&
     C.BRANCH_THREE_COMBINE.some(
       (t) => t.trio.includes(ownerBranch) && t.trio.includes(petBranch)
     )
@@ -260,6 +267,15 @@ export function petCompatibility(owner: SajuChart, input: PetCompatInput): PetCo
     branch = "충";
   } else if (C.BRANCH_HARM_PAIRS.has(key)) {
     branch = "해";
+  } else if (
+    // §8-2(CoS+CEO 실물 확인, 2026-09-08): 충·해만 보고 형(刑)은 빠져 있었다
+    // — 卯(1987 丁卯년)와 子(2020 庚子년)는 子卯상형인데 "충·해가 없다"로
+    // 나갔다. 상형 3그룹(寅巳申·丑戌未·子卯)과 자형(辰·午·酉·亥 동일 지지)을
+    // 마저 본다.
+    (ownerBranch === petBranch && C.BRANCH_SELF_PUNISH.has(ownerBranch)) ||
+    (ownerBranch !== petBranch && C.BRANCH_PUNISH_GROUPS.some((g) => g.includes(ownerBranch) && g.includes(petBranch)))
+  ) {
+    branch = "형";
   }
 
   // 2) 오행 흐름
