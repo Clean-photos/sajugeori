@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { auth } from "@/lib/auth";
 import { hasSajuReport } from "@/lib/billing/access";
+import { loadOwnProfile } from "@/lib/billing/report-target";
 import { REPORT_PRODUCTS, DESTINY_PRODUCT_IDS, getPlan } from "@/lib/billing/plans";
 import { BuyClient } from "./BuyClient";
 
@@ -19,16 +20,26 @@ export default async function BuyPage({
 }) {
   const { product } = await searchParams;
   let planId = product ?? "saju_one";
+  const session = await auth();
 
   // 운명 설계도 업그레이드가(6,900원)는 프리미엄 사주를 이미 본 사람만 결제할 수
   // 있다. 이 화면은 눈에 띄지 않는 링크로만 안내하지만, URL을 직접 입력해도
   // 자격 없이는 할인가로 결제할 수 없도록 서버에서 한 번 더 막는다 — 자격이
   // 없으면 정가(7,900원) 상품으로 조용히 바꿔서 보여준다.
   if (planId === "destiny_upgrade") {
-    const session = await auth();
     const eligible = session?.user?.id ? await hasSajuReport(session.user.id) : false;
     if (!eligible) redirect("/premium/buy?product=destiny_blueprint_one");
   }
+
+  // §13(CoS+CEO 실물 확인, 2026-09-08, 9/2 4-2 재상향): 비구독자는 확정 화면을
+  // 결제 "후"에 보므로, 결제 화면까지는 누구 사주로 만드는지 한 글자도 안
+  // 보이는 채로 결제하고 있었다. 등록된 본인 사주가 있으면 여기서도 미리
+  // 보여준다 — 실제 대상은 결제 후 확정 화면에서 여전히 바꿀 수 있으므로
+  // 그 점도 함께 안내한다.
+  const ownProfile = session?.user?.id ? await loadOwnProfile(session.user.id) : null;
+  const targetLabel = ownProfile?.birth_date
+    ? `${ownProfile.birth_date}(${ownProfile.calendar === "lunar" ? "음력" : "양력"}) ${ownProfile.gender === "M" ? "남성" : "여성"}`
+    : null;
 
   const item = REPORT_PRODUCTS.find((r) => r.productId === planId);
   // U3(CoS+CEO 실물 확인, 2026-09-08): 운명 설계도는 REPORT_PRODUCTS(6종
@@ -47,6 +58,11 @@ export default async function BuyPage({
         </Link>
         <p className="text-xs opacity-70 mb-1">1회 이용권</p>
         <h1 className="font-serif text-2xl font-bold">{title}</h1>
+        {targetLabel && (
+          <p className="text-xs opacity-70 mt-2">
+            {targetLabel} 사주로 만듭니다 · 다른 사주는 결제 후 확정 화면에서 선택할 수 있어요
+          </p>
+        )}
       </header>
 
       <BuyClient planId={planId} returnTo={returnTo} />
