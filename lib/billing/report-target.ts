@@ -82,6 +82,10 @@ export async function saveAsOwnProfile(
       birth_date: input.birthDate, birth_time: input.birthTime,
       calendar: input.calendar, gender: input.gender,
       saju_raw: engine.saju_raw, saju_json: engine.saju_json, schema_version: 1,
+      // §13(CoS+CEO 실물 확인, 2026-09-08): app/api/saju/calculate/route.ts와
+      // 같은 이유 — 이 경로도 역법 선택 UI(SajuInputForm)를 거쳐야만 도달하는
+      // 신규 등록이라, "레거시 음력 오입력 가능성" 배너 대상이 아니다.
+      birth_date_confirmed_at: new Date().toISOString(),
     })
     .select("id").single();
   if (error) console.error("saju_profiles insert error:", error);

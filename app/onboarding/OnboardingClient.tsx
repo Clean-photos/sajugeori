@@ -10,7 +10,11 @@ import { BirthDateConfirmBanner } from "@/components/BirthDateConfirmBanner";
 import { ReregisterWarningModal } from "@/components/ReregisterWarningModal";
 import type { MyReport } from "@/lib/billing/my-reports";
 
-const STEPS = ["생년월일", "태어난 시각", "성별 · 역법"];
+// §13(CoS+CEO 실물 확인, 2026-09-08): 역법(양력/음력)이 3단계(성별)에 있어서,
+// 정작 생년월일을 입력하는 1단계에서는 무슨 기준으로 적을지 모르는 채로
+// 입력했다 — 음력 사용자는 두 화면 뒤에야 그 선택지를 본다. 역법을 생년월일과
+// 같은 화면으로 옮긴다.
+const STEPS = ["생년월일 · 역법", "태어난 시각", "성별"];
 
 export type ExistingProfile = {
   day_master: string;
@@ -54,6 +58,10 @@ function OnboardingInner({ existingProfile, reports }: { existingProfile: Existi
   // 이제 서버 응답의 error 필드를 그대로 신뢰해서 보여준다(이 API는 원본 예외를
   // 그대로 노출하지 않고, saju-engine이 던지는 문구도 전부 사람이 읽을 한국어다).
   const [error, setError] = useState<string | null>(null);
+  // §13(CoS+CEO 실물 확인, 2026-09-08): "내 사주 확인하기 →" 버튼을 누르면
+  // 라벨과 달리 명식을 보여주지 않고 곧장 홈으로 이동했다(라벨-동작 불일치).
+  // 등록 직후 최소한 일간·강약은 보여주는 완료 화면을 하나 끼운다.
+  const [registered, setRegistered] = useState<{ day_master: string; strength_label: string } | null>(null);
 
   async function handleSubmit() {
     const conv = toSolar(form.birth_date, form.calendar as CalendarKind);
@@ -78,10 +86,15 @@ function OnboardingInner({ existingProfile, reports }: { existingProfile: Existi
         setError(typeof data?.error === "string" ? data.error : "사주 계산에 실패했습니다. 입력값을 확인해 주세요.");
         return;
       }
-      // next가 있으면 원래 보려던 화면으로, 사주거리 잠금에서 왔으면 사주거리로,
-      // 그 외 일반 등록은 홈으로.
-      router.push(nextPath ?? (from === "street" ? "/street" : "/"));
-      router.refresh();
+      const data = await res.json().catch(() => null);
+      const identity = data?.saju_json?.identity;
+      if (identity?.day_master && identity?.strength_label) {
+        setRegistered({ day_master: identity.day_master, strength_label: identity.strength_label });
+      } else {
+        // 응답 형태가 예상과 다르면(방어) 완료 화면 없이 예전처럼 바로 이동.
+        router.push(nextPath ?? (from === "street" ? "/street" : "/"));
+        router.refresh();
+      }
     } catch {
       setError("네트워크 연결을 확인한 뒤 다시 시도해 주세요.");
     } finally {
@@ -94,6 +107,41 @@ function OnboardingInner({ existingProfile, reports }: { existingProfile: Existi
     true,
     !!form.gender,
   ][step];
+
+  function goNext() {
+    router.push(nextPath ?? (from === "street" ? "/street" : "/"));
+    router.refresh();
+  }
+
+  // §13: 등록 완료 — 버튼 라벨("내 사주 확인하기")대로 최소한의 명식(일간·
+  // 강약)을 보여준 뒤에 다음 화면으로 넘어간다.
+  if (registered) {
+    return (
+      <div className="min-h-screen bg-[#F6F1E7] flex flex-col">
+        <div className="relative overflow-hidden px-6 pt-12 pb-8 bg-[#1F3D34]">
+          <div className="absolute inset-0 opacity-30"
+            style={{ backgroundImage: "radial-gradient(circle at 10% 90%, #C8743A 0%, transparent 55%)" }}
+          />
+          <p className="relative text-xs font-medium tracking-[0.2em] text-[#C8743A] uppercase mb-1">My Saju</p>
+          <h1 className="relative font-serif text-[26px] font-bold text-white">등록됐어요</h1>
+        </div>
+
+        <div className="flex-1 px-5 py-8 flex flex-col gap-5">
+          <div className="bg-[#FBF8F2] border border-[#E5DFD4] rounded-2xl p-5">
+            <p className="text-xs text-[#6B6661] mb-1">내 일간</p>
+            <p className="text-2xl font-serif font-bold text-[#1F3D34]">{registered.day_master}</p>
+            <p className="text-sm text-[#6B6661] mt-1">{registered.strength_label}</p>
+          </div>
+          <button
+            onClick={goNext}
+            className="mt-auto bg-[#1F3D34] text-white rounded-xl py-3.5 font-semibold text-sm active:scale-[0.97] transition-all shadow-lg"
+          >
+            확인했어요 →
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   // 이미 등록된 사주 요약 — "다시 등록"을 누르기 전까지는 이 화면만 보여준다.
   if (!showForm && existingProfile) {
@@ -216,6 +264,19 @@ function OnboardingInner({ existingProfile, reports }: { existingProfile: Existi
               className="w-full border border-[#E5DFD4] rounded-xl px-4 py-4 text-base bg-[#FBF8F2] focus:outline-none focus:border-[#1F3D34] focus:ring-2 focus:ring-[#1F3D34]/10 transition-all tracking-widest"
             />
             <p className="text-xs text-[#6B6661]">예: 1990-05-23</p>
+
+            {/* §13: 역법 선택을 생년월일과 같은 화면으로 — 무료 폼과 같은 조각을 쓴다. */}
+            <div className="mt-2">
+              <p className="text-[#1A1A18] font-medium mb-3">역법</p>
+              <CalendarField
+                birthDate={form.birth_date}
+                calendar={form.calendar as CalendarKind}
+                onChange={(k) => setForm({ ...form, calendar: k })}
+              />
+              <p className="text-xs text-[#6B6661] mt-2">
+                주민등록 기준이면 양력입니다. 음력 생일을 쓰신다면 음력을 선택해 주세요.
+              </p>
+            </div>
           </div>
         )}
 
@@ -263,7 +324,7 @@ function OnboardingInner({ existingProfile, reports }: { existingProfile: Existi
           </div>
         )}
 
-        {/* Step 2: Gender + Calendar */}
+        {/* Step 2: Gender */}
         {step === 2 && (
           <div className="flex flex-col gap-6 animate-fade-up">
             <div>
@@ -283,19 +344,6 @@ function OnboardingInner({ existingProfile, reports }: { existingProfile: Existi
                   </button>
                 ))}
               </div>
-            </div>
-
-            {/* 역법 선택 + 변환 즉시 표시. 무료 폼과 같은 조각을 쓴다. */}
-            <div>
-              <p className="text-[#1A1A18] font-medium mb-3">역법 (생년월일 기준)</p>
-              <CalendarField
-                birthDate={form.birth_date}
-                calendar={form.calendar as CalendarKind}
-                onChange={(k) => setForm({ ...form, calendar: k })}
-              />
-              <p className="text-xs text-[#6B6661] mt-2">
-                주민등록 기준이면 양력입니다. 음력 생일을 쓰신다면 음력을 선택해 주세요.
-              </p>
             </div>
 
             {error && (

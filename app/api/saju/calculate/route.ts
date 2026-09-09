@@ -35,6 +35,13 @@ export async function POST(req: NextRequest) {
         saju_raw: result.saju_raw,
         saju_json: result.saju_json,
         schema_version: 1,
+        // §13(CoS+CEO 실물 확인, 2026-09-08): birth_date_confirmed_at이 비어
+        // 있으면 "예전엔 음력 선택지가 없어 잘못 입력했을 수 있다"는 배너를
+        // 띄우는데(마이그레이션 019), 이 라우트는 온보딩의 역법 선택 UI를
+        // 거쳐야만 도달한다 — 즉 이 시점에 생기는 행은 전부 신규(역법을 이미
+        // 직접 골랐음)이지 그 배너가 가리키는 "레거시" 행이 아니다. 등록
+        // 즉시 확인 완료로 찍어 오늘 가입한 사람에게 그 배너가 새지 않게 한다.
+        birth_date_confirmed_at: new Date().toISOString(),
       });
       if (error) console.error("saju_profiles insert error:", error);
     }
