@@ -291,6 +291,19 @@ const CASE_BRIEF: Record<SeunCase, string> = {
   D: "부족한 것을 치는 기운이 들어오고",
   E: "특별한 영향이 없고",
 };
+/**
+ * §2-2(CoS+CEO 실물 확인, 2026-09-08): 부제(incomingLine)용 명사구 — 오행별로
+ * 따로 적을 때 쓴다. CASE_BRIEF와 뜻은 같지만 "~고"로 끝나 문장을 잇는 형태라
+ * "오행(한글) — 문구" 나열에는 안 맞는다(예: "치는 기운이 들어오고" 대신
+ * "치는 기운").
+ */
+const CASE_NOUN_PHRASE: Record<SeunCase, string> = {
+  A: "부족한 것이 직접 들어오는 기운",
+  B: "이미 많은 것이 더해지는 기운",
+  C: "돕는 기운",
+  D: "치는 기운",
+  E: "특별한 영향이 없는 기운",
+};
 const AXIS_LABEL = { stem: "천간", branch: "지지" } as const;
 // "천간"은 받침 있음(은) / "지지"는 받침 없음(는) — 두 값뿐이라 josa.ts의 오행
 // 5개짜리 표를 끌어오는 대신 이 자리에서 고정한다.
@@ -354,7 +367,18 @@ function buildYearPrescription(
   const guidelineLine = pickUniqueText(copy.guideline, seed + "guideline", state.usedGuideline);
 
   const dominantExcess = cls.excessive.find((e) => incoming.includes(e)) ?? null;
-  const incomingLine = `${incoming.map((e) => `${e}(${C.ELEMENT_KR[e]})`).join("·")} — ${copy.conditionNote}`;
+  // §2-2(CoS+CEO 실물 확인, 2026-09-08): 천간·지지 판정이 갈리는 해(detail.
+  // diverges)에 두 오행을 한 문구로 묶으면 안 된다 — 실측: 부족 金인데 부제가
+  // "火(화)·土(토) — 치는 기운"으로 나감(土는 실제로 金을 생하는 돕는 기운).
+  // 갈릴 때는 오행별로 각자의 판정을 따로 적는다.
+  const incomingLine = detail.diverges && incoming.length === 2
+    ? incoming
+        .map((e) => {
+          const c = e === y.stemElement ? detail.stemCase : detail.branchCase;
+          return `${e}(${C.ELEMENT_KR[e]}) — ${CASE_NOUN_PHRASE[c]}`;
+        })
+        .join(" / ")
+    : `${incoming.map((e) => `${e}(${C.ELEMENT_KR[e]})`).join("·")} — ${copy.conditionNote}`;
 
   return {
     year: y.year,

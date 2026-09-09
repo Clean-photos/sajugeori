@@ -70,6 +70,15 @@ export function SeunSection({ seun, narrative }: { seun: SeunPrescriptionPlan; n
   return (
     <section className="flex flex-col gap-3">
       <h2 className="font-serif text-lg font-bold text-[#1F3D34]">3년 처방 ★</h2>
+      {/* §2-3(CoS+CEO 실물 확인, 2026-09-08): 이 판정은 세운 오행만 보고, 위에
+          안내된 대운이나 그해 천간합은 반영하지 않는다 — 다른 상품(프리미엄
+          사주·연운세)은 대운 완충·천간합까지 반영해 판정이 갈릴 수 있다
+          (실측: 같은 丙午년을 오행은 "벌어지는 해", 연운세는 "협력·기회의
+          해"로 서술). 대운·천간합까지 정식 반영하는 건 더 큰 변경이라, 우선
+          범위를 명시해 다른 상품과의 불일치를 오류로 오인하지 않게 한다. */}
+      <p className="text-[11px] text-[#9B968F] leading-relaxed">
+        이 판정은 그해 세운(연간지) 오행만 봅니다. 대운의 완충 효과나 천간합처럼 그해를 유리하게 바꾸는 조건은 반영되지 않아, 다른 리포트(프리미엄 사주·연운세)의 그해 판정과 다를 수 있습니다.
+      </p>
       {daewoonLine && <p className="text-[11.5px] text-[#6B6661]">{daewoonLine}</p>}
 
       <div className="flex flex-col gap-2.5">
