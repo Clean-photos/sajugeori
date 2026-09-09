@@ -17,6 +17,7 @@ import { computeIndicators, type Indicators } from "./indicators";
 import { buildYongsinDualTrack, type YongsinDualTrack } from "@/lib/premium/yongsin-track";
 import { josaEunNeun } from "@/lib/wuxing/josa";
 import { buildDaewoonRoadmap, daewoonRoadmapPromptText, type DaewoonRoadmapEntry } from "./daewoon-roadmap";
+import { sinsalHanja } from "@/lib/premium/sinsal-glossary";
 
 export interface AnchorFacts {
   dayMaster: string;
@@ -128,7 +129,15 @@ export function computeAnchorFacts(chart: BlueprintChart): AnchorFacts {
     elements: chart.elements,
     tenGodCounts,
     interactionsSummary: summarizeInteractions(chart),
-    salNames: chart.sal.map((s) => `${s.name}(${s.where})`),
+    // R2(CoS+CEO 실물 확인, 2026-09-08): 사실 시트가 한글 이름만 줘서(한자
+    // 없음) LLM이 매번 한자를 스스로 지어내다 같은 살에 다른 한자를 냈다
+    // (고신살이 孤辰殺/孤神殺로 혼용 — 살풀이에서 寡宿殺/孤宿殺로 겪은 것과
+    // 같은 사고). 검증된 한자(용어 백과, sinsal-glossary.ts — 살풀이와 공용)
+    // 를 미리 붙여 정답으로 준다.
+    salNames: chart.sal.map((s) => {
+      const hanja = sinsalHanja(s.name);
+      return `${s.name}${hanja ? `(${hanja})` : ""}(${s.where})`;
+    }),
     indicators,
     daewoonNow: dw ? { ganji: dw.ganji, ageRange: `${dw.start_age}~${dw.end_age}세` } : null,
     daewoonRoadmap,
