@@ -67,7 +67,14 @@ export default async function HomePage() {
       if (!premium) {
         unusedPassCount = await countRemainingPasses(userId);
         const bought = await purchasedProductIds(userId);
-        notYetBought = REPORT_PRODUCTS.filter((p) => !bought.has(p.productId));
+        // §13(CoS+CEO 실물 확인, 2026-09-08): 이 블록은 .slice(0,3)으로 앞
+        // 3개만 보여주는데, REPORT_PRODUCTS 배열 순서상 오행 보완 리포트가
+        // 맨 끝(7번째)이라 사실상 절대 노출되지 않았다 — 가장 최근에 낸
+        // 판매 중 상품이 신규 가입자 첫 화면에서 누락되고 있었다. 오행을
+        // 후보 맨 앞으로 올려 우선 노출한다(구매 여부 필터는 그대로).
+        notYetBought = REPORT_PRODUCTS
+          .filter((p) => !bought.has(p.productId))
+          .sort((a, b) => (a.productId === "wuxing_one" ? -1 : b.productId === "wuxing_one" ? 1 : 0));
       }
     }
   }
