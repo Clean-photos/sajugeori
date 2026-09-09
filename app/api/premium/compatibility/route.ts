@@ -53,7 +53,17 @@ export async function POST(req: NextRequest) {
   const personA = parsedA.input;
   const { ownProfile, isAdhoc } = await resolveTarget(userId, personA);
 
+  // §7-1(CoS+CEO 실물 확인, 2026-09-08): 상대방 입력에 태어난 시각이 아예
+  // 없어 모든 상대가 시주 제외로 계산됐다. 화면(CompatForm)이 이제 시각(선택)
+  // 을 함께 보내고, 음력이면 이미 양력으로 변환해서 보낸다(다른 상품과 같은
+  // 규칙 — 서버는 항상 양력만 받는다).
   const partnerBirth = input.partner_birth as string;
+  const partnerBirthTimeRaw = typeof input.partner_birth_time === "string" && input.partner_birth_time ? input.partner_birth_time : null;
+  if (partnerBirthTimeRaw !== null && !/^\d{2}:\d{2}(:\d{2})?$/.test(partnerBirthTimeRaw)) {
+    await discardAttempt(started.attemptId);
+    return NextResponse.json({ error: "상대방 태어난 시각 형식을 확인해주세요." }, { status: 400 });
+  }
+  const partnerBirthTime = partnerBirthTimeRaw ? timeKeyOf(partnerBirthTimeRaw) : "";
   const partnerGender = (input.partner_gender ?? "F") as "M" | "F";
   const context = (input.context ?? "romance") as Ctx;
   if (!partnerBirth) {
@@ -67,11 +77,13 @@ export async function POST(req: NextRequest) {
   // 같은 두 사람·같은 관계유형 조합이면 재생성하지 않는다 (재열람 무료).
   // A가 본인이 아니면 1회성 캐시를 쓴다 — A의 시각까지 키에 들어가야 하는데
   // 기존 테이블의 person_a_birth에는 날짜만 들어가기 때문이다.
-  const variant = [partnerBirth, partnerGender, context].join("|");
+  // §7-1: 상대방 시각이 캐시 키에도 들어가야 "시각을 넣은 재조회"가 "시각
+  // 모름" 캐시를 잘못 재사용하지 않는다.
+  const variant = [partnerBirth, partnerBirthTime, partnerGender, context].join("|");
   const cacheKey = {
     saju_profile_id: ownProfile?.id ?? "",
     person_a_birth: personA.birthDate, person_a_gender: personA.gender,
-    partner_birth: partnerBirth, partner_gender: partnerGender, context,
+    partner_birth: partnerBirth, partner_birth_time: partnerBirthTime, partner_gender: partnerGender, context,
   };
   if (isAdhoc) {
     const cached = await readAdhocCache<{ content: unknown; score: number }>(userId, PRODUCT_ID, personA, variant);
@@ -101,13 +113,12 @@ export async function POST(req: NextRequest) {
   }
 
   // A 사주(등록된 내 사주 또는 직접 입력한 임의의 사람) + 상대 사주 재구성 후 양방향 분석.
-  // 커스텀 A는 시각 정보를 받지 않으므로(폼에 시각 입력이 없다) 시주 제외로 계산한다.
   let mutual;
   let normalizedScore = 50;
   try {
     const personALabel = useCustomA ? "A" : "나";
     const me = buildChart(isoOf(personA), personA.gender, !!personA.birthTime);
-    const other = buildChart(`${partnerBirth}T00:00:00`, partnerGender, false);
+    const other = buildChart(`${partnerBirth}T${partnerBirthTime || "00:00"}:00`, partnerGender, !!partnerBirthTime);
     mutual = mutualAnalysis(me, other, personALabel, useCustomA ? "B" : "상대", context);
     normalizedScore = Math.min(100, Math.max(0, Math.round(38 + mutual.combinedScore * 6)));
   } catch (e) {
@@ -175,6 +186,7 @@ export async function DELETE(req: NextRequest) {
   }
 
   const partnerBirth = body.partner_birth as string;
+  const partnerBirthTime = typeof body.partner_birth_time === "string" ? timeKeyOf(body.partner_birth_time) : "";
   const partnerGender = (body.partner_gender ?? "F") as "M" | "F";
   const context = (body.context ?? "romance") as Ctx;
   if (!partnerBirth) {
@@ -191,7 +203,7 @@ export async function DELETE(req: NextRequest) {
       .eq("user_id", userId).eq("product_id", PRODUCT_ID)
       .eq("birth_date", a.birthDate).eq("birth_time", timeKeyOf(a.birthTime))
       .eq("gender", a.gender)
-      .eq("variant", [partnerBirth, partnerGender, context].join("|"));
+      .eq("variant", [partnerBirth, partnerBirthTime, partnerGender, context].join("|"));
     return NextResponse.json({ ok: true });
   }
 
@@ -202,7 +214,8 @@ export async function DELETE(req: NextRequest) {
   await supabaseAdmin.from("premium_compatibility_reports").delete()
     .eq("saju_profile_id", ownProfile.id).eq("user_id", userId)
     .eq("person_a_birth", ownProfile.birth_date).eq("person_a_gender", ownProfile.gender)
-    .eq("partner_birth", partnerBirth).eq("partner_gender", partnerGender).eq("context", context);
+    .eq("partner_birth", partnerBirth).eq("partner_birth_time", partnerBirthTime)
+    .eq("partner_gender", partnerGender).eq("context", context);
 
   return NextResponse.json({ ok: true });
 }
