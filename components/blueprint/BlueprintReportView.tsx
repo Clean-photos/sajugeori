@@ -96,12 +96,19 @@ export function BlueprintReportView({ report, showPrintButton = true }: { report
   return (
     <div className="px-4 py-4 flex flex-col gap-4">
       <div className="print-area flex flex-col gap-4">
-        {/* 운명총론 */}
+        {/* 운명총론 — §3-1(CEO 지시, 2026-09-08): 예전엔 줄바꿈 없는 한 덩어리(약
+            700자)였다. 프롬프트가 이제 "1. 요약문장 …" 4문단(\n\n 구분)으로
+            내지만, 렌더가 여전히 한 <p>에 몰아넣으면 브라우저가 줄바꿈을 접어
+            버려 그대로 한 덩어리로 보인다 — 문단마다 나눠 그린다. */}
         {overview ? (
           <div className="print-card rounded-2xl bg-[#1F3D34] text-white p-5">
             <p className="text-[10px] tracking-[0.2em] text-[#C8743A] uppercase mb-2">운명총론</p>
             <p className="font-serif text-xl font-bold leading-snug mb-3">{overview.headline}</p>
-            <p className="text-base text-white/80 leading-relaxed">{overview.body}</p>
+            <div className="flex flex-col gap-2.5">
+              {overview.body.split(/\n\s*\n/).map((s) => s.trim()).filter(Boolean).map((para, i) => (
+                <p key={i} className="text-base text-white/80 leading-relaxed">{para}</p>
+              ))}
+            </div>
           </div>
         ) : <SkeletonCard label="운명총론" />}
 
