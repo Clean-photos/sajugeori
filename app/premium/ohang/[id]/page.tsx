@@ -5,6 +5,9 @@ import { auth } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/db/client";
 import { BottomTabBar } from "@/components/layout/BottomTabBar";
 import type { WuxingReportData } from "@/lib/wuxing/report";
+import { buildWuxingReport } from "@/lib/wuxing/report";
+import { buildChart } from "@/lib/saju-engine/engine";
+import { classify } from "@/lib/wuxing/classify";
 import { SavedReportClient } from "./SavedReportClient";
 
 export const metadata: Metadata = {
@@ -44,7 +47,32 @@ export default async function SavedWuxingReportPage({ params }: { params: Promis
       .maybeSingle(),
   ]);
 
-  if (!row?.content || !profile) {
+  // §0-2①(CoS 실물 재검증, 2026-09-10): 저장본을 그대로 렌더하면 결정형 계층
+  // (용신 카드·처방 항목·조후 충돌 필터 등)이 **생성 시점 코드에 그대로 얼어붙어**,
+  // 이후 배포한 수정(§4-1 조후 필터·§4-2 P4·§1 병기…)이 기존 리포트에 절대
+  // 반영되지 않는다 — "완료 보고 후에도 배포본에 그대로"의 실제 원인. 결정형
+  // 계층은 재계산 비용이 사실상 0이므로, 열람 시 사주로부터 다시 조립하고
+  // 저장본에서는 LLM이 만든 narratives(한 줄 진단 보충·3년 흐름)만 가져와 끼운다.
+  // (엔진은 읽기 전용 — 계산 로직 무접촉)
+  let report = row?.content as WuxingReportData | undefined;
+  if (report && profile) {
+    try {
+      const cachedYear = report.seun?.years?.[0]?.year;
+      // birth_time은 "HH:MM" / "HH:MM:SS" / null 이 섞여 온다. 초를 무조건
+      // 덧붙이면 "…T14:30:00:00" → Invalid Date (2026-09-02 사고). 길이로 가른다.
+      const t = profile.birth_time
+        ? profile.birth_time.length === 5
+          ? `${profile.birth_time}:00`
+          : profile.birth_time
+        : "00:00:00";
+      const chart = buildChart(`${profile.birth_date}T${t}`, profile.gender, !!profile.birth_time);
+      report = buildWuxingReport(chart, classify(chart), report.narratives ?? {}, cachedYear);
+    } catch (e) {
+      console.error("오행 저장본 재조립 실패, 저장본 그대로 렌더:", e);
+    }
+  }
+
+  if (!report || !profile) {
     return (
       <div className="min-h-screen bg-[#F6F1E7] flex flex-col">
         <div className="flex-1 flex flex-col items-center justify-center gap-3 px-6 text-center">
@@ -72,7 +100,7 @@ export default async function SavedWuxingReportPage({ params }: { params: Promis
       </div>
 
       <SavedReportClient
-        report={row.content as WuxingReportData}
+        report={report}
         target={{ birth_date: profile.birth_date, birth_time: profile.birth_time, gender: profile.gender }}
       />
 
