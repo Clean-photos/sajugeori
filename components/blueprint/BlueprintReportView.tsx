@@ -131,6 +131,33 @@ export function BlueprintReportView({ report, showPrintButton = true }: { report
           <p className="text-xs text-[#6B6661] mt-1">
             오행: {(Object.entries(chart.elements) as [string, number][]).map(([e, v]) => `${C.ELEMENT_KR[e as keyof typeof C.ELEMENT_KR]}${v}`).join(" · ")}
           </p>
+
+          {/* §0-2②(CoS 실물 재검증, 2026-09-10): "용신 토·금 / 기신 화·수" 한
+              오행 단정 표기를 폐기하고 오행 리포트와 같은 억부·조후 병기로 —
+              이건 코드가 계산한 값이라(facts는 열람 시 재계산됨) LLM 본문이
+              옛 표기를 쓰더라도 이 줄이 기준이 된다. */}
+          {facts.yongsinTrack && (
+            <div className="mt-2 pt-2 border-t border-[#E5DFD4] text-xs text-[#6B6661] leading-relaxed">
+              <p>
+                용신 —{" "}
+                억부 <b className="text-[#1A1A18]">{facts.yongsinTrack.eokbuKr.join("·") || "없음"}</b>
+                {" / "}조후 <b className="text-[#1A1A18]">{facts.yongsinTrack.johuKr.join("·") || "없음(한난 중화)"}</b>
+                {" / "}종합 <b className="text-[#1A1A18]">{facts.yongsinTrack.yongsinByTrackKr.join("·") || "없음"}</b>
+                {facts.climate ? ` · 한난조습 ${facts.climate}` : ""}
+              </p>
+              <p className="mt-0.5">
+                {facts.gisinJohuConflict?.length > 0 ? (
+                  <>
+                    기신(억부 기준) <b className="text-[#1A1A18]">{facts.gisin.map((e) => C.ELEMENT_KR[e]).join("·") || "없음"}</b> — 단{" "}
+                    {facts.gisinJohuConflict.map((e) => C.ELEMENT_KR[e]).join("·")}은(는) 조후상 필요한 기운이라 무조건 피할 것으로 보지 않습니다.
+                  </>
+                ) : (
+                  <>기신 <b className="text-[#1A1A18]">{facts.gisin.map((e) => C.ELEMENT_KR[e]).join("·") || "없음"}</b></>
+                )}
+              </p>
+              <p className="mt-0.5 text-[11px] text-[#9B968F]">억부·조후는 목적이 다르므로 하나로 단정하지 않습니다. 최종 용신은 격국까지 종합해 판단해야 합니다.</p>
+            </div>
+          )}
         </div>
         )}
 

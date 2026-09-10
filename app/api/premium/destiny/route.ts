@@ -5,7 +5,8 @@ import { checkDestinyAccess, consumeOneTimePass } from "@/lib/billing/access";
 import { startAttempt, finishAttemptDone, finishAttemptFailed, discardAttempt } from "@/lib/billing/attempts";
 import { reportExpiresAtIso, notExpiredFilter } from "@/lib/billing/report-ttl";
 import { parseTargetBody, resolveTarget, ensureTargetProfileId, isoOf, loadOwnProfile } from "@/lib/billing/report-target";
-import { runBlueprintStep, type BlueprintPartial, type BlueprintResumeState } from "@/lib/blueprint-engine/generate";
+import { runBlueprintStep, type BlueprintPartial, type BlueprintResumeState, type BlueprintReport } from "@/lib/blueprint-engine/generate";
+import { computeAnchorFacts } from "@/lib/blueprint-engine/anchor";
 
 // 운명 설계도 v3.2 — 질문 24개·6블록(판정·근거강도·수치·왜·장면·반증·처방) 구조.
 // 판매 진입점(가격·업그레이드 자격)은 기존 그대로(lib/billing/plans.ts,
@@ -165,7 +166,20 @@ export async function GET(req: NextRequest) {
 
   // --- 완성본 조회 ---
   if (existing?.status === "done") {
-    return NextResponse.json({ status: "done", report: existing.content, regenerateCount: existing.regenerate_count });
+    // §0-2②(CoS 실물 재검증, 2026-09-10): 저장본의 facts(억부·조후 용신 병기,
+    // 기신, 신살 한자, 평생 대운 로드맵)는 생성 시점 코드에 얼어붙어 있어,
+    // 이후 배포한 R1 병기 통일(yongsin-track.ts)·R2 한자 사전이 기존 리포트에는
+    // 절대 반영되지 않았다 — "완료 보고했으나 배포본에 그대로"의 실제 원인.
+    // facts는 chart만으로 결정되므로(computeAnchorFacts) 열람 시 다시 계산한다.
+    // LLM이 쓴 본문(overview·각 축 blocks·metrics 문장)은 그대로다 — 그 부분은
+    // 재생성이 필요하다. 엔진은 읽기 전용 — 계산 로직 무접촉.
+    const report = existing.content as BlueprintReport;
+    try {
+      if (report?.chart) report.facts = computeAnchorFacts(report.chart);
+    } catch (e) {
+      console.error("운명 설계도 facts 재계산 실패, 저장본 그대로:", e);
+    }
+    return NextResponse.json({ status: "done", report, regenerateCount: existing.regenerate_count });
   }
 
   // --- 실패했던 시도 이어가기: 접근권을 다시 확인하고 같은 attempt를 pending으로 되돌린다 ---
