@@ -20,6 +20,7 @@ import { CIRCLE_ORDER } from "./circle-diagram";
 import { josaWaGwa, josaEunNeun, josaEulReul } from "./josa";
 import { buildYongsinDualTrack, type YongsinTrackRelation } from "@/lib/premium/yongsin-track";
 import { computeRelation, adjustForStrength } from "./relation";
+import { supportElementConflictsWithClimate } from "./dict";
 
 /**
  * §② 도입 서술 (docs/wuxing_pending_copy_v1.md §1, CEO 승인 2026-08-31).
@@ -237,7 +238,18 @@ export function buildYongsinCard(chart: SajuChart, cls: Classification): Yongsin
   const main = cls.frame === "follow" ? cls.dominant : cls.primary;
 
   // 희신 자리 — 채우기면 main을 생해 주는 오행, 순응이면 강한 기운을 흘려보낼 설기 통로
-  const helper = main === null ? null : cls.frame === "follow" ? C.GENERATES[main] : generatorOf(main);
+  //
+  // §0-3(CoS 실물 재검증, 2026-09-09): report.ts의 supportElement는 조후 충돌 시
+  // 이미 접었는데(§4-1), 같은 오행을 가리키는 이 카드의 「도움이 되는 기운」
+  // 필드는 필터를 안 타서 寒濕 사주에 "위를 생해 주는 오행 → 水"가 그대로
+  // 노출됐다(실측: 부족 木·寒濕 사주에서 helper=水). 채우기 프레임에서만,
+  // 이 사주의 조후를 정반대로 악화시키는 오행이면 제안 자체를 접는다
+  // (순응 프레임의 helper는 "설기 통로"라 의미가 달라 건드리지 않는다).
+  const rawHelper = main === null ? null : cls.frame === "follow" ? C.GENERATES[main] : generatorOf(main);
+  const helper =
+    rawHelper !== null && cls.frame === "fill" && supportElementConflictsWithClimate(rawHelper, chart.yongsin.climate)
+      ? null
+      : rawHelper;
 
   // 기신 자리 — 순응 프레임에서는 classify가 이미 "명시적으로 제외할 오행"을 계산해 둔다.
   // 채우기 프레임에서는 과다 오행(더 키우면 안 되는 것) + main을 극하는 오행을 합친다.
