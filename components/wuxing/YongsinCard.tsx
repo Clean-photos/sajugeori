@@ -7,7 +7,7 @@
 // 극단형이면 프레임이 "채우기"에서 "순응하기"로 뒤집힌다(§3-④ 왕신충발).
 import type { YongsinCardData } from "@/lib/wuxing/map-section";
 import { ELEMENT_COLOR } from "@/lib/wuxing/circle-diagram";
-import { josaIga } from "@/lib/wuxing/josa";
+import { josaIga, josaEunNeun } from "@/lib/wuxing/josa";
 import type { Element } from "@/lib/saju-engine/constants";
 
 function Chip({ el, kr }: { el: Element; kr: string }) {
@@ -130,10 +130,23 @@ export function YongsinCard({ data }: { data: YongsinCardData }) {
           <div className="mt-2">
             <p className="text-[11.5px] leading-relaxed text-[#6B6661]">{data.conflictNote}</p>
             {data.johuKr.length > 0 && (
-              <div className="mt-1.5 flex flex-col gap-0.5 text-[11px]">
+              <div className="mt-1.5 flex flex-col gap-1 text-[11px]">
+                {/* §0-1: "주 처방"에는 「채우는 법」 본문이 실제로 처방하는 조후
+                    오행만 적는다 — 처방 항목이 0개인 오행이 주 처방으로 표기되던
+                    자기모순(조후 火·木인데 火 항목 0개)을 없앤다. */}
                 <span className="text-[#41614B]">
-                  주 처방 · 조후 — <b>{data.johuKr.join("·")}</b>
+                  주 처방 · 조후 —{" "}
+                  <b>{(data.johuPrescribedKr.length > 0 ? data.johuPrescribedKr : data.johuKr).join("·")}</b>
                 </span>
+                {data.johuClimateOnlyKr.length > 0 && (
+                  <span className="text-[#6B6661]">
+                    기후 방향(환경·계절로) · 조후 — <b>{data.johuClimateOnlyKr.join("·")}</b>
+                    <span className="block text-[#9B968F] mt-0.5">
+                      {data.johuClimateOnlyKr.join("·")}
+                      {josaEunNeun(data.johuClimateOnly[data.johuClimateOnly.length - 1])} 약한 일간에 직접 쌓기보다 온도·계절 환경으로 방향만 맞춥니다 — 이 사주가 “충돌”인 이유이기도 합니다.
+                    </span>
+                  </span>
+                )}
                 <span className="text-[#6B6661]">
                   보조 참고 · 억부 — <b>{data.eokbuKr.join("·")}</b>
                 </span>

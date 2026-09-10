@@ -224,6 +224,18 @@ export interface YongsinCardData {
   disclaimer: string;
   /** 억부·조후가 갈릴 때(trackRelation === "conflict") 띄울 안내. 그 외에는 null */
   conflictNote: string | null;
+  /**
+   * §0-1: 조후 후보 중 「채우는 법」 본문이 실제로 처방하는 오행(= main, P4면
+   * 비겁·인성 포함). conflict일 때 이것만 "주 처방"으로 표기한다.
+   */
+  johuPrescribed: Element[];
+  johuPrescribedKr: string[];
+  /**
+   * §0-1: 조후 후보 중 본문 처방에는 없는 오행 — 직접 쌓지 않고 환경·계절로
+   * 방향만 맞춘다. 비어 있지 않으면 conflict 블록에서 별도 줄로 안내한다.
+   */
+  johuClimateOnly: Element[];
+  johuClimateOnlyKr: string[];
 }
 
 /**
@@ -258,19 +270,31 @@ export function buildYongsinCard(chart: SajuChart, cls: Classification): Yongsin
   // 주 처방 오행이 피해야 할 목록에 동시에 들어가면 자기모순이라 제거한다
   if (main !== null) avoidSet.delete(main);
 
-  // §4-2(CoS+CEO 실물 확인, 2026-09-08, 신규 회귀): P4(재다신약류) 발동 시
-  // 본문 「먼저 세우기」가 비겁(일간 자신의 오행)·인성을 맨 앞으로 승격하는데,
-  // 이 카드는 그 사실을 모르고 "main을 극하는 오행"을 기계적으로 피할 것에
-  // 넣는다 — main이 재성/관성/식상이면 그 오행을 극하는 쪽이 종종 비겁과
-  // 같아서(예: 재성의 극자는 비겁), 같은 화면이 "먼저 채우세요"와 "피하세요"를
-  // 동시에 말하는 사고가 났다(실측: 庚 신약·부족 木=재성 사주에서 金을 두 번
-  // 다르게 부름). P4가 걸리면 preferFirst(비겁·인성)는 avoid에서 뺀다.
-  if (cls.frame === "fill" && main !== null) {
-    const relation = computeRelation(chart.day_master_element, main);
-    const adjustment = adjustForStrength(relation, chart.day_master_element, chart.strength);
-    if (adjustment.needed) for (const el of adjustment.preferFirst) avoidSet.delete(el);
-  }
+  // P4(재다신약류) 판정 — avoid 정리(§4-2)와 조후 후보 분리(§0-1) 양쪽에서 쓴다.
+  const adjustment =
+    cls.frame === "fill" && main !== null
+      ? adjustForStrength(computeRelation(chart.day_master_element, main), chart.day_master_element, chart.strength)
+      : { needed: false, reason: null, preferFirst: [] as Element[] };
+
+  // §4-2(CoS+CEO 실물 확인, 2026-09-08, 신규 회귀): P4 발동 시 본문 「먼저 세우기」가
+  // 비겁(일간 자신의 오행)·인성을 맨 앞으로 승격하는데, 이 카드는 그 사실을 모르고
+  // "main을 극하는 오행"을 기계적으로 피할 것에 넣는다 — main이 재성/관성/식상이면
+  // 그 오행을 극하는 쪽이 종종 비겁과 같아서(예: 재성의 극자는 비겁), 같은 화면이
+  // "먼저 채우세요"와 "피하세요"를 동시에 말하는 사고가 났다(실측: 庚 신약·부족
+  // 木=재성 사주에서 金을 두 번 다르게 부름). P4가 걸리면 preferFirst는 avoid에서 뺀다.
+  if (adjustment.needed) for (const el of adjustment.preferFirst) avoidSet.delete(el);
   const avoid = CIRCLE_ORDER.filter((el) => avoidSet.has(el));
+
+  // §0-1(CoS 실물 재검증, 2026-09-09): trackRelation === "conflict"에서 조후 후보
+  // 전체를 "주 처방"으로 표에 적었으나, 「채우는 법」 본문은 main(표면 부족 오행)
+  // 하나만 처방한다 — "주 처방 火"라 써놓고 火 처방 항목이 0개인 자기모순이
+  // 났다(실측: 표본 B, 조후 火·木 / main 木 / 火 항목 0). 조후 후보를
+  //  · prescribed  = 「채우는 법」 본문이 실제로 다루는 것(main + P4면 preferFirst)
+  //  · climateOnly = 나머지 — 직접 쌓지 않고 환경·계절로 방향만 맞추는 것
+  // 으로 갈라, 처방 항목이 0개인 오행을 "주 처방"으로 표기하지 않는다.
+  const filledBody = new Set<Element>([...(main !== null ? [main] : []), ...adjustment.preferFirst]);
+  const johuPrescribed = track.johu.filter((el) => filledBody.has(el));
+  const johuClimateOnly = track.johu.filter((el) => !filledBody.has(el));
 
   const divergesFromPrimary = main !== null && track.yongsinByTrack.length > 0 && !track.yongsinByTrack.includes(main);
 
@@ -294,6 +318,10 @@ export function buildYongsinCard(chart: SajuChart, cls: Classification): Yongsin
     divergesFromPrimary,
     disclaimer: track.disclaimer,
     conflictNote: track.trackRelation === "conflict" ? YONGSIN_CONFLICT_NOTE : null,
+    johuPrescribed,
+    johuPrescribedKr: johuPrescribed.map((el) => C.ELEMENT_KR[el]),
+    johuClimateOnly,
+    johuClimateOnlyKr: johuClimateOnly.map((el) => C.ELEMENT_KR[el]),
   };
 }
 
