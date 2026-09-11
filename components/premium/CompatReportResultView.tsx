@@ -4,6 +4,8 @@ import { PrintReportFooter } from "@/components/premium/PrintReport";
 import { SaveReportButtons } from "@/components/premium/SaveReportButtons";
 import { DeleteReportButton } from "@/components/premium/DeleteReportButton";
 import { ReportBody } from "@/components/premium/ReportBody";
+import { CompatPillarsTable } from "@/components/premium/CompatPillarsTable";
+import type { CompatPillarSummary } from "@/lib/premium/compat-pillars";
 
 /**
  * §1(CoS 결정 2026-09-08, 오행과 동일 패턴): 방금 생성한 결과 화면(CompatForm)과
@@ -14,10 +16,13 @@ import { ReportBody } from "@/components/premium/ReportBody";
 export function CompatReportResultView({
   report,
   score,
+  pillars,
   onDelete,
 }: {
   report: string;
   score: number | null;
+  /** §7-3: 두 사람의 명식표. 없으면(구버전 저장본 등) 표를 그냥 생략한다. */
+  pillars?: { a: CompatPillarSummary; b: CompatPillarSummary } | null;
   onDelete: () => Promise<void>;
 }) {
   return (
@@ -29,6 +34,7 @@ export function CompatReportResultView({
             <p className="text-4xl font-bold text-[#C8743A]">{score}<span className="text-lg text-white/50">점</span></p>
           </div>
         )}
+        {pillars && <CompatPillarsTable a={pillars.a} b={pillars.b} />}
         <div className="print-card bg-[#FBF8F2] border border-[#E5DFD4] rounded-2xl p-5 shadow-sm">
           <div className="flex items-center gap-2 mb-4 pb-3 border-b border-[#E5DFD4]">
             <span className="text-base">∞</span>

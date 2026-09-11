@@ -8,6 +8,7 @@ import { premiumErrorInfo, type PremiumErrorInfo } from "@/components/premium/pr
 import { PremiumErrorBanner } from "@/components/premium/PremiumErrorBanner";
 import { CompatReportResultView } from "@/components/premium/CompatReportResultView";
 import { toSolar, type CalendarKind } from "@/lib/calendar/convert";
+import type { CompatPillarSummary } from "@/lib/premium/compat-pillars";
 
 type Step = "form" | "loading" | "result" | "deleted";
 
@@ -39,6 +40,8 @@ export function CompatForm({ saved }: { saved: SavedSaju }) {
   const [partnerNoTime, setPartnerNoTime] = useState(true);
   const [report, setReport] = useState("");
   const [score, setScore] = useState<number | null>(null);
+  // §7-3: 서버가 계산해 준 두 사람의 명식표. 응답에 없으면(엔진 오류 등) null.
+  const [pillars, setPillars] = useState<{ a: CompatPillarSummary; b: CompatPillarSummary } | null>(null);
   const [error, setError] = useState<PremiumErrorInfo | null>(null);
   // 실패한 시도의 id. 있으면 "같은 정보로 재생성" — 서버에 저장된 입력값을 그대로 재사용한다.
   const [attemptId, setAttemptId] = useState<string | null>(null);
@@ -80,6 +83,7 @@ export function CompatForm({ saved }: { saved: SavedSaju }) {
       setAttemptId(null);
       setReport(cleanReportText(data.report));
       setScore(data.score ?? null);
+      setPillars(data.pillars ?? null);
       setStep("result");
     } catch {
       setError({ message: "네트워크 연결을 확인한 뒤 다시 시도해주세요." });
@@ -123,8 +127,8 @@ export function CompatForm({ saved }: { saved: SavedSaju }) {
   if (step === "result") {
     return (
       <div className="flex flex-col gap-2">
-        <CompatReportResultView report={report} score={score} onDelete={handleDelete} />
-        <button onClick={() => { setStep("form"); setReport(""); setScore(null); }}
+        <CompatReportResultView report={report} score={score} pillars={pillars} onDelete={handleDelete} />
+        <button onClick={() => { setStep("form"); setReport(""); setScore(null); setPillars(null); }}
           className="no-print text-sm text-[#6B6661] text-center py-2 -mt-4 active:opacity-60">
           다른 상대와 보기
         </button>

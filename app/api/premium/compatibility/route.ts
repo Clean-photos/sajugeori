@@ -10,6 +10,7 @@ import {
 } from "@/lib/billing/report-target";
 import { buildChart, mutualAnalysis } from "@/lib/saju-engine";
 import { generateCompatibilityReport } from "@/lib/premium/compat-generate";
+import { buildCompatPillarSummary } from "@/lib/premium/compat-pillars";
 
 // 궁합 리포트 생성이 병렬 2콜로 나뉘어 있어도(lib/premium/compat-generate.ts 참고)
 // 전체 요청 처리 시간은 Vercel Hobby 플랜의 60초 제한 안에 들어와야 한다.
@@ -85,11 +86,25 @@ export async function POST(req: NextRequest) {
     person_a_birth: personA.birthDate, person_a_gender: personA.gender,
     partner_birth: partnerBirth, partner_birth_time: partnerBirthTime, partner_gender: partnerGender, context,
   };
+
+  // §7-3(CoS 실물 재검증, 2026-09-10): 두 사람의 명식표를 응답에 함께 실어
+  // 화면이 바로 그릴 수 있게 한다 — 캐시 히트든 새 생성이든 항상 같은 함수로
+  // 다시 뽑는다(저장은 안 함, 비용 0 — §0-2①/②와 같은 이유). 실패해도 리포트
+  // 자체는 정상 응답해야 하니 실패를 삼킨다.
+  const personALabel = useCustomA ? "A" : "나";
+  const partnerLabel = useCustomA ? "B" : "상대";
+  let pillars: { a: ReturnType<typeof buildCompatPillarSummary>; b: ReturnType<typeof buildCompatPillarSummary> } | null = null;
+  try {
+    const meChart = buildChart(isoOf(personA), personA.gender, !!personA.birthTime);
+    const otherChart = buildChart(`${partnerBirth}T${partnerBirthTime || "00:00"}:00`, partnerGender, !!partnerBirthTime);
+    pillars = { a: buildCompatPillarSummary(meChart, personALabel), b: buildCompatPillarSummary(otherChart, partnerLabel) };
+  } catch { /* 명식표는 부가 정보 — 실패해도 리포트 생성은 계속한다 */ }
+
   if (isAdhoc) {
     const cached = await readAdhocCache<{ content: unknown; score: number }>(userId, PRODUCT_ID, personA, variant);
     if (cached) {
       await discardAttempt(started.attemptId);
-      return NextResponse.json({ report: cached.content, score: cached.score, context, cached: true, adhoc: true });
+      return NextResponse.json({ report: cached.content, score: cached.score, context, cached: true, adhoc: true, pillars });
     }
   } else if (ownProfile?.id) {
     try {
@@ -100,7 +115,7 @@ export async function POST(req: NextRequest) {
         await discardAttempt(started.attemptId);
         // §1(CoS 결정 2026-09-08): id를 함께 돌려줘야 마이페이지 "보기 →"가
         // /premium/compatibility/{id}(이용권 검사 없는 열람 라우트)로 연결할 수 있다.
-        return NextResponse.json({ report: cached.content, score: cached.score, context, cached: true, id: cached.id });
+        return NextResponse.json({ report: cached.content, score: cached.score, context, cached: true, id: cached.id, pillars });
       }
     } catch { /* 테이블 없음 또는 미저장 → 생성 진행 */ }
   }
@@ -116,10 +131,9 @@ export async function POST(req: NextRequest) {
   let mutual;
   let normalizedScore = 50;
   try {
-    const personALabel = useCustomA ? "A" : "나";
     const me = buildChart(isoOf(personA), personA.gender, !!personA.birthTime);
     const other = buildChart(`${partnerBirth}T${partnerBirthTime || "00:00"}:00`, partnerGender, !!partnerBirthTime);
-    mutual = mutualAnalysis(me, other, personALabel, useCustomA ? "B" : "상대", context);
+    mutual = mutualAnalysis(me, other, personALabel, partnerLabel, context);
     normalizedScore = Math.min(100, Math.max(0, Math.round(38 + mutual.combinedScore * 6)));
   } catch (e) {
     console.error("premium compatibility engine error:", e);
@@ -158,7 +172,7 @@ export async function POST(req: NextRequest) {
     if (access.passId) await consumeOneTimePass(access.passId);
     await finishAttemptDone(started.attemptId);
 
-    return NextResponse.json({ report, score: normalizedScore, context, cached: false, id: savedId });
+    return NextResponse.json({ report, score: normalizedScore, context, cached: false, id: savedId, pillars });
   } catch (e) {
     console.error("premium compatibility LLM error:", e);
     await finishAttemptFailed(started.attemptId, "LLM 호출 오류");
