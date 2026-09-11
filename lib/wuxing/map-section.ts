@@ -195,6 +195,12 @@ export interface YongsinCardData {
   /** 주 처방을 돕는 오행(희신 자리). 채우기면 main을 생하는 오행, 순응이면 설기 통로 */
   helper: Element | null;
   helperKr: string | null;
+  /**
+   * §1-8순위(CoS 실물 재검증, 2026-09-11): helper가 조후 충돌로 접혔을 때(§0-3)
+   * "도움이 되는 기운 → 해당 없음"만 뜨고 사유가 없어 오류처럼 보였다 — main이
+   * 아예 없어서 null인 경우와 구분해, 이 경우에만 이유를 보여준다.
+   */
+  helperSuppressedByClimate: boolean;
   /** 피해야 할 오행(기신 자리) */
   avoid: Element[];
   avoidKr: string[];
@@ -286,10 +292,9 @@ export function buildYongsinCard(chart: SajuChart, cls: Classification): Yongsin
   // 이 사주의 조후를 정반대로 악화시키는 오행이면 제안 자체를 접는다
   // (순응 프레임의 helper는 "설기 통로"라 의미가 달라 건드리지 않는다).
   const rawHelper = main === null ? null : cls.frame === "follow" ? C.GENERATES[main] : generatorOf(main);
-  const helper =
-    rawHelper !== null && cls.frame === "fill" && supportElementConflictsWithClimate(rawHelper, chart.yongsin.climate)
-      ? null
-      : rawHelper;
+  const helperSuppressedByClimate =
+    rawHelper !== null && cls.frame === "fill" && supportElementConflictsWithClimate(rawHelper, chart.yongsin.climate);
+  const helper = helperSuppressedByClimate ? null : rawHelper;
 
   // 기신 자리 — 순응 프레임에서는 classify가 이미 "명시적으로 제외할 오행"을 계산해 둔다.
   // 채우기 프레임에서는 과다 오행(더 키우면 안 되는 것) + main을 극하는 오행을 합친다.
@@ -350,6 +355,7 @@ export function buildYongsinCard(chart: SajuChart, cls: Classification): Yongsin
     mainKr: main ? C.ELEMENT_KR[main] : null,
     helper,
     helperKr: helper ? C.ELEMENT_KR[helper] : null,
+    helperSuppressedByClimate,
     avoid,
     avoidKr: avoid.map((el) => C.ELEMENT_KR[el]),
     eokbu: track.eokbu,

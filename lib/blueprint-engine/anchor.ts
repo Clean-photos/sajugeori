@@ -162,8 +162,8 @@ export function anchorFactsToPromptText(f: AnchorFacts): string {
 [명식 사실 시트 — 모든 서술은 이 시트와 모순되면 안 됨]
 일간: ${f.dayMaster} (${C.ELEMENT_KR[f.dayMasterElement]})
 신강/신약: ${f.strengthVerdict} — ${f.strengthDetail}
-억부 용신: ${t.eokbuKr.join("·") || "없음"} / 조후 용신: ${t.johuKr.join("·") || "없음(한난 중화)"} / 종합: ${t.yongsinByTrackKr.join("·") || "없음"}
-(${t.disclaimer} "용신은 X다"처럼 한 오행만 단정하지 말 것 — 위 세 값을 함께 밝힐 것)
+억부(抑扶, 힘의 균형을 잡아 주는 방식) 용신: ${t.eokbuKr.join("·") || "없음"} / 조후(調候, 계절의 한난조습을 맞춰 주는 방식) 용신: ${t.johuKr.join("·") || "없음(한난 중화)"} / 종합: ${t.yongsinByTrackKr.join("·") || "없음"}
+(${t.disclaimer} "용신은 X다"처럼 한 오행만 단정하지 말 것 — 위 세 값을 함께 밝힐 것. 억부·조후의 한자·뜻풀이는 위에 이미 붙어 있으니 본문에서 다시 나오면 그대로 쓰고, 괄호 안에 같은 한글 단어를 또 넣거나 다른 설명을 새로 짓지 말 것)
 희신: ${f.huisin.map((e) => C.ELEMENT_KR[e]).join("·") || "없음"} / ${gisinLine}
 조후: ${f.climate}
 오행 분포: ${elemLine}

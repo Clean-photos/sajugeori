@@ -87,7 +87,10 @@ export function YongsinCard({ data }: { data: YongsinCardData }) {
           hint={isFollow ? "흘려보낼 통로" : "위를 생해 주는 오행"}
           elements={data.helper ? [data.helper] : []}
           elementsKr={data.helperKr ? [data.helperKr] : []}
-          empty="해당 없음"
+          // §1-8순위(CoS 실물 재검증, 2026-09-11): 조후 충돌로 접힌 것과
+          // 애초에 대상이 없는 것을 구분 — 이유 없이 "해당 없음"만 뜨면
+          // 오류처럼 보인다.
+          empty={data.helperSuppressedByClimate ? "생해 주는 오행이 이 사주의 조후(계절)를 거스르는 방향이라 권하지 않습니다." : "해당 없음"}
         />
         <Slot
           title="피해야 할 기운"

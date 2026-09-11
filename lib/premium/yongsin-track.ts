@@ -73,8 +73,12 @@ export function yongsinDualTrackPromptLine(t: YongsinDualTrack): string {
   const johuStr = t.johuKr.join("·") || "없음(한난 중화)";
   const finalStr = t.yongsinByTrackKr.join("·") || "없음";
   const lines = [
-    `억부 용신: ${eokbuStr} / 조후 용신: ${johuStr} / 종합: ${finalStr}`,
-    `(${t.disclaimer} "용신인 X"처럼 한 오행만 단정하지 말 것 — 위 세 줄 그대로 병기할 것)`,
+    // §1-8순위(CoS 실물 재검증, 2026-09-11): "억부"·"조후"에 한자·뜻풀이를 안
+    // 주니 LLM이 처음 언급 시 괄호 설명을 스스로 지어내다 "억부(억부, 힘의
+    // 균형 측면)"처럼 자기 자신을 반복하는 사고가 났다(연운세 실측). 정답을
+    // 여기 붙여 재사용하게 한다.
+    `억부(抑扶, 힘의 균형을 잡아 주는 방식) 용신: ${eokbuStr} / 조후(調候, 계절의 한난조습을 맞춰 주는 방식) 용신: ${johuStr} / 종합: ${finalStr}`,
+    `(${t.disclaimer} "용신인 X"처럼 한 오행만 단정하지 말 것 — 위 세 줄 그대로 병기할 것. 억부·조후의 한자·뜻풀이는 위에 이미 붙어 있으니 본문에서 다시 나오면 그대로 쓰고, 괄호 안에 같은 한글 단어를 또 넣거나 다른 설명을 새로 짓지 말 것)`,
   ];
   if (t.trackRelation === "conflict") {
     lines.push(
