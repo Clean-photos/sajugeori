@@ -2,6 +2,7 @@
 // 나온 사실이고, 3년을 관통하는 흐름 한 문단(narratives.seunFlow)만 LLM이 쓴다.
 import type { SeunPrescriptionPlan, YearPrescription } from "@/lib/wuxing/seun-prescription";
 import type { WuxingNarratives } from "@/lib/wuxing/report";
+import { SectionHeading } from "@/components/ui/SectionHeading";
 
 const CASE_ACCENT: Record<string, string> = {
   A: "#41614B",
@@ -69,7 +70,7 @@ export function SeunSection({ seun, narrative }: { seun: SeunPrescriptionPlan; n
   const daewoonLine = [seun.daewoonNote.background, seun.daewoonNote.transition].filter(Boolean).join(" ");
   return (
     <section className="flex flex-col gap-3">
-      <h2 className="font-serif text-lg font-bold text-[#1F3D34]">3년 처방 ★</h2>
+      <SectionHeading title="3년 처방 ★" />
       {/* §2-3(CoS+CEO 실물 확인, 2026-09-08): 이 판정은 세운 오행만 보고, 위에
           안내된 대운이나 그해 천간합은 반영하지 않는다 — 다른 상품(프리미엄
           사주·연운세)은 대운 완충·천간합까지 반영해 판정이 갈릴 수 있다

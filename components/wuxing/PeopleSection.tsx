@@ -1,11 +1,12 @@
 // §④ 사람 축 — B층 §3, 5블록. "찾아야 할 조건을 미리 준다"는 이 상품의 차별점.
 // 인성·관성·비겁 관계면 emphasized=true — 원문에서 사람이 1순위 실행 축이라 더 크게 배치한다.
 import type { PeopleSectionData } from "@/lib/wuxing/report";
+import { SectionHeading } from "@/components/ui/SectionHeading";
 
 export function PeopleSection({ people }: { people: PeopleSectionData }) {
   return (
     <section className={`flex flex-col gap-3 ${people.emphasized ? "" : ""}`}>
-      <h2 className="font-serif text-lg font-bold text-[#1F3D34]">어떤 사람을 가까이할지</h2>
+      <SectionHeading title="어떤 사람을 가까이할지" />
       <p className="text-[12.5px] text-[#6B6661] leading-relaxed">{people.intro}</p>
 
       {/* ① 1순위 — 일간 조건 */}

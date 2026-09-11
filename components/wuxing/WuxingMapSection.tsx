@@ -5,11 +5,12 @@ import { OhaengCircleDiagram } from "./OhaengCircleDiagram";
 import { ElementBars } from "./ElementBars";
 import { ImbalanceTable } from "./ImbalanceTable";
 import { YongsinCard } from "./YongsinCard";
+import { SectionHeading } from "@/components/ui/SectionHeading";
 
 export function WuxingMapSection({ data }: { data: WuxingMapData }) {
   return (
     <section className="flex flex-col gap-3">
-      <h2 className="font-serif text-lg font-bold text-[#1F3D34]">오행 지도</h2>
+      <SectionHeading title="오행 지도" />
 
       {/* 결정 ④ — "부족하다고 다 채우는 것이 아니라…" 도입 서술(승인 완료, docs/wuxing_pending_copy_v1.md §1) */}
       <p className="text-sm text-[#1A1A18] leading-relaxed">{data.intro}</p>

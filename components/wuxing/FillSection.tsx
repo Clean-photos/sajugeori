@@ -7,6 +7,7 @@ import Link from "next/link";
 import type { FillSectionData } from "@/lib/wuxing/report";
 import { ELEMENT_COLOR } from "@/lib/wuxing/circle-diagram";
 import { josaEulReul } from "@/lib/wuxing/josa";
+import { SectionHeading } from "@/components/ui/SectionHeading";
 
 const STRENGTH_STARS: Record<string, string> = { A: "★★★", B: "★★☆", C: "★☆☆" };
 
@@ -14,7 +15,7 @@ export function FillSection({ fill }: { fill: FillSectionData }) {
   if (!fill.target) {
     return (
       <section className="flex flex-col gap-2">
-        <h2 className="font-serif text-lg font-bold text-[#1F3D34]">채우는 법</h2>
+        <SectionHeading title="채우는 법" />
         <p className="text-sm text-[#1A1A18]">오행이 고르게 갖춰져 있어 특별히 채울 오행이 없습니다.</p>
       </section>
     );
@@ -26,7 +27,7 @@ export function FillSection({ fill }: { fill: FillSectionData }) {
   if (isFollow) {
     return (
       <section className="flex flex-col gap-3">
-        <h2 className="font-serif text-lg font-bold text-[#1F3D34]">따라가는 법</h2>
+        <SectionHeading title="따라가는 법" />
 
         {/* §3-1 도입(승인 완료) */}
         {fill.intro && <p className="text-sm text-[#1A1A18] leading-relaxed">{fill.intro}</p>}
@@ -71,7 +72,7 @@ export function FillSection({ fill }: { fill: FillSectionData }) {
 
   return (
     <section className="flex flex-col gap-3">
-      <h2 className="font-serif text-lg font-bold text-[#1F3D34]">채우는 법</h2>
+      <SectionHeading title="채우는 법" />
 
       {/* B층 인트로 1문장 — 결정 A안: relation.json 그대로, 존댓말 전환 완료 */}
       {fill.intro && <p className="text-sm text-[#1A1A18] leading-relaxed">{fill.intro}</p>}

@@ -105,7 +105,13 @@ export function BlueprintReportView({ report, showPrintButton = true }: { report
             버려 그대로 한 덩어리로 보인다 — 문단마다 나눠 그린다. */}
         {overview ? (
           <div className="print-card rounded-2xl bg-[#1F3D34] text-white p-5">
-            <p className="text-[10px] tracking-[0.2em] text-[#C8743A] uppercase mb-2">운명총론</p>
+            {/* U1(CoS 실물 재검증, 2026-09-10): 제목은 커졌으나 "옆 가로선"이
+                없다고 재지적됨 — 이 카드는 어두운 배경이라 공용 SectionHeading의
+                회색 선이 안 보여, 같은 자리에 밝은 선을 직접 붙인다. */}
+            <div className="flex items-center gap-2.5 mb-2">
+              <p className="text-[10px] tracking-[0.2em] text-[#C8743A] uppercase whitespace-nowrap">운명총론</p>
+              <span className="flex-1 h-[2px] rounded-full bg-white/15" aria-hidden />
+            </div>
             <p className="font-serif text-xl font-bold leading-snug mb-3">{overview.headline}</p>
             <div className="flex flex-col gap-2.5">
               {overview.body.split(/\n\s*\n/).map((s) => s.trim()).filter(Boolean).map((para, i) => (

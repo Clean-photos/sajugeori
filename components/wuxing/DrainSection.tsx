@@ -2,13 +2,14 @@
 // 설기(洩氣) 원리: 과다한 기운은 억누르지 말고 흘려보낼 통로를 만든다.
 import type { DrainSectionData } from "@/lib/wuxing/report";
 import { josaIga } from "@/lib/wuxing/josa";
+import { SectionHeading } from "@/components/ui/SectionHeading";
 
 export function DrainSection({ drain }: { drain: DrainSectionData }) {
   if (drain.groups.length === 0 && !drain.companion) return null;
 
   return (
     <section className="flex flex-col gap-3">
-      <h2 className="font-serif text-lg font-bold text-[#1F3D34]">넘치는 기운 다루기</h2>
+      <SectionHeading title="넘치는 기운 다루기" />
 
       {drain.groups.map((g) => (
         <div key={g.element} className="bg-[#FBF8F2] border border-[#E5DFD4] rounded-2xl p-4">
