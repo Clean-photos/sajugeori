@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/db/client";
+import { REPORT_PRODUCTS, DESTINY_BLUEPRINT_ONE, DESTINY_UPGRADE } from "@/lib/billing/plans";
 
 // 무료 사용자가 사주거리 채팅에서 보낼 수 있는 누적 메시지 수 (전체 캐릭터 합산)
 export const FREE_CHAT_MESSAGE_LIMIT = 20;
@@ -115,6 +116,56 @@ export async function countRemainingPasses(userId: string): Promise<number> {
     return count ?? 0;
   } catch {
     return 0;
+  }
+}
+
+export interface UnusedPass {
+  productId: string;
+  count: number;
+  label: string;
+  href: string;
+}
+
+/**
+ * §0-3②(CoS 실물 재검증, 2026-09-10): 홈의 "사용하지 않은 이용권 N장 · 지금
+ * 만들기"가 개수만 보여주고 어떤 상품인지 알려주지 않은 채 /premium/menu로만
+ * 보냈다 — 8개 상품 중 뭘 안 만들었는지 사용자가 추측해야 했다. product_id별로
+ * 묶어 상품명과 그 상품 생성 화면으로 바로 가는 링크를 낸다. any_report(옛
+ * 묶음권)는 특정 상품 하나에 묶이지 않아 예외적으로 메뉴로 보낸다.
+ */
+export async function listUnusedPasses(userId: string): Promise<UnusedPass[]> {
+  try {
+    const { data } = await supabaseAdmin
+      .from("one_time_purchases")
+      .select("product_id")
+      .eq("user_id", userId)
+      .eq("status", "paid")
+      .is("used_at", null);
+    const counts = new Map<string, number>();
+    for (const row of data ?? []) {
+      const pid = row.product_id as string;
+      counts.set(pid, (counts.get(pid) ?? 0) + 1);
+    }
+    const out: UnusedPass[] = [];
+    for (const [productId, count] of counts) {
+      if (productId === ANY_REPORT_PASS) {
+        out.push({ productId, count, label: "리포트 아무거나(묶음권)", href: "/premium/menu" });
+        continue;
+      }
+      const product = REPORT_PRODUCTS.find((p) => p.productId === productId);
+      if (product) {
+        out.push({ productId, count, label: product.label, href: product.path });
+        continue;
+      }
+      if (productId === DESTINY_BLUEPRINT_ONE.id || productId === DESTINY_UPGRADE.id) {
+        out.push({ productId, count, label: "운명 설계도", href: "/premium/destiny" });
+        continue;
+      }
+      out.push({ productId, count, label: "리포트", href: "/premium/menu" });
+    }
+    return out.sort((a, b) => b.count - a.count);
+  } catch {
+    return [];
   }
 }
 

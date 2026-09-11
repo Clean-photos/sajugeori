@@ -7,7 +7,7 @@ import { SiteFooter } from "@/components/layout/SiteFooter";
 import { ONE_REPORT_PRICE, DESTINY_BLUEPRINT_ONE, REPORT_PRODUCTS } from "@/lib/billing/plans";
 import { loadOwnProfile } from "@/lib/billing/report-target";
 import { listUserReports, viewHref, type MyReport } from "@/lib/billing/my-reports";
-import { isPremiumUser, countRemainingPasses, purchasedProductIds } from "@/lib/billing/access";
+import { isPremiumUser, listUnusedPasses, purchasedProductIds, type UnusedPass } from "@/lib/billing/access";
 import { HomeSajuForm } from "@/components/home/HomeSajuForm";
 import { HeaderAuth } from "./HeaderAuth";
 
@@ -54,7 +54,7 @@ export default async function HomePage() {
   // 조회 함수를 또 만들지 않는다). withDisplay로 화면 표시용 필드까지 받는다.
   let profile: Awaited<ReturnType<typeof loadOwnProfile>> = null;
   let reports: MyReport[] = [];
-  let unusedPassCount = 0;
+  let unusedPasses: UnusedPass[] = [];
   let notYetBought: (typeof REPORT_PRODUCTS)[number][] = [];
 
   if (userId) {
@@ -65,7 +65,7 @@ export default async function HomePage() {
       // 구독자는 "구매"라는 개념이 없어 이용권 소진 유도·크로스셀 문구가
       // 성립하지 않는다 — 이 두 블록은 비구독자에게만 보여준다.
       if (!premium) {
-        unusedPassCount = await countRemainingPasses(userId);
+        unusedPasses = await listUnusedPasses(userId);
         const bought = await purchasedProductIds(userId);
         // §13(CoS+CEO 실물 확인, 2026-09-08): 이 블록은 .slice(0,3)으로 앞
         // 3개만 보여주는데, REPORT_PRODUCTS 배열 순서상 오행 보완 리포트가
@@ -151,20 +151,29 @@ export default async function HomePage() {
           {/* "아직 안 본 리포트" — CEO 결정 2026-09-03: 두 개념을 분리한다.
               블록①(이용권 미사용)이 우선이다 — 이미 돈 낸 사람이 결과를 못
               받은 상태를 방치하면 CS·환불 요청으로 이어진다. */}
-          {(unusedPassCount > 0 || notYetBought.length > 0) && (
+          {(unusedPasses.length > 0 || notYetBought.length > 0) && (
             <section className="px-4 mb-4 flex flex-col gap-3">
-              {unusedPassCount > 0 && (
-                <div className="rounded-2xl border border-[#C8743A]/40 bg-[#FDF0E3] px-4 py-3.5 flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-[13px] font-semibold text-[#1F3D34]">사용하지 않은 이용권 {unusedPassCount}장</p>
-                    <p className="text-[11px] text-[#8A5228] mt-0.5">이미 결제하신 리포트를 아직 만들지 않았어요</p>
-                  </div>
-                  <Link
-                    href="/premium/menu"
-                    className="flex-shrink-0 text-xs font-semibold text-white bg-[#C8743A] rounded-full px-3.5 py-2 whitespace-nowrap"
-                  >
-                    지금 만들기
-                  </Link>
+              {unusedPasses.length > 0 && (
+                <div className="rounded-2xl border border-[#C8743A]/40 bg-[#FDF0E3] px-4 py-3.5 flex flex-col gap-2.5">
+                  <p className="text-[13px] font-semibold text-[#1F3D34]">
+                    사용하지 않은 이용권 {unusedPasses.reduce((sum, p) => sum + p.count, 0)}장
+                  </p>
+                  {/* §0-3②(CoS 실물 재검증, 2026-09-10): "지금 만들기"가 개수만
+                      보여주고 8개 상품 중 뭔지 안 알려줬다 — 상품별로 나눠 각각의
+                      생성 화면으로 바로 보낸다. */}
+                  {unusedPasses.map((p) => (
+                    <div key={p.productId} className="flex items-center justify-between gap-3">
+                      <p className="text-[12px] text-[#8A5228]">
+                        {p.label} {p.count > 1 ? `${p.count}장` : ""}
+                      </p>
+                      <Link
+                        href={p.href}
+                        className="flex-shrink-0 text-xs font-semibold text-white bg-[#C8743A] rounded-full px-3.5 py-2 whitespace-nowrap"
+                      >
+                        지금 만들기
+                      </Link>
+                    </div>
+                  ))}
                 </div>
               )}
 

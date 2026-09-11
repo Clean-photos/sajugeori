@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { cleanReportText } from "@/lib/report-format";
 import { WaitingCards } from "@/components/premium/WaitingCards";
 import { SajuInputForm, type SavedSaju } from "@/components/premium/SajuInputForm";
@@ -15,14 +15,55 @@ const THIS_YEAR = new Date().getFullYear();
 
 type Target = { birth_date: string; birth_time: string | null; gender: string };
 
+/**
+ * §8-3(CoS 실물 재검증, 2026-09-10): 이용권이 없으면 "결제하러 가기 →"로
+ * /premium/buy에 갔다 오는데, 그 사이 이 컴포넌트가 언마운트됐다 다시
+ * 마운트되며 입력한 종·이름·태어난 해·달·날이 전부 날아갔다 — 폼 상태가
+ * 메모리(useState)에만 있었기 때문. 결제·로그인처럼 페이지를 떠났다 돌아오는
+ * 흐름이 있는 폼이라, 입력을 sessionStorage에 얹어 두고 마운트 시 복원한다.
+ * 결제 정보(카드번호 등)가 아니라 이름·생년월일 같은 입력값뿐이고, 생성
+ * 성공 시 바로 지운다.
+ */
+const DRAFT_KEY = "pet_form_draft_v1";
+type Draft = { species: Species; name: string; year: string; month: string; noMonth: boolean; day: string };
+
+function loadDraft(): Draft | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.sessionStorage.getItem(DRAFT_KEY);
+    return raw ? (JSON.parse(raw) as Draft) : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveDraft(d: Draft): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.setItem(DRAFT_KEY, JSON.stringify(d));
+  } catch { /* noop */ }
+}
+
+function clearDraft(): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.removeItem(DRAFT_KEY);
+  } catch { /* noop */ }
+}
+
 export function PetForm({ saved }: { saved: SavedSaju }) {
   const [step, setStep] = useState<Step>("form");
-  const [species, setSpecies] = useState<Species>("dog");
-  const [name, setName] = useState("");
-  const [year, setYear] = useState("");
-  const [month, setMonth] = useState("");
-  const [noMonth, setNoMonth] = useState(false);
-  const [day, setDay] = useState("");
+  const [species, setSpecies] = useState<Species>(() => loadDraft()?.species ?? "dog");
+  const [name, setName] = useState(() => loadDraft()?.name ?? "");
+  const [year, setYear] = useState(() => loadDraft()?.year ?? "");
+  const [month, setMonth] = useState(() => loadDraft()?.month ?? "");
+  const [noMonth, setNoMonth] = useState(() => loadDraft()?.noMonth ?? false);
+  const [day, setDay] = useState(() => loadDraft()?.day ?? "");
+
+  // 입력이 바뀔 때마다 초안을 저장한다 — 결제 왕복 중간에 날아가지 않게.
+  useEffect(() => {
+    saveDraft({ species, name, year, month, noMonth, day });
+  }, [species, name, year, month, noMonth, day]);
   const [report, setReport] = useState("");
   const [petLabel, setPetLabel] = useState("");
   const [error, setError] = useState<PremiumErrorInfo | null>(null);
@@ -77,6 +118,7 @@ export function PetForm({ saved }: { saved: SavedSaju }) {
         `${data.petName} · ${data.pet.zodiac}띠 · ${data.pet.element}(${species === "cat" ? "고양이" : "강아지"})`
       );
       setStep("result");
+      clearDraft(); // 생성 성공 — 임시 저장한 초안은 더 이상 필요 없다.
     } catch {
       setError({ message: "네트워크 연결을 확인한 뒤 다시 시도해주세요." });
       setStep("form");
