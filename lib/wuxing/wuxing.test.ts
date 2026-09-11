@@ -1041,8 +1041,13 @@ for (const c of CASES) {
 
   // §1-2 연결문 4갈래 — 조건별로 정확한 연결문이 선택되는지 (docs/wuxing_pending_copy_v1.md §1)
   {
+    // §1-4순위(CoS 실물 재검증, 2026-09-11): 4갈래였던 연결문이 5갈래(partial 추가)가
+    // 됐다 — 억부·조후가 갈리는 사주(conflict)에서 main이 결정형 폴백(조후)에만
+    // 걸리는 경우 예전엔 match로 취급돼 "두 관점 모두에서 뒷받침"이라고 잘못
+    // 말했다(실측: 억부 토·금/조후 화·목/main 목 — 억부는 목을 전혀 지지 않음).
     const CONNECTOR_PHRASE = {
       match: "두 관점 모두에서 일치하는 결과입니다",
+      partial: "그 겹치는 쪽의 근거로 뒷받침됩니다",
       mismatch: "이 차이를 함께 안내합니다",
       extreme: "흐름을 따르는 편이 명리학적으로 더 유효합니다",
       balanced: "흐름을 관리하는 처방입니다",
@@ -1055,7 +1060,7 @@ for (const c of CASES) {
       const yongsin = buildYongsinCard(chart, cls);
 
       const expected: keyof typeof CONNECTOR_PHRASE =
-        cls.pattern === "extreme" ? "extreme" : cls.primary === null ? "balanced" : yongsin.divergesFromPrimary ? "mismatch" : "match";
+        cls.pattern === "extreme" ? "extreme" : cls.primary === null ? "balanced" : yongsin.agreement === "full" ? "match" : yongsin.agreement === "partial" ? "partial" : "mismatch";
 
       check(`[${c.name}] 연결문 = ${expected}`, map.intro.includes(CONNECTOR_PHRASE[expected]), map.intro);
       // 나머지 3갈래 문구는 섞여 들어가면 안 된다(배타성 확인)
@@ -1211,7 +1216,8 @@ for (const c of CASES) {
           const iso = `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}T09:00:00`;
           const chart = buildChart(iso, "M", true);
           const cls = classify(chart);
-          if (cls.frame === "fill" && cls.primary && !buildYongsinCard(chart, cls).divergesFromPrimary) {
+          const yc = buildYongsinCard(chart, cls);
+          if (cls.frame === "fill" && cls.primary && !yc.divergesFromPrimary && yc.agreement === "full") {
             matchChart = chart;
             break outer7;
           }
@@ -1223,6 +1229,32 @@ for (const c of CASES) {
       const fillM = buildFillSection(matchChart, classify(matchChart));
       check("[일치 표본] §4-2 문구 — '으로 일치합니다'", fillM.divergenceNote?.includes("일치합니다") ?? false);
       check("[일치 표본] §4-2엔 '기준으로 구성되어 있으며' 없음(불일치 전용 문구)", !(fillM.divergenceNote?.includes("기준으로 구성되어 있으며") ?? false));
+    }
+
+    // §1-4순위(CoS 실물 재검증, 2026-09-11): main이 종합(yongsinByTrack)과는
+    // 같지만(diverges=false) 억부·조후 양쪽 다가 아니라 한쪽에서만 지지하는
+    // 표본(실측: 표본 B, 조후 화·목/main 목 — 억부 토·금은 목을 지지 안 함)으로
+    // "일치합니다"가 아니라 "한쪽에서만" 문구가 나가는지 확인한다.
+    let partialChart: ReturnType<typeof buildChart> | null = null;
+    outer7b: for (let y = 1970; y <= 2005; y++) {
+      for (let m = 1; m <= 12; m++) {
+        for (const d of [3, 11, 19, 27]) {
+          const iso = `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}T09:00:00`;
+          const chart = buildChart(iso, "M", true);
+          const cls = classify(chart);
+          const yc = buildYongsinCard(chart, cls);
+          if (cls.frame === "fill" && cls.primary && !yc.divergesFromPrimary && yc.agreement === "partial") {
+            partialChart = chart;
+            break outer7b;
+          }
+        }
+      }
+    }
+    check("§4-2 검증용 부분 일치 표본 확보", !!partialChart);
+    if (partialChart) {
+      const fillP = buildFillSection(partialChart, classify(partialChart));
+      check("[부분 일치 표본] §4-2 문구 — '두 관점 중 한쪽에서만'", fillP.divergenceNote?.includes("두 관점 중 한쪽에서만") ?? false, fillP.divergenceNote ?? "");
+      check("[부분 일치 표본] §4-2엔 '으로 일치합니다' 없음(전체 일치 전용 문구)", !(fillP.divergenceNote?.includes("으로 일치합니다") ?? false));
     }
   }
 

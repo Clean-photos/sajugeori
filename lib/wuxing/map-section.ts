@@ -33,6 +33,13 @@ const MAP_INTRO_FIXED =
 const MAP_INTRO_CONNECTOR = {
   match:
     "구조적으로 부족한 기운과 명리학적으로 필요한 기운이 같습니다. 아래 처방은 두 관점 모두에서 일치하는 결과입니다.",
+  // §1-4순위(CoS 실물 재검증, 2026-09-11): 억부·조후가 갈리는 사주(conflict)에서
+  // 표면 부족 오행이 그중 한쪽(대개 조후, 결정①의 폴백 규칙)에만 걸리면 이전엔
+  // match와 같은 취급을 받아 "두 관점 모두에서 뒷받침되는 결과"라고 잘못 말했다
+  // (실측: 억부 토·금 / 조후 화·목인데 main=목 → 억부는 목을 전혀 지지하지 않음).
+  // 한쪽만 지지하는 이 상태를 match·mismatch와 구분한다.
+  partial:
+    "구조적으로 부족한 기운이 두 관점 중 한쪽(조후 또는 억부)에서만 필요한 기운과 겹칩니다. 아래 처방은 그 겹치는 쪽의 근거로 뒷받침됩니다 — 나머지 한쪽 관점은 §② 용신 카드에서 함께 확인해 주십시오.",
   mismatch:
     "구조적으로 부족한 기운과 명리학적으로 필요한 기운이 다르게 나왔습니다. 아래 처방은 이 차이를 함께 안내합니다.",
   extreme:
@@ -218,6 +225,19 @@ export interface YongsinCardData {
   /** main이 yongsinByTrack에 없으면 true — 두 판정이 갈린 사주 */
   divergesFromPrimary: boolean;
   /**
+   * §1-4순위(CoS 실물 재검증, 2026-09-11): main(표면 부족)이 억부·조후 "양쪽
+   * 다"의 지지를 받는지 — divergesFromPrimary와는 다른 질문이다. divergesFromPrimary는
+   * "main이 종합(yongsinByTrack)과 같은가"만 보는데, conflict(트랙이 갈림)일 때
+   * yongsinByTrack은 조후로 결정형 폴백한 값이라, main이 우연히 거기 들어있으면
+   * (실측: 조후 화·목 / main 목) divergesFromPrimary=false가 되어 "두 관점 모두에서
+   * 뒷받침되는 결과"라는 문구가 나갔다 — 그런데 억부(토·금)는 애초에 목을 전혀
+   * 지지하지 않으므로 이 문구는 틀렸다. eokbu·johu 각각에 main이 들어있는지
+   * 직접 봐서: 둘 다 지지 = full, 하나만 지지 = partial(조후만/억부만 뒷받침),
+   * 어느 쪽도 아님 = diverge. trackRelation이 single(한쪽 트랙이 비어 조후·억부
+   * 중 하나만 존재)이면 그 하나뿐인 트랙 기준으로만 판단한다(비교 대상이 없다).
+   */
+  agreement: "full" | "partial" | "diverge";
+  /**
    * 단일 용신으로 단정하지 않는다는 고지 — 결정 ①의 "단일 용신 단정 금지"와
    * 엔진 note("최종 용신은 격국까지 종합해 판단해야 한다")를 함께 반영한다.
    */
@@ -298,6 +318,19 @@ export function buildYongsinCard(chart: SajuChart, cls: Classification): Yongsin
 
   const divergesFromPrimary = main !== null && track.yongsinByTrack.length > 0 && !track.yongsinByTrack.includes(main);
 
+  // §1-4순위: main이 억부·조후 "양쪽 다"의 지지를 받는지 직접 본다(주석 참고).
+  const agreement: "full" | "partial" | "diverge" = (() => {
+    if (main === null) return "full";
+    const inEokbu = track.eokbu.includes(main);
+    const inJohu = track.johu.includes(main);
+    if (track.trackRelation === "single") {
+      return (track.eokbu.length > 0 ? inEokbu : inJohu) ? "full" : "diverge";
+    }
+    if (inEokbu && inJohu) return "full";
+    if (inEokbu || inJohu) return "partial";
+    return "diverge";
+  })();
+
   return {
     frame: cls.frame,
     main,
@@ -316,6 +349,7 @@ export function buildYongsinCard(chart: SajuChart, cls: Classification): Yongsin
     yongsinByTrack: track.yongsinByTrack,
     yongsinByTrackKr: track.yongsinByTrackKr,
     divergesFromPrimary,
+    agreement,
     disclaimer: track.disclaimer,
     conflictNote: track.trackRelation === "conflict" ? YONGSIN_CONFLICT_NOTE : null,
     johuPrescribed,
@@ -340,14 +374,16 @@ export interface WuxingMapData {
 }
 
 /**
- * §1-2 연결문 4갈래 판정. 우선순위: 극단형 → 부족 없음(방어, 도달 불가 확인됨) →
- * primary=용신 일치/불일치. 극단형은 cls.primary가 dominant와 같은 값이라(classify.ts),
- * 이 분기를 먼저 걸지 않으면 아래 일치/불일치 분기로 잘못 빠진다.
+ * §1-2 연결문 5갈래 판정. 우선순위: 극단형 → 부족 없음(방어, 도달 불가 확인됨) →
+ * agreement(억부·조후 양쪽 지지 여부). 극단형은 cls.primary가 dominant와 같은 값이라
+ * (classify.ts), 이 분기를 먼저 걸지 않으면 아래 분기로 잘못 빠진다.
  */
-function pickMapIntroConnector(cls: Classification, divergesFromPrimary: boolean): string {
+function pickMapIntroConnector(cls: Classification, agreement: "full" | "partial" | "diverge"): string {
   if (cls.pattern === "extreme") return MAP_INTRO_CONNECTOR.extreme;
   if (cls.primary === null) return MAP_INTRO_CONNECTOR.balanced;
-  return divergesFromPrimary ? MAP_INTRO_CONNECTOR.mismatch : MAP_INTRO_CONNECTOR.match;
+  if (agreement === "full") return MAP_INTRO_CONNECTOR.match;
+  if (agreement === "partial") return MAP_INTRO_CONNECTOR.partial;
+  return MAP_INTRO_CONNECTOR.mismatch;
 }
 
 export function buildWuxingMap(chart: SajuChart, cls: Classification): WuxingMapData {
@@ -359,7 +395,7 @@ export function buildWuxingMap(chart: SajuChart, cls: Classification): WuxingMap
     imbalance: buildImbalanceRows(count),
     yongsin,
     hourUnknown: cls.hourUnknown,
-    intro: `${MAP_INTRO_FIXED} ${pickMapIntroConnector(cls, yongsin.divergesFromPrimary)}`,
+    intro: `${MAP_INTRO_FIXED} ${pickMapIntroConnector(cls, yongsin.agreement)}`,
     tieNote: buildTieNote(cls, chart),
   };
 }

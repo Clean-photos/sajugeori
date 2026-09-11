@@ -17,7 +17,7 @@ import type { SajuChart } from "@/lib/saju-engine/engine";
 import type { Classification } from "./classify";
 import { buildDiagnosis, type DiagnosisSkeleton } from "./diagnosis";
 import { buildWuxingMap, buildYongsinCard, type WuxingMapData } from "./map-section";
-import { josaIga, josaRoEuro } from "./josa";
+import { josaIga, josaRoEuro, josaEunNeun } from "./josa";
 import {
   dict,
   elementDict,
@@ -84,8 +84,22 @@ const EXTREME_DIRECTION: Record<Element, string> = {
  * fill 프레임에서만 쓴다 — follow(극단형)는 §3이 본체를 통째로 대체하므로 §4가
  * 끼어들 자리가 없다(문서 §6-4 조건과 §6-3의 "대체" 원칙이 겹치는 지점).
  */
-function buildDivergenceNote(primary: Element, yongsinByTrack: Element[], diverges: boolean): string {
+function buildDivergenceNote(
+  primary: Element,
+  yongsinByTrack: Element[],
+  diverges: boolean,
+  agreement: "full" | "partial" | "diverge"
+): string {
   const primaryKr = C.ELEMENT_KR[primary];
+  // §1-4순위(CoS 실물 재검증, 2026-09-11): diverges(=main이 종합/yongsinByTrack과
+  // 다른가)만 보고 "일치" 문구를 냈더니, 억부·조후가 갈리는 사주(conflict)에서
+  // 종합이 조후 쪽으로 결정형 폴백된 경우 main이 우연히 거기 걸리면
+  // diverges=false가 되어 "두 관점 모두에서 뒷받침되는 결과"라고 잘못 말했다
+  // (실측: 억부 토·금 / 조후 화·목 / main 목 — 억부는 목을 전혀 지지 않는데도
+  // "일치" 문구가 나감). agreement가 "partial"이면 그 사실을 그대로 밝힌다.
+  if (!diverges && agreement === "partial") {
+    return `구조적으로 채워야 할 자리인 ${primaryKr}(${primary})${josaEunNeun(primary)} 억부·조후 두 관점 중 한쪽에서만 필요한 기운과 겹칩니다. 아래 처방은 그 겹치는 쪽의 근거로 구성되어 있으며, 나머지 한쪽 관점은 §② 용신 카드에서 함께 확인해 주십시오.`;
+  }
   if (!diverges) {
     return `구조적으로 채워야 할 자리와 명리학적으로 필요한 기운이 ${primaryKr}(${primary})${josaRoEuro(primary)} 일치합니다. 아래 처방은 두 관점 모두에서 뒷받침되는 결과입니다.`;
   }
@@ -208,7 +222,7 @@ export function buildFillSection(chart: SajuChart, cls: Classification): FillSec
     axes,
     extremeDirection: null,
     drainItems: [],
-    divergenceNote: buildDivergenceNote(target, yongsin.yongsinByTrack, yongsin.divergesFromPrimary),
+    divergenceNote: buildDivergenceNote(target, yongsin.yongsinByTrack, yongsin.divergesFromPrimary, yongsin.agreement),
     supportElement: supportConflicts ? null : entry.supportElement,
     supportElementKr: supportConflicts ? null : C.ELEMENT_KR[entry.supportElement],
     supportNote: supportConflicts ? null : entry.supportNote,
