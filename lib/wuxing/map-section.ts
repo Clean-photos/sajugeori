@@ -20,7 +20,7 @@ import { CIRCLE_ORDER } from "./circle-diagram";
 import { josaWaGwa, josaEunNeun, josaEulReul } from "./josa";
 import { buildYongsinDualTrack, type YongsinTrackRelation } from "@/lib/premium/yongsin-track";
 import { computeRelation, adjustForStrength } from "./relation";
-import { supportElementConflictsWithClimate } from "./dict";
+import { supportElementConflictsWithClimate, pickAxisItems, CAVEAT_PATTERN, AVOID_PATTERN, conflictsWithClimate } from "./dict";
 
 /**
  * §② 도입 서술 (docs/wuxing_pending_copy_v1.md §1, CEO 승인 2026-08-31).
@@ -256,6 +256,14 @@ export interface YongsinCardData {
    */
   johuClimateOnly: Element[];
   johuClimateOnlyKr: string[];
+  /**
+   * §1-5순위(CoS 실물 재검증, 2026-09-11): johuClimateOnly에 설명만 있고 실행
+   * 항목이 0개라 "주 처방인데 할 게 없다"는 인상을 줬다("火에 온도·계절 계열
+   * 항목을 1~2개 넣거나" 요청). johuClimateOnly 각 오행의 환경(environment)
+   * 축에서 1~2개를 뽑아 채운다 — 조후 방향과 원래 맞는 오행이라 conflictsWithClimate
+   * 필터는 통과하지만(그 오행이 정의상 이 조후가 원하는 쪽이므로) 방어적으로 남겨 둔다.
+   */
+  johuClimateItems: string[];
 }
 
 /**
@@ -315,6 +323,11 @@ export function buildYongsinCard(chart: SajuChart, cls: Classification): Yongsin
   const filledBody = new Set<Element>([...(main !== null ? [main] : []), ...adjustment.preferFirst]);
   const johuPrescribed = track.johu.filter((el) => filledBody.has(el));
   const johuClimateOnly = track.johu.filter((el) => !filledBody.has(el));
+  const johuClimateItems = johuClimateOnly
+    .flatMap((el) => pickAxisItems(el, "environment", 4))
+    .filter((it) => !CAVEAT_PATTERN.test(it.item) && !AVOID_PATTERN.test(it.item) && !conflictsWithClimate(it.item, track.climate))
+    .slice(0, 2)
+    .map((it) => it.item);
 
   const divergesFromPrimary = main !== null && track.yongsinByTrack.length > 0 && !track.yongsinByTrack.includes(main);
 
@@ -356,6 +369,7 @@ export function buildYongsinCard(chart: SajuChart, cls: Classification): Yongsin
     johuPrescribedKr: johuPrescribed.map((el) => C.ELEMENT_KR[el]),
     johuClimateOnly,
     johuClimateOnlyKr: johuClimateOnly.map((el) => C.ELEMENT_KR[el]),
+    johuClimateItems,
   };
 }
 

@@ -145,6 +145,19 @@ export function YongsinCard({ data }: { data: YongsinCardData }) {
                       {data.johuClimateOnlyKr.join("·")}
                       {josaEunNeun(data.johuClimateOnly[data.johuClimateOnly.length - 1])} 약한 일간에 직접 쌓기보다 온도·계절 환경으로 방향만 맞춥니다 — 이 사주가 “충돌”인 이유이기도 합니다.
                     </span>
+                    {/* §1-5순위(CoS 실물 재검증, 2026-09-11): 설명만 있고 실행
+                        항목이 0개라 "할 게 없다"는 인상을 줬다 — 환경 축에서
+                        1~2개를 실제로 붙인다. */}
+                    {data.johuClimateItems.length > 0 && (
+                      <span className="block mt-0.5">
+                        {data.johuClimateItems.map((item, i) => (
+                          <span key={item} className="text-[#1A1A18]">
+                            {i > 0 && " · "}
+                            {item}
+                          </span>
+                        ))}
+                      </span>
+                    )}
                   </span>
                 )}
                 <span className="text-[#6B6661]">
