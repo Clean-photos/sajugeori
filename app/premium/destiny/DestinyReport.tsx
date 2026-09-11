@@ -25,9 +25,12 @@ function targetQuery(t: Target): string {
   return q.toString();
 }
 
-export function DestinyReport({ saved }: { saved: SavedSaju }) {
+export function DestinyReport({ saved, hasOwnReport = false }: { saved: SavedSaju; hasOwnReport?: boolean }) {
   // 대상을 확정하기 전에는 생성을 시작하지 않는다(생성 직전 컨펌).
-  const [target, setTarget] = useState<Target | null>(null);
+  // §0-2⑥(CoS 실물 재검증, 2026-09-10): 단, 본인 프로필로 이미 만들어 둔
+  // 설계도가 있으면(hasOwnReport) 매번 이 확정 폼부터 다시 보여주지 않는다 —
+  // "/premium/destiny가 빈 폼"으로 보고된 실제 원인. 곧장 저장본을 불러온다.
+  const [target, setTarget] = useState<Target | null>(hasOwnReport && saved ? saved : null);
   const [state, setState] = useState<ApiState>({ status: "loading" });
   const [busy, setBusy] = useState(false);
   // 폴링 한 번 = 스텝 하나(LLM 호출 하나)가 서버에서 끝날 때까지 기다리는

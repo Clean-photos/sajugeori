@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { cleanReportText } from "@/lib/report-format";
 import { PrintReportFooter } from "@/components/premium/PrintReport";
@@ -31,6 +31,7 @@ export function PremiumReport({
   hasProfile = true,
   saved = null,
   hasDestiny = false,
+  hasReport = false,
 }: {
   /** 등록된 본인 사주가 있는지. 없으면 곧장 입력 폼을 띄운다. */
   hasProfile?: boolean;
@@ -38,16 +39,29 @@ export function PremiumReport({
   saved?: SavedSaju;
   /** §5-2: 운명 설계도를 이미 구매·생성했는지 — 있으면 업그레이드 배너를 숨긴다. */
   hasDestiny?: boolean;
+  /**
+   * §0-2⑥(CoS 실물 재검증, 2026-09-10): 이미 본인 프로필로 풀이를 만들어 둔
+   * 사람도 이 화면에 오면 매번 대상 확정 폼부터 다시 봤다 — "/premium이
+   * 빈 폼"으로 보고된 실제 원인. 이미 있으면 폼을 건너뛰고 저장본을 곧장
+   * 불러온다(GET, 이용권 소진 없음). 다른 대상을 보고 싶으면 폼으로 돌아가는
+   * 경로는 그대로 남겨 둔다(아래 "다른 사주로 보기").
+   */
+  hasReport?: boolean;
 } = {}) {
   const [report, setReport] = useState<Report | null>(null);
-  // 대상 확정 화면부터 시작한다. 등록된 사주가 있어도 자동 생성하지 않는다 —
-  // 예전에는 곧장 본인 사주로 생성돼 가족 사주를 볼 방법이 없었다.
+  // 대상 확정 화면부터 시작한다. 단, 이미 본인 프로필로 만든 풀이가 있으면
+  // (hasReport) 곧장 불러온다 — 매번 재확인시키지 않는다.
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<PremiumErrorInfo | null>(null);
   const [regenerating, setRegenerating] = useState(false);
   const [deleted, setDeleted] = useState(false);
-  const [showForm, setShowForm] = useState(true);
+  const [showForm, setShowForm] = useState(!hasReport);
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (hasReport && !report && !error) load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function handleDelete() {
     const res = await fetch("/api/premium/report", { method: "DELETE" });

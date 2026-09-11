@@ -101,7 +101,7 @@ export default async function PremiumPage() {
 
       {canView ? (
         // 사주가 없어도 다른 페이지로 보내지 않는다 — 리포트 화면에서 바로 입력받는다.
-        <PremiumReport hasProfile={hasProfile} saved={savedSaju} hasDestiny={hasDestiny} />
+        <PremiumReport hasProfile={hasProfile} saved={savedSaju} hasDestiny={hasDestiny} hasReport={hasReport} />
       ) : (
         <>
           <div className="px-4 pt-4">

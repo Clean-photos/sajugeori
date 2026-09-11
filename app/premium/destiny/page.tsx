@@ -66,7 +66,7 @@ export default async function DestinyPage() {
           입력이 본인 프로필로 저장된다). 그래서 "사주를 등록하세요" 안내로
           막지 않는다 — 결제까지 마친 사람을 다른 페이지로 보내면 흐름이 끊긴다. */}
       {canView ? (
-        <DestinyReport saved={saved} />
+        <DestinyReport saved={saved} hasOwnReport={hasReport} />
       ) : (
         <div className="px-4 pt-4 flex flex-col gap-3">
           {eligibleForUpgrade && (

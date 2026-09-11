@@ -77,6 +77,14 @@ export type MyReport = {
   id: string | null;
   /** 연운세 전용 — 어느 연도의 리포트인지. 다른 상품에서는 항상 null. */
   year: number | null;
+  /**
+   * §0-2⑥(CoS 실물 재검증, 2026-09-10): 018(premium_adhoc_reports, 본인과
+   * 다른 대상) 출신 오행 리포트의 그 테이블 자체 PK. "구 생성분 — ID 없음"
+   * (마이페이지가 018 출신엔 열람 라우트를 안 만들던 문제)의 소급 수정 —
+   * viewHref()가 이 값이 있으면 /premium/ohang/adhoc/{id}로 보낸다. 다른
+   * 상품으로 확장할 때도 이 필드를 재사용하면 된다.
+   */
+  adhocId: string | null;
 };
 
 /**
@@ -93,7 +101,9 @@ export type MyReport = {
  * 같은 게이트를 쓰는 살풀이·택일·연운세·펫·궁합에도 적용했다. 운명 설계도는
  * 이 문제가 원래 없어(PROFILE_JOIN_SOURCES 주석 참고) 정적 href 그대로다.
  */
-export function viewHref(r: { href: string; id: MyReport["id"]; year?: MyReport["year"] }): string {
+export function viewHref(r: { href: string; id: MyReport["id"]; year?: MyReport["year"]; adhocId?: MyReport["adhocId"] }): string {
+  // §0-2⑥: 018(본인과 다른 대상) 출신 오행 리포트 — 전용 소급 라우트로.
+  if (r.href === "/premium/ohang" && r.adhocId) return `/premium/ohang/adhoc/${r.adhocId}`;
   if (!r.id) return r.href;
   switch (r.href) {
     case "/premium/ohang":
@@ -154,6 +164,7 @@ export async function listUserReports(userId: string): Promise<MyReport[]> {
             target: p ? formatTarget(p.birth_date, p.gender, p.calendar) : null,
             id: (s.idColumn === "id" ? (row.id as string | null) : (row.saju_profile_id as string | null)) ?? null,
             year: s.hasYear ? ((row.year as number | null) ?? null) : null,
+            adhocId: null,
           });
         }
       } catch {
@@ -179,6 +190,7 @@ export async function listUserReports(userId: string): Promise<MyReport[]> {
         target: row.person_a_birth ? formatTarget(row.person_a_birth, row.person_a_gender) : null,
         id: row.id ?? null,
         year: null,
+        adhocId: null,
       });
     }
   } catch { /* noop */ }
@@ -198,6 +210,7 @@ export async function listUserReports(userId: string): Promise<MyReport[]> {
         target: row.birth_date ? formatTarget(row.birth_date, row.gender) : null,
         id: null, // 016(직접입력) 전용 열람 라우트가 아직 없다 — 정적 href로 폴백.
         year: null,
+        adhocId: null,
       });
     }
   } catch { /* noop */ }
@@ -207,7 +220,7 @@ export async function listUserReports(userId: string): Promise<MyReport[]> {
   try {
     const { data } = await supabaseAdmin
       .from("premium_adhoc_reports")
-      .select("created_at, product_id, birth_date, birth_time, gender")
+      .select("id, created_at, product_id, birth_date, birth_time, gender")
       .eq("user_id", userId)
       .order("created_at", { ascending: false })
       .limit(50);
@@ -218,8 +231,11 @@ export async function listUserReports(userId: string): Promise<MyReport[]> {
       out.push({
         label: meta.label, href: meta.href, created_at: row.created_at,
         target: row.birth_date ? formatTarget(row.birth_date, row.gender) : null,
-        id: null, // 018(가족·지인 대상) 전용 열람 라우트가 아직 없다 — 정적 href로 폴백.
+        id: null,
         year: null,
+        // §0-2⑥: 오행만 전용 소급 라우트(/premium/ohang/adhoc/[id])가 있다.
+        // 나머지 상품은 아직 없어 정적 href로 폴백한다(다음 회차로 이월).
+        adhocId: row.product_id === "wuxing_one" ? (row.id as string) : null,
       });
     }
   } catch { /* noop */ }
