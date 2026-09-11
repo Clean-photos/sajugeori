@@ -33,6 +33,14 @@ export function DestinyReport({ saved, hasOwnReport = false }: { saved: SavedSaj
   const [target, setTarget] = useState<Target | null>(hasOwnReport && saved ? saved : null);
   const [state, setState] = useState<ApiState>({ status: "loading" });
   const [busy, setBusy] = useState(false);
+  // §1-2순위(CoS 실물 재검증, 2026-09-11): 재생성 확인을 window.confirm()으로
+  // 띄웠는데, 이 네이티브 다이얼로그는 응답이 올 때까지 메인 스레드를 통째로
+  // 막는다 — 자동화 도구는 이를 처리하지 못해 "메인 스레드 점유·document_idle
+  // 미도달"로 관측됐고(사람에게도 좋은 UX가 아니다), confirm이 응답 대기로
+  // 남으면 실제로는 아무 요청도 안 나가 "실패 안내 없이 원래 저장본으로 복귀"·
+  // "기회는 소진 안 됨"과 정확히 들어맞는다. 이 앱의 다른 곳(DeleteReportButton)
+  // 과 같은 인페이지 확인 패널로 교체 — 네이티브 다이얼로그를 쓰지 않는다.
+  const [confirmingRegen, setConfirmingRegen] = useState(false);
   // 폴링 한 번 = 스텝 하나(LLM 호출 하나)가 서버에서 끝날 때까지 기다리는
   // 요청이라 응답 자체가 수십 초 걸릴 수 있다. setInterval을 쓰면 이전
   // 요청이 안 끝났는데 다음 요청이 겹쳐 나갈 수 있어, 응답을 받은 뒤에만
@@ -78,7 +86,7 @@ export function DestinyReport({ saved, hasOwnReport = false }: { saved: SavedSaj
 
   function regenerate() {
     if (!target) return;
-    if (!window.confirm("전체를 다시 생성할까요? 재생성은 1회만 가능합니다.")) return;
+    setConfirmingRegen(false);
     driveSteps(target, "regenerate=1");
   }
 
@@ -139,7 +147,7 @@ export function DestinyReport({ saved, hasOwnReport = false }: { saved: SavedSaj
         <div className="px-4 pt-6 pb-2 flex flex-col items-center gap-2 text-center">
           <div className="text-2xl animate-pulse">🔮</div>
           <p className="text-sm text-[#6B6661]">24개 질문에 답을 만들고 있어요. 순서대로 화면에 나타납니다</p>
-          <p className="text-xs text-[#9B968F]">처음 생성은 3~5분 정도 걸릴 수 있어요. 창을 닫았다 다시 열어도 진행된 부분은 그대로 남아있어요</p>
+          <p className="text-xs text-[#9B968F]">3~5분 정도 걸릴 수 있어요. 창을 닫았다 다시 열어도 진행된 부분은 그대로 남아있어요</p>
           <WaitingCards />
         </div>
         <BlueprintReportView report={state.partial} />
@@ -165,14 +173,41 @@ export function DestinyReport({ saved, hasOwnReport = false }: { saved: SavedSaj
   return (
     <div className="flex flex-col gap-3">
       <BlueprintReportView report={state.report} />
-      <button
-        onClick={regenerate}
-        disabled={busy || state.regenerateCount >= 1}
-        className="no-print mt-1 flex items-center justify-center gap-1.5 text-center text-xs text-[#6B6661] py-2 disabled:opacity-50"
-      >
-        {busy && <Spinner size={13} />}
-        {state.regenerateCount >= 1 ? "재생성 1회 사용 완료" : busy ? "다시 생성 중... (3~5분)" : "풀이 다시 생성하기 (1회 한정)"}
-      </button>
+      {confirmingRegen ? (
+        <div className="no-print rounded-2xl border border-[#E5DFD4] bg-[#FBF8F2] p-4 flex flex-col gap-3">
+          <p className="text-xs text-[#1A1A18] leading-relaxed">
+            전체를 다시 생성할까요? 재생성은 1회만 가능하며, 완료되면 지금 이 결과로 되돌릴 수 없습니다.
+          </p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setConfirmingRegen(false)}
+              disabled={busy}
+              className="flex-1 border border-[#E5DFD4] text-[#6B6661] rounded-xl py-2.5 text-xs font-medium disabled:opacity-50"
+            >
+              취소
+            </button>
+            <button
+              type="button"
+              onClick={regenerate}
+              disabled={busy}
+              className="flex-1 flex items-center justify-center gap-1.5 bg-[#1F3D34] text-white rounded-xl py-2.5 text-xs font-semibold disabled:opacity-50"
+            >
+              {busy && <Spinner size={13} />}
+              {busy ? "다시 생성 중..." : "다시 생성하기"}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button
+          onClick={() => setConfirmingRegen(true)}
+          disabled={busy || state.regenerateCount >= 1}
+          className="no-print mt-1 flex items-center justify-center gap-1.5 text-center text-xs text-[#6B6661] py-2 disabled:opacity-50"
+        >
+          {busy && <Spinner size={13} />}
+          {state.regenerateCount >= 1 ? "재생성 1회 사용 완료" : busy ? "다시 생성 중... (3~5분)" : "풀이 다시 생성하기 (1회 한정)"}
+        </button>
+      )}
       <p className="no-print text-center text-[11px] text-[#9B968F]">생성된 결과는 1년간 다시 볼 수 있습니다</p>
       <DeleteReportButton onConfirm={handleDelete} />
     </div>
