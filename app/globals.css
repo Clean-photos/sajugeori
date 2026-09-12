@@ -96,6 +96,17 @@ body::before {
     padding: 0 !important;
     margin: 0 !important;
   }
+  /*
+   * §2-2순위(CoS 실물 재검증, 2026-09-11): 크롬 인쇄 기본값은 배경 그래픽이
+   * 꺼져 있다 — 운명 설계도의 "운명총론" 카드(어두운 배경 + 흰 글씨)가
+   * 배경 없이 인쇄되면 흰 종이에 흰 글씨만 남아 리포트에서 가장 중요한
+   * 문단이 통째로 안 보였다. print-area 전체에 강제 적용해, 이 카드뿐
+   * 아니라 앞으로 추가될 색 배경 카드에도 같은 사고가 재발하지 않게 한다.
+   */
+  .print-area, .print-area * {
+    print-color-adjust: exact !important;
+    -webkit-print-color-adjust: exact !important;
+  }
   .print-area .print-card {
     page-break-inside: avoid;
     break-inside: avoid;

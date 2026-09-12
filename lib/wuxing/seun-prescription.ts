@@ -328,11 +328,22 @@ function buildAxisNote(detail: SeunCaseDetail, matchedConditionNote: string): st
  * 그 지점부터 순서대로 훑어 아직 안 쓴 첫 문구를 채택한다 — 결정적이다.
  */
 function pickUniqueText(pool: string[], seed: string, used: Set<string>): string {
+  // §1-7순위(CoS 실물 재검증, 2026-09-11): 이 풀(status·guideline 둘 다)은
+  // "같은 아이디어"를 앞쪽 절반엔 짧은 표제형으로, 뒤쪽 절반엔 완성 문장형으로
+  // 겹쳐 담고 있다(예: D케이스 idea② = "이 해는 무리하지 않는 것이 최선인 해"
+  // / "무리하지 않는 것이 최선인 해입니다. 버티는 것 자체가 성과가 됩니다.").
+  // 텍스트 자체로만 dedup하면 서로 다른 문자열이라 통과해, 인접한 두 해가 같은
+  // 아이디어를 표제형/문장형만 바꿔 그대로 반복했다(실측: 2026·2027년 마무리
+  // 문구가 사실상 같은 문장). 짝(half만큼 떨어진 인덱스)도 함께 사용 처리해
+  // 막는다 — pool이 6개·아이디어 3개이므로 3년 전부 서로 다른 아이디어를 쓰게 된다.
+  const half = pool.length % 2 === 0 ? pool.length / 2 : 0;
   const start = pickIndex(seed, pool.length);
   for (let k = 0; k < pool.length; k++) {
-    const text = pool[(start + k) % pool.length];
+    const idx = (start + k) % pool.length;
+    const text = pool[idx];
     if (!used.has(text)) {
       used.add(text);
+      if (half > 0) used.add(pool[idx < half ? idx + half : idx - half]);
       return text;
     }
   }

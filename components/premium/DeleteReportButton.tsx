@@ -49,9 +49,22 @@ export function DeleteReportButton({ onConfirm }: { onConfirm: () => Promise<voi
 
       <PrintButton label="다운로드(인쇄 · PDF로 저장)" />
 
+      {/* §2-9순위(CoS 실물 재검증, 2026-09-11): 결제 화면 동의는 진짜
+          input[type=checkbox]인데, 삭제(되돌릴 수 없는 동작) 동의는 커스텀
+          div라 DOM에 체크박스가 없고 스크린 리더·키보드로 조작할 수 없었다.
+          role="checkbox"·aria-checked·키보드(Enter/Space) 지원을 더한다. */}
       <label className="flex items-start gap-2.5 text-xs text-[#1A1A18] leading-relaxed cursor-pointer select-none">
         <div
+          role="checkbox"
+          aria-checked={checked}
+          tabIndex={0}
           onClick={() => setChecked(!checked)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              setChecked(!checked);
+            }
+          }}
           className={`mt-0.5 w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 transition-all ${
             checked ? "bg-[#C0392B] border-[#C0392B]" : "border-[#E5DFD4] bg-white"
           }`}
