@@ -39,6 +39,23 @@ function isEnabled(): boolean {
   return process.env.WUXING_ENABLED === "1";
 }
 
+/**
+ * §2(CoS 실물 재검증, 2026-09-11): 오행은 "다시 생성" 버튼이 없다(U2) — 이
+ * 두 LLM 호출 중 하나가 실패하면(대부분 validateSeunNarrative 같은 규칙
+ * 위반 재시도 없이 그대로 폴백 문구로 굳어버리고, 사용자가 되돌릴 방법이
+ * 없다("3년을 관통하는 흐름을 준비하고 있습니다"가 영구 고정 — 실측).
+ * 실패 원인이 네트워크든 규칙 위반이든 한 번 더 시도하면 상당수는
+ * 통과하므로, 실패 시 1회만 재시도한다.
+ */
+async function withRetryOnce<T>(fn: () => Promise<T>, label: string): Promise<T> {
+  try {
+    return await fn();
+  } catch (e) {
+    console.error(`wuxing [${label}] 1차 실패, 재시도:`, e);
+    return await fn();
+  }
+}
+
 async function buildFullReport(chart: ReturnType<typeof buildChart>) {
   const cls = classify(chart);
   const diagnosis = buildDiagnosis(chart, cls);
@@ -47,8 +64,8 @@ async function buildFullReport(chart: ReturnType<typeof buildChart>) {
   // 서로 무관한 입력이라 병렬로 돌린다. 하나가 실패해도 나머지는 살리고,
   // 실패한 자리는 컴포넌트의 "준비하고 있습니다" 폴백이 자체 처리한다.
   const [diagnosisResult, seunFlowResult] = await Promise.allSettled([
-    generateDiagnosisNarrative(diagnosis),
-    generateSeunNarrative(chart, cls, seunPlan),
+    withRetryOnce(() => generateDiagnosisNarrative(diagnosis), "한 줄 진단 보충 문장"),
+    withRetryOnce(() => generateSeunNarrative(chart, cls, seunPlan), "3년 흐름 문단"),
   ]);
 
   const narratives: WuxingNarratives = {};
