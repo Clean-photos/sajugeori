@@ -52,13 +52,22 @@ export function DeleteReportButton({ onConfirm }: { onConfirm: () => Promise<voi
       {/* §2-9순위(CoS 실물 재검증, 2026-09-11): 결제 화면 동의는 진짜
           input[type=checkbox]인데, 삭제(되돌릴 수 없는 동작) 동의는 커스텀
           div라 DOM에 체크박스가 없고 스크린 리더·키보드로 조작할 수 없었다.
-          role="checkbox"·aria-checked·키보드(Enter/Space) 지원을 더한다. */}
-      <label className="flex items-start gap-2.5 text-xs text-[#1A1A18] leading-relaxed cursor-pointer select-none">
+          role="checkbox"·aria-checked·키보드(Enter/Space) 지원을 더한다.
+          §C(CoS 실물 재검증, 2026-09-11): 그 후에도 실제 클릭 히트 영역은
+          시각적 체크박스(16×16px)에만 걸려 있었다 — 클릭 핸들러를 label로
+          옮겨 문구 전체(한 줄 폭 전체)가 눌리게 한다. 키보드용 role=checkbox·
+          tabIndex·onKeyDown은 여전히 작은 div에 남긴다(스크린 리더가 인식하는
+          탭 정지점·체크박스 자체는 그대로, 마우스/터치 히트 영역만 넓어짐 —
+          div 클릭이 label로 버블링되므로 핸들러를 label 하나에만 둬 중복 토글을
+          막는다). */}
+      <label
+        onClick={() => setChecked(!checked)}
+        className="flex items-start gap-2.5 text-xs text-[#1A1A18] leading-relaxed cursor-pointer select-none"
+      >
         <div
           role="checkbox"
           aria-checked={checked}
           tabIndex={0}
-          onClick={() => setChecked(!checked)}
           onKeyDown={(e) => {
             if (e.key === "Enter" || e.key === " ") {
               e.preventDefault();
@@ -75,7 +84,7 @@ export function DeleteReportButton({ onConfirm }: { onConfirm: () => Promise<voi
             </svg>
           )}
         </div>
-        <span onClick={() => setChecked(!checked)}>
+        <span>
           결제하신 결과를 지우면 복구가 어렵고, 재생성이 필요하면 다시 결제해야 한다는 것을 확인했습니다.
         </span>
       </label>
