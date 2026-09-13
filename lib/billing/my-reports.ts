@@ -35,12 +35,10 @@ const PROFILE_JOIN_SOURCES: ProfileJoinSource[] = [
   { table: "premium_yearly_reports", label: "프리미엄 연운세", href: "/premium/yearly", idColumn: "saju_profile_id", hasYear: true },
   { table: "premium_pet_reports", label: "반려동물 궁합", href: "/premium/pet", idColumn: "id" },
   { table: "premium_wuxing_reports", label: "오행 보완 리포트", href: "/premium/ohang", idColumn: "saju_profile_id" },
-  // 운명 설계도는 전용 열람 라우트가 없다 — §1(CoS 결정 2026-09-08) 검토 결과,
-  // 이 상품은 페이지 자체 게이트(canView = premium || hasPass || hasReport)가
-  // 이미 "리포트 보유"만으로 통과시키고, API도 status:"done"이면 이용권 검사
-  // 전에 바로 내용을 돌려줘 오행과 같은 재결제 요구 문제가 원래 없다(확인:
-  // app/premium/destiny/page.tsx, app/api/premium/destiny/route.ts). 그래서
-  // 정적 href를 그대로 둔다.
+  // §2-11순위(CoS 실물 재검증, 2026-09-11): "운명 설계도는 리포트 ID가 없어
+  // 같은 상품을 두 번 이상 생성하면(본인 외 다른 대상) 이전 결과에 도달할
+  // 경로가 사라진다" — /premium/destiny/[id] 전용 라우트를 신설해 다른
+  // 6개 상품과 같은 패턴으로 맞춘다(viewHref가 이 href를 감지해 id를 붙인다).
   { table: "blueprint_reports", label: "운명 설계도", href: "/premium/destiny", idColumn: "saju_profile_id" },
 ];
 
@@ -111,6 +109,7 @@ export function viewHref(r: { href: string; id: MyReport["id"]; year?: MyReport[
     case "/premium/taekil":
     case "/premium/pet":
     case "/premium/compatibility":
+    case "/premium/destiny":
       return `${r.href}/${r.id}`;
     case "/premium/yearly":
       return r.year ? `/premium/yearly/${r.id}?year=${r.year}` : r.href;
