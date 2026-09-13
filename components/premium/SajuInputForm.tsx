@@ -112,12 +112,32 @@ export function SajuInputForm({
         </div>
 
         {/* 확정 화면에서는 체크박스, 기존 화면에서는 불러오기 버튼 */}
+        {/* §C-4(CoS 실물 재검증, 2026-09-11): DeleteReportButton.tsx(§2-9순위)에서
+            고친 것과 같은 종류의 문제가 여기 남아 있었다 — 시각적으로는 체크박스처럼
+            보이지만 실제 DOM에는 input[type=checkbox]도 role=checkbox도 없는 순수
+            장식 div였다. 클릭은 label의 onClick 하나로만 동작해 마우스로는 문제없이
+            써지지만, 키보드로는 전혀 조작할 수 없고 스크린 리더·접근성 자동 검사
+            도구는 체크박스 자체가 없는 것으로 본다(실측: CoS의 DOM 질의가 0건 반환).
+            role="checkbox"·aria-checked·tabIndex·onKeyDown(Enter/Space)을 작은 div에
+            추가한다 — label의 onClick(마우스/터치)은 그대로 두고 클릭 핸들러를
+            중복시키지 않는다(div 클릭이 label로 버블링됨). */}
         {saved && confirmMode && (
           <label
             onClick={toggleUseOwn}
             className="flex items-start gap-2.5 text-sm text-[#1A1A18] cursor-pointer select-none bg-white border border-[#E5DFD4] rounded-xl px-3.5 py-3"
           >
-            <div className={`mt-0.5 w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 transition-all ${useOwn ? "bg-[#1F3D34] border-[#1F3D34]" : "border-[#E5DFD4] bg-white"}`}>
+            <div
+              role="checkbox"
+              aria-checked={useOwn}
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  toggleUseOwn();
+                }
+              }}
+              className={`mt-0.5 w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 transition-all ${useOwn ? "bg-[#1F3D34] border-[#1F3D34]" : "border-[#E5DFD4] bg-white"}`}
+            >
               {useOwn && (
                 <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
                   <path d="M2 5l2 2 4-4" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />

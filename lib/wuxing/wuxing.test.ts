@@ -1227,7 +1227,9 @@ for (const c of CASES) {
     check("§4-2 검증용 일치 표본 확보", !!matchChart);
     if (matchChart) {
       const fillM = buildFillSection(matchChart, classify(matchChart));
-      check("[일치 표본] §4-2 문구 — '으로 일치합니다'", fillM.divergenceNote?.includes("일치합니다") ?? false);
+      // §B 판정 수용(CoS 실물 재검증, 2026-09-11): "일치합니다"가 바로 위 억부/조후
+      // 병기표와 용어 충돌을 일으킨다는 지적을 받아 "가리킵니다"로 문구를 바꿨다.
+      check("[일치 표본] §4-2 문구 — '가리킵니다'", fillM.divergenceNote?.includes("가리킵니다") ?? false);
       check("[일치 표본] §4-2엔 '기준으로 구성되어 있으며' 없음(불일치 전용 문구)", !(fillM.divergenceNote?.includes("기준으로 구성되어 있으며") ?? false));
     }
 
@@ -1254,7 +1256,7 @@ for (const c of CASES) {
     if (partialChart) {
       const fillP = buildFillSection(partialChart, classify(partialChart));
       check("[부분 일치 표본] §4-2 문구 — '두 관점 중 한쪽에서만'", fillP.divergenceNote?.includes("두 관점 중 한쪽에서만") ?? false, fillP.divergenceNote ?? "");
-      check("[부분 일치 표본] §4-2엔 '으로 일치합니다' 없음(전체 일치 전용 문구)", !(fillP.divergenceNote?.includes("으로 일치합니다") ?? false));
+      check("[부분 일치 표본] §4-2엔 '가리킵니다' 없음(전체 일치 전용 문구)", !(fillP.divergenceNote?.includes("가리킵니다") ?? false));
     }
   }
 

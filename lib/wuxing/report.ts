@@ -17,7 +17,7 @@ import type { SajuChart } from "@/lib/saju-engine/engine";
 import type { Classification } from "./classify";
 import { buildDiagnosis, type DiagnosisSkeleton } from "./diagnosis";
 import { buildWuxingMap, buildYongsinCard, type WuxingMapData } from "./map-section";
-import { josaIga, josaRoEuro, josaEunNeun } from "./josa";
+import { josaIga, josaEunNeun, josaEulReul } from "./josa";
 import {
   dict,
   elementDict,
@@ -101,7 +101,12 @@ function buildDivergenceNote(
     return `구조적으로 채워야 할 자리인 ${primaryKr}(${primary})${josaEunNeun(primary)} 억부·조후 두 관점 중 한쪽에서만 필요한 기운과 겹칩니다. 아래 처방은 그 겹치는 쪽의 근거로 구성되어 있으며, 나머지 한쪽 관점은 §② 용신 카드에서 함께 확인해 주십시오.`;
   }
   if (!diverges) {
-    return `구조적으로 채워야 할 자리와 명리학적으로 필요한 기운이 ${primaryKr}(${primary})${josaRoEuro(primary)} 일치합니다. 아래 처방은 두 관점 모두에서 뒷받침되는 결과입니다.`;
+    // §B 판정 수용(CoS 실물 재검증, 2026-09-11, 저우선): "두 관점"이라고만 하면
+    // 바로 위 억부/조후 병기표와 용어가 겹쳐 "그 두 관점=억부·조후"인지 다른
+    // 두 관점(구조적/명리학적)인지 헷갈린다는 지적. "일치합니다" 앞에 지시 대상
+    // (오행 이름)을 먼저 명시하고, "두 관점"이 억부·조후를 가리킨다는 것도
+    // 뒷문장에서 바로 풀어써 오독 여지를 없앤다.
+    return `구조적으로 채워야 할 자리와 명리학적으로 필요한 기운이 모두 ${primaryKr}(${primary})${josaEulReul(primary)} 가리킵니다. 아래 처방은 억부·조후 두 관점 모두에서 뒷받침되는 결과입니다.`;
   }
   const yongsinKr = yongsinByTrack.map((el) => C.ELEMENT_KR[el]).join("·");
   return `구조적으로 채워야 할 자리는 ${primaryKr}(${primary})이지만, 명리학적으로 균형을 위해 필요한 기운(용신)은 ${yongsinKr}입니다. 아래 처방은 ${primaryKr}(${primary}) 기준으로 구성되어 있으며, 용신 관점은 §② 용신 카드를 함께 참고해 주십시오.`;
