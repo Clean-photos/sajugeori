@@ -6,6 +6,7 @@ import { supabaseAdmin } from "@/lib/db/client";
 import { BottomTabBar } from "@/components/layout/BottomTabBar";
 import type { WuxingReportData } from "@/lib/wuxing/report";
 import { buildWuxingReport } from "@/lib/wuxing/report";
+import { backfillMissingNarratives } from "@/lib/wuxing/narrative-backfill";
 import { buildChart } from "@/lib/saju-engine/engine";
 import { classify } from "@/lib/wuxing/classify";
 import { SavedReportClient } from "./SavedReportClient";
@@ -66,7 +67,19 @@ export default async function SavedWuxingReportPage({ params }: { params: Promis
           : profile.birth_time
         : "00:00:00";
       const chart = buildChart(`${profile.birth_date}T${t}`, profile.gender, !!profile.birth_time);
-      report = buildWuxingReport(chart, classify(chart), report.narratives ?? {}, cachedYear);
+      const cls = classify(chart);
+      report = buildWuxingReport(chart, cls, report.narratives ?? {}, cachedYear);
+
+      const { narratives, patched } = await backfillMissingNarratives(chart, cls, report);
+      if (patched) {
+        report = { ...report, narratives };
+        const savedContent = row!.content as WuxingReportData;
+        await supabaseAdmin
+          .from("premium_wuxing_reports")
+          .update({ content: { ...savedContent, narratives } })
+          .eq("saju_profile_id", id)
+          .eq("user_id", userId);
+      }
     } catch (e) {
       console.error("오행 저장본 재조립 실패, 저장본 그대로 렌더:", e);
     }
