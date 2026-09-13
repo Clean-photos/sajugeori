@@ -240,7 +240,13 @@ export function petCompatibility(owner: SajuChart, input: PetCompatInput): PetCo
     ? pet.day_master_element
     : C.STEM_ELEMENT[pet.pillars.year.stem];
 
-  const ownerBranch = owner.pillars.day.branch;
+  // §8-2 재검증(2026-09-11 실물 확인): petBranch는 아이 생일을 모르면 띠(년지)
+  // 기준으로 내려가는데(위 §2 참고), ownerBranch는 무조건 집사의 일지로 고정돼
+  // 있었다 — "띠 대 일지"라는 급이 안 맞는 비교가 되어, 이 기능이 원래 고치려던
+  // 실측 사례(1987 丁卯년 집사 = 묘띠, 2020 庚子년 아이 = 자띠 → 子卯상형)에서
+  // 조차 형이 검출되지 않았다(집사의 일지 巳로 비교해 버림). petBranch와 같은
+  // 기준(아이 생일을 모르면 양쪽 다 띠=년지)으로 맞춘다.
+  const ownerBranch = hasDay ? owner.pillars.day.branch : owner.pillars.year.branch;
   const ownerEl = owner.day_master_element;
 
   // 1) 지지 관계
