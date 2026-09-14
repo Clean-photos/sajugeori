@@ -125,10 +125,18 @@ export async function POST(req: NextRequest) {
   // 내도록 공용 모듈(lib/premium/yongsin-track.ts)의 표준 문구를 그대로
   // 쓴다 — 세 상품이 각자 비슷하게 다시 쓰다 미묘하게 갈리는 사고를 막는다.
   const yongsinLine = yongsinDualTrackPromptLine(buildYongsinDualTrack(chart));
+  // §확인(2026-09-13 실물 재검증): chart.strength.detail은 "돕는 세력 2.8 vs
+  // 빼앗는 세력 7. 월령 실令, 일지 실地." 형태인데, 이 원시 수치가 "주어진
+  // 사실"로 프롬프트에 그대로 들어가면 COMMON_RULES(§0-7, "돕는 세력 2.8 대
+  // 빼앗는 세력 7 인용 금지")가 있어도 모델이 이미 준 사실을 재인용하는
+  // 것뿐이라고 여겨 가끔 그대로 베껴 쓴다(실측 3회). 판정 근거로 실제 쓰이는
+  // "월령/일지 득실"은 남기고 숫자 절만 잘라낸다(엔진 계산 로직 자체는
+  // 손대지 않음 — 표시 직전 문자열 가공만).
+  const strengthQualitative = chart.strength.detail.match(/월령[\s\S]*$/)?.[0] ?? chart.strength.detail;
   const engineSummary = `
 일주(日柱): ${stemBranchKr(chart.pillars.day.stem, chart.pillars.day.branch)}
 일간(日干): ${chart.day_master} / 오행 ${chart.day_master_element}
-신강·신약: ${chart.strength.verdict} (${chart.strength.detail})
+신강·신약: ${chart.strength.verdict} (${strengthQualitative})
 ${yongsinLine}
 
 ${PILLAR_POSITION_NOTE}

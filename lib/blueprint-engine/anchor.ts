@@ -158,10 +158,17 @@ export function anchorFactsToPromptText(f: AnchorFacts): string {
   const gisinLine = f.gisinJohuConflict.length > 0
     ? `기신(억부 기준): ${f.gisin.map((e) => C.ELEMENT_KR[e]).join("·") || "없음"} — 단, ${f.gisinJohuConflict.map((e) => C.ELEMENT_KR[e]).join("·")}${josaEunNeun(f.gisinJohuConflict[f.gisinJohuConflict.length - 1])} 조후상 필요한 기운이기도 하다. "억부상 부담이나 조후상 필요"로 함께 밝히고, 무조건 피할 기운으로 단정하지 말 것`
     : `기신: ${f.gisin.map((e) => C.ELEMENT_KR[e]).join("·") || "없음"}`;
+  // §확인(2026-09-13 실물 재검증): f.strengthDetail은 "돕는 세력 3.5 vs 빼앗는
+  // 세력 6.2. 월령 실令, 일지 실地." 형태다 — 이 원시 수치가 "이미 주어진 사실"로
+  // 시트에 박히면, 각 프롬프트의 "지표 이름+점수 인용 금지" 규칙이 있어도 모델이
+  // "그냥 준 사실을 되풀이했을 뿐"이라 여겨 그대로 베끼는 경우가 있다(§1-3에서
+  // 확인한 것과 같은 유형의 누출 경로). 판정 근거로 쓰이는 "월령/일지 득실"은
+  // 남기고 숫자 절만 잘라낸다.
+  const strengthQualitative = f.strengthDetail.match(/월령[\s\S]*$/)?.[0] ?? f.strengthDetail;
   return `
 [명식 사실 시트 — 모든 서술은 이 시트와 모순되면 안 됨]
 일간: ${f.dayMaster} (${C.ELEMENT_KR[f.dayMasterElement]})
-신강/신약: ${f.strengthVerdict} — ${f.strengthDetail}
+신강/신약: ${f.strengthVerdict} — ${strengthQualitative}
 억부(抑扶, 힘의 균형을 잡아 주는 방식) 용신: ${t.eokbuKr.join("·") || "없음"} / 조후(調候, 계절의 한난조습을 맞춰 주는 방식) 용신: ${t.johuKr.join("·") || "없음(한난 중화)"} / 종합: ${t.yongsinByTrackKr.join("·") || "없음"}
 (${t.disclaimer} "용신은 X다"처럼 한 오행만 단정하지 말 것 — 위 세 값을 함께 밝힐 것. 억부·조후의 한자·뜻풀이는 위에 이미 붙어 있으니 본문에서 다시 나오면 그대로 쓰고, 괄호 안에 같은 한글 단어를 또 넣거나 다른 설명을 새로 짓지 말 것)
 희신: ${f.huisin.map((e) => C.ELEMENT_KR[e]).join("·") || "없음"} / ${gisinLine}
