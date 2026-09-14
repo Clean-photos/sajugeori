@@ -142,11 +142,20 @@ export function DestinyReport({ saved, hasOwnReport = false }: { saved: SavedSaj
   }
 
   if (state.status === "generating") {
+    // §3(CoS 실물 재검증, 2026-09-13): 클릭 후 53초간 화면 변화가 전혀 없는
+    // 구간이 있고, 그 뒤로도 문항 단위 계단식 렌더 사이 20~30초씩 정지된
+    // 것처럼 보인다는 지적 — "n/24 문항 완료" 카운터를 붙이면 체감이 크게
+    // 달라진다고 CoS가 직접 제안했다. state.partial.axes는 이미 완료된 축의
+    // questions 배열을 그대로 들고 있어(서버가 축 하나를 통으로 채워 넘김),
+    // 서버 변경 없이 그 길이 합만 세면 된다.
+    const answeredCount = state.partial.axes?.reduce((sum, a) => sum + a.questions.length, 0) ?? 0;
     return (
       <div className="flex flex-col gap-3">
         <div className="px-4 pt-6 pb-2 flex flex-col items-center gap-2 text-center">
           <div className="text-2xl animate-pulse">🔮</div>
-          <p className="text-sm text-[#6B6661]">24개 질문에 답을 만들고 있어요. 순서대로 화면에 나타납니다</p>
+          <p className="text-sm text-[#6B6661]">
+            {answeredCount}/24개 질문에 답을 만들고 있어요. 순서대로 화면에 나타납니다
+          </p>
           <p className="text-xs text-[#9B968F]">3~5분 정도 걸릴 수 있어요. 창을 닫았다 다시 열어도 진행된 부분은 그대로 남아있어요</p>
           <WaitingCards />
         </div>

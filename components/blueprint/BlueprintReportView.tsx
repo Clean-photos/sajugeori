@@ -113,10 +113,27 @@ export function BlueprintReportView({ report, showPrintButton = true }: { report
               <span className="flex-1 h-[2px] rounded-full bg-white/15" aria-hidden />
             </div>
             <p className="font-serif text-xl font-bold leading-snug mb-3">{overview.headline}</p>
-            <div className="flex flex-col gap-2.5">
-              {overview.body.split(/\n\s*\n/).map((s) => s.trim()).filter(Boolean).map((para, i) => (
-                <p key={i} className="text-base text-white/80 leading-relaxed">{para}</p>
-              ))}
+            <div className="flex flex-col gap-3">
+              {/* §3-1(CoS 실물 재검증, 2026-09-13): 각 문단은 "번호. 요약문장\n본문"
+                  형식으로 온다 — 요약과 본문 사이가 문단 구분자(빈 줄, \n\n)보다
+                  얕은 단일 개행(\n) 하나뿐이라, 문단 전체를 한 <p>에 그대로 넣으면
+                  그 \n이 공백으로 뭉개져 요약이 본문과 구분 없이 이어 붙어 보였다.
+                  첫 \n에서 나눠 요약은 굵게, 본문은 그 아래 별도 문단으로 보여준다
+                  (구 저장본처럼 \n이 아예 없는 문단은 그대로 한 덩어리로 렌더). */}
+              {overview.body.split(/\n\s*\n/).map((s) => s.trim()).filter(Boolean).map((para, i) => {
+                const nlIdx = para.indexOf("\n");
+                if (nlIdx === -1) {
+                  return <p key={i} className="text-base text-white/80 leading-relaxed">{para}</p>;
+                }
+                const summary = para.slice(0, nlIdx).trim();
+                const body = para.slice(nlIdx + 1).trim();
+                return (
+                  <div key={i} className="flex flex-col gap-1">
+                    <p className="text-base font-semibold text-white leading-snug">{summary}</p>
+                    <p className="text-sm text-white/70 leading-relaxed">{body}</p>
+                  </div>
+                );
+              })}
             </div>
           </div>
         ) : <SkeletonCard label="운명총론" />}
