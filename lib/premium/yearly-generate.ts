@@ -23,9 +23,14 @@ const commonRules = (year: number) => `
 async function callText(prompt: string, maxTokens: number): Promise<string> {
   const Anthropic = (await import("@anthropic-ai/sdk")).default;
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  // §확인(2026-09-13 실물 확인): claude-sonnet-5는 thinking을 안 줘도 기본으로
+  // adaptive thinking이 켜져, 가끔 max_tokens 전체를 thinking에 써버리고 응답
+  // 텍스트가 0글자(빈 응답 에러)로 끝나는 사고가 재현됐다(도구 호출이 없는
+  // 순수 텍스트 생성이라 thinking을 꺼도 안전하다).
   const res = await client.messages.create({
     model: process.env.LLM_PREMIUM_MODEL ?? "claude-sonnet-5",
     max_tokens: maxTokens,
+    thinking: { type: "disabled" },
     messages: [{ role: "user", content: prompt }],
   });
   const textBlock = res.content.find((b) => b.type === "text");

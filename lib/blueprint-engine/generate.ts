@@ -7,6 +7,7 @@ import { buildPreciseChart, type BlueprintChart } from "./engine";
 import { computeAnchorFacts, buildAnchorNarrativePrompt, type AnchorFacts, type AnchorNarrative } from "./anchor";
 import { buildOverviewPrompt, buildAxisGroupPrompt, buildClosingPrompt } from "./prompts";
 import { AXES, type QABlock } from "./questions";
+import { sanitizeJsonString } from "@/lib/llm-json-sanitize";
 
 export interface BlueprintReport {
   chart: BlueprintChart;
@@ -28,12 +29,25 @@ interface UsageAccumulator { input: number; output: number; calls: number }
 
 // 모듈 전역이 아니라 호출부(generateBlueprintReport)가 만들어 넘기는 인스턴스에 누적한다 —
 // 서버에서 동시에 여러 요청이 들어와도 서로 다른 리포트의 토큰 사용량이 섞이지 않도록.
+// §확인(2026-09-13 실물 확인): claude-sonnet-5는 thinking 파라미터를 아예 안 줘도
+// 기본으로 adaptive thinking이 켜진다(이전 세대 모델과 다른 동작 — 생략하면 꺼졌던
+// 게 이제는 켜진 채로 돈다). thinking과 실제 응답 텍스트가 같은 max_tokens 예산을
+// 나눠 쓰는데, 이 함수의 프롬프트들이 요구하는 형식이 복잡해질수록 모델이 생각을
+// 더 길게 하다가 max_tokens를 통째로 thinking에 써버려 응답 텍스트가 0글자로
+// 끝나는 사고를 실측으로 재현했다(JSON 파싱 실패 → 재시도만 반복, res.content가
+// {type:"thinking"} 블록 하나뿐이고 text 블록이 아예 없었다). 이 호출은 도구
+// 호출이 전혀 없는 순수 텍스트 생성이라(thinking을 끄면 생기는 대표 부작용인
+// "도구 호출이 텍스트로 새는" 문제 자체가 해당 없음) thinking을 꺼서 예산 전체가
+// 항상 응답 텍스트로 간다. 설치된 SDK(^0.39.0)가 adaptive thinking 타입을 아직
+// 몰라 "disabled"만 쓸 수 있다 — 최신 SDK로 올리면 "adaptive"+낮은 effort로
+// 바꾸는 편이 더 낫다(Anthropic 권고).
 async function callJSON<T>(prompt: string, maxTokens: number, usage: UsageAccumulator): Promise<T> {
   const Anthropic = (await import("@anthropic-ai/sdk")).default;
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   const res = await client.messages.create({
     model: process.env.LLM_PREMIUM_MODEL ?? "claude-sonnet-5",
     max_tokens: maxTokens,
+    thinking: { type: "disabled" },
     messages: [{ role: "user", content: prompt }],
   });
   usage.input += res.usage.input_tokens;
@@ -44,7 +58,7 @@ async function callJSON<T>(prompt: string, maxTokens: number, usage: UsageAccumu
   const match = text.replace(/```json|```/g, "").match(/\{[\s\S]*\}/);
   if (!match) throw new Error(`JSON 매칭 실패. stop_reason=${res.stop_reason}, text 앞부분: ${text.slice(0, 200)}`);
   try {
-    return JSON.parse(match[0]) as T;
+    return JSON.parse(sanitizeJsonString(match[0])) as T;
   } catch (e) {
     throw new Error(`JSON 파싱 실패(stop_reason=${res.stop_reason}, len=${match[0].length}): ${(e as Error).message}\n원문:\n${match[0]}`);
   }

@@ -1,3 +1,5 @@
+import { parseJsonLoose } from "@/lib/llm-json-sanitize";
+
 /**
  * llm.ts — 오행 보완 리포트 LLM 호출 공용 유틸.
  *
@@ -48,9 +50,15 @@ export async function callWuxingJSON<T>(prompt: string, maxTokens: number, label
   const Anthropic = (await import("@anthropic-ai/sdk")).default;
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   const started = Date.now();
+  // §확인(2026-09-13 실물 확인): claude-sonnet-5는 thinking을 안 줘도 기본으로
+  // adaptive thinking이 켜져, 이 짧은 보충 문장 생성도 가끔 max_tokens 전체를
+  // thinking에 써버리고 응답 텍스트가 0글자로 끝나는 사고가 재현됐다(도구 호출이
+  // 없는 순수 텍스트 생성이라 thinking을 꺼도 안전하다 — blueprint-engine/
+  // generate.ts와 같은 조치).
   const stream = client.messages.stream({
     model: process.env.LLM_PREMIUM_MODEL ?? "claude-sonnet-5",
     max_tokens: maxTokens,
+    thinking: { type: "disabled" },
     messages: [{ role: "user", content: prompt }],
   });
   const res = await stream.finalMessage();
@@ -62,5 +70,5 @@ export async function callWuxingJSON<T>(prompt: string, maxTokens: number, label
   if (!match) {
     throw new Error(`wuxing [${label}]: JSON 없음. stop_reason=${res.stop_reason}`);
   }
-  return JSON.parse(match[0]) as Partial<T>;
+  return parseJsonLoose<Partial<T>>(match[0]);
 }
