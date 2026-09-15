@@ -15,7 +15,7 @@ import type { Element } from "@/lib/saju-engine/constants";
 import type { BlueprintChart } from "./engine";
 import { computeIndicators, type Indicators } from "./indicators";
 import { buildYongsinDualTrack, type YongsinDualTrack } from "@/lib/premium/yongsin-track";
-import { josaEunNeun } from "@/lib/wuxing/josa";
+import { josaEunNeun, josaIga, josaEulReul } from "@/lib/wuxing/josa";
 import { buildDaewoonRoadmap, daewoonRoadmapPromptText, type DaewoonRoadmapEntry } from "./daewoon-roadmap";
 import { sinsalHanja } from "@/lib/premium/sinsal-glossary";
 
@@ -144,10 +144,30 @@ export function computeAnchorFacts(chart: BlueprintChart): AnchorFacts {
   };
 }
 
+/**
+ * 오행 분포를 순위·편차 말로만 서술한다(숫자 없음). §4-5와 뿌리가 같은 문제 —
+ * 세력 수치(돕는 N 대 빼앗는 M)를 프롬프트에서 걷어냈을 때(39f6b0f)와 똑같이,
+ * 이 가중치도 "이미 주어진 사실"로 프롬프트에 박히면 모델이 규칙과 무관하게
+ * 그대로 되풀이한다(실측: 오행 분포상 금의 비중이 1.32로... 식으로 「제약」·
+ * 「건강」·「방위」 등 anchorFactsToPromptText를 쓰는 모든 경로에 노출, CoS
+ * 2026-09-15 재검증). 패턴을 하나씩 막는 대신 이 함수(모든 생성 호출이 공유하는
+ * 단일 경로) 한 곳에서 숫자를 원천적으로 안 준다 — 화면 요약 줄(facts.elements
+ * 직접 렌더, BlueprintReportView.tsx)은 이 함수를 거치지 않아 그대로 숫자를 쓴다.
+ */
+function elementRankLine(elements: Record<Element, number>): string {
+  const sorted = (Object.entries(elements) as [Element, number][]).sort((a, b) => b[1] - a[1]);
+  const order = sorted.map(([e]) => C.ELEMENT_KR[e]).join(">");
+  const top = sorted[0];
+  const bottom = sorted[sorted.length - 1];
+  const gap = top[1] >= bottom[1] * 2
+    ? `${C.ELEMENT_KR[top[0]]}${josaIga(top[0])} ${C.ELEMENT_KR[bottom[0]]}${josaEulReul(bottom[0])} 크게 압도`
+    : "오행 간 편차는 크지 않음";
+  return `${order} 순 (${gap})`;
+}
+
 /** LLM 프롬프트에 그대로 붙일 수 있는 사실 시트 텍스트. 모든 호출이 이 문자열을 동일하게 받는다. */
 export function anchorFactsToPromptText(f: AnchorFacts): string {
-  const elemLine = (Object.entries(f.elements) as [Element, number][])
-    .map(([e, v]) => `${C.ELEMENT_KR[e]}${v}`).join(" ");
+  const elemLine = elementRankLine(f.elements);
   const tgLine = Object.entries(f.tenGodCounts).map(([k, v]) => `${k}${v}`).join(" ") || "없음";
   const t = f.yongsinTrack;
   // §1(CoS+CEO 실물 확인, 2026-09-08): "용신 X / 기신 Y" 한 줄 단정을 억부·조후
