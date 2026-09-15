@@ -103,15 +103,6 @@ export default async function HomePage() {
         </p>
       </header>
 
-      {/* 상단 배너 — 첫 화면을 광고가 차지하지 않도록 작은 규격을 우선한다. */}
-      <section className="px-4 mb-5 flex justify-center animate-fade-up" style={{animationDelay:'0.05s'}}>
-        {ADFIT_TOP_50 ? (
-          <KakaoAdFitBanner unit={ADFIT_TOP_50} width={320} height={50} />
-        ) : (
-          <KakaoAdFitBanner unit={ADFIT_HOME_BANNER} width={320} height={100} />
-        )}
-      </section>
-
       {profile ? (
         <>
           {/* ── 기존 방문자(사주 등록됨) — 와이어 B ───────────────────── */}
@@ -215,6 +206,35 @@ export default async function HomePage() {
               </div>
             </Link>
           </section>
+
+          {/* §2-1(CoS 실물 재검증, 2026-09-13): 가입 후 사주를 등록하면 무료
+              궁합·택일·연운세와 환장의 케미 진입로가 통째로 사라졌다 — 재방문
+              동기가 줄고, 무료 4종은 전부 광고 게이트를 거치므로 리워드 광고
+              노출 기회도 함께 잃는 구조였다. 유료 추천 아래에 그대로 복원한다. */}
+          <section className="px-4 grid grid-cols-3 gap-2 mb-4">
+            {FREE_SECONDARY_CARDS.map((card) => (
+              <Link key={card.href} href={card.href}>
+                <div className="bg-[#FBF8F2] border border-[#E5DFD4] rounded-xl px-2 py-3 text-center active:scale-[0.96] transition-all">
+                  <span className="font-serif text-xl leading-none text-[#1F3D34]">{card.icon}</span>
+                  <p className="text-[11.5px] font-medium text-[#1A1A18] mt-1.5 leading-tight">{card.title}</p>
+                  <p className="text-[9.5px] text-[#8A8580] mt-1">무료 · 광고 5초</p>
+                </div>
+              </Link>
+            ))}
+          </section>
+
+          <section className="px-4 mb-4">
+            <Link href="/chemi">
+              <div className="rounded-2xl border border-[#E5DFD4] bg-[#FBF8F2] px-4 py-3.5 flex items-center gap-3 active:scale-[0.98] transition-all">
+                <div className="w-9 h-9 rounded-full bg-[#C8743A]/12 flex items-center justify-center text-lg flex-shrink-0">💬</div>
+                <div className="flex-1">
+                  <p className="text-[13px] font-semibold text-[#1A1A18]">친구들과 같이 보기</p>
+                  <p className="text-[11px] text-[#6B6661] mt-0.5">환장의 케미 — 단톡방 서열 정리</p>
+                </div>
+                <span className="text-xs font-semibold text-[#C8743A] flex-shrink-0 border border-[#C8743A]/30 rounded-full px-2.5 py-1">바로가기</span>
+              </div>
+            </Link>
+          </section>
         </>
       ) : (
         <>
@@ -225,6 +245,19 @@ export default async function HomePage() {
               <br />내 사주가 30초 만에 나옵니다
             </p>
             <HomeSajuForm />
+          </section>
+
+          {/* §2-3(CoS 실물 재검증, 2026-09-13): 이 광고가 브랜드명 바로 아래,
+              입력 폼보다 위에 있어 처음 온 사람이 광고부터 보게 됐다(9/2
+              지적이 로그인 홈에만 반영되고 비로그인 홈엔 안 됨). 로그인 홈은
+              이미 상단 광고가 없으므로 여기서도 아예 걷어내는 대신, 첫 화면의
+              목적(생년월일 입력)을 가리지 않도록 폼 아래로만 내린다. */}
+          <section className="px-4 mb-5 flex justify-center animate-fade-up" style={{animationDelay:'0.06s'}}>
+            {ADFIT_TOP_50 ? (
+              <KakaoAdFitBanner unit={ADFIT_TOP_50} width={320} height={50} />
+            ) : (
+              <KakaoAdFitBanner unit={ADFIT_HOME_BANNER} width={320} height={100} />
+            )}
           </section>
 
           {/* 무료 4종 중 나머지 3종 — 사주는 위 히어로 폼으로 승격됐다. */}
