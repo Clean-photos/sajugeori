@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { AdGate } from "../AdGate";
+import { FreeResultNav } from "../FreeResultNav";
 import { ReadingIntro } from "../ReadingIntro";
 import { cleanReportText } from "@/lib/report-format";
 import { Spinner } from "@/components/ui/Spinner";
@@ -210,6 +211,7 @@ export default function FreeCompatibilityPage() {
 
   return (
     <div className="min-h-screen bg-[#F6F1E7] flex flex-col">
+      <FreeResultNav current="/free/compatibility" />
       <div className="relative overflow-hidden px-6 pt-14 pb-8 bg-[#1F3D34]">
         <div className="absolute inset-0 opacity-30" style={{ backgroundImage: "radial-gradient(circle at 80% 20%, #C8743A 0%, transparent 50%)" }} />
         <p className="relative text-xs font-medium tracking-[0.2em] text-[#C8743A] uppercase mb-2">Analysis Result</p>

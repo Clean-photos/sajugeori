@@ -124,9 +124,14 @@ ${samjaeSection}
     async start(controller) {
       const enc = new TextEncoder();
       try {
+        // §2-6(CoS 실물 재검증, 2026-09-13): 무료 사주 마지막 문장("...신중한
+        // 발언과 행동이 필수입니")이 중간에 잘렸다 — 5개 섹션(핵심 성격·현재
+        // 운세·개운 포인트·조언·대운, 삼재 섹션까지 포함하면 6개)을 전부 채운
+        // 응답이 max_tokens 1100을 가끔 넘겨 문장 중간에 끊겼다. 무료 상품이라
+        // 프리미엄만큼 여유를 주진 않되, 잘림이 재발하지 않을 만큼만 올린다.
         const aiStream = client.messages.stream({
           model: "claude-haiku-4-5-20251001",
-          max_tokens: 1100,
+          max_tokens: 1800,
           messages: [{ role: "user", content: prompt }],
         });
         for await (const event of aiStream) {

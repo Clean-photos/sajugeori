@@ -1,9 +1,10 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { AdGate } from "../AdGate";
+import { FreeResultNav } from "../FreeResultNav";
 import { ReadingIntro } from "../ReadingIntro";
 import { cleanReportText } from "@/lib/report-format";
 import { Spinner } from "@/components/ui/Spinner";
@@ -52,6 +53,22 @@ function FreeSajuInner() {
   const solarBirthDate = conv?.ok ? conv.solar : "";
   const [result, setResult] = useState<string>("");
   const [error, setError] = useState("");
+
+  // §2-2(CoS 실물 재검증, 2026-09-13): 홈 히어로 폼에서 넘어올 때 생년월일시가
+  // URL 쿼리(?birth_date=...&gender=...&birth_time=...)에 평문으로 실린다.
+  // 이 페이지는 곧바로 광고 게이트(step="ad")로 들어가 카카오 애드핏 스크립트를
+  // 로드하는데, 그 시점까지 주소창에 생년월일시가 남아 있으면 광고 SDK의
+  // 리퍼러를 통해 서드파티로 전달될 수 있다(프리미엄은 이미 UUID 경로로
+  // 바꿔 해결했지만, 무료는 즉시 결과 ID를 만들 구조가 아니라 결과 ID 발급을
+  // 당장 적용하기 어렵다 — 최소 조치로 광고 스크립트가 실제 요청을 보내기
+  // 전에 주소창에서만 쿼리를 지운다. 값 자체는 이미 컴포넌트 state(form)로
+  // 옮겨져 있어 동작에는 영향이 없다).
+  useEffect(() => {
+    if (searchParams.toString()) {
+      window.history.replaceState(null, "", window.location.pathname);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 마운트 시 1회만
+  }, []);
 
   function watchAd() {
     setStep("ad");
@@ -250,6 +267,7 @@ function FreeSajuInner() {
 
   return (
     <div className="min-h-screen bg-[#F6F1E7] flex flex-col">
+      <FreeResultNav current="/free/saju" />
       {/* Header */}
       <div className="relative overflow-hidden px-6 pt-14 pb-8 bg-[#1F3D34]">
         <div className="absolute inset-0 opacity-30"
