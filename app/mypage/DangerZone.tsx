@@ -37,8 +37,10 @@ function DangerAction({ action, endpoint }: { action: Action; endpoint: string }
     try {
       const res = await fetch(endpoint, { method: "DELETE" });
       if (!res.ok) throw new Error("failed");
+      // §3-3과 동일 버그(2026-09-15): push 직후 refresh가 경합해 전환이 꼬일 수
+      // 있다. "/"도 auth()를 쓰는 동적 라우트라 push만으로 이미 최신 상태(탈퇴 후
+      // 비로그인 홈)를 받는다.
       router.push("/");
-      router.refresh();
     } catch {
       setError("처리하지 못했습니다. 잠시 후 다시 시도해주세요.");
       setBusy(false);

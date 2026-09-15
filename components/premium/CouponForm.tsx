@@ -36,10 +36,14 @@ export function CouponForm({ productId, returnTo }: { productId: string; returnT
         return;
       }
       setDone(true);
-      // 이용권이 생겼으니 리포트 화면으로 보낸다. 서버 컴포넌트가 새 이용권을
-      // 보도록 refresh를 함께 호출한다.
+      // §3-3과 동일 버그(2026-09-15 실물 재검증에서 확인): push 직후 refresh를
+      // 부르면, push가 아직 "현재 경로"를 buy로 들고 있는 시점에 refresh가 같은
+      // 경로 재요청을 큐에 넣어 두 요청이 경합한다 — 늦게 도착하는 buy 응답이
+      // push의 전환을 덮어써 이동이 안 되거나(반려동물 "결제 후 폼 초기화"로
+      // 지적된 것과 같은 계열) 화면이 꼬일 수 있다. 이동 대상(returnTo)도
+      // auth()를 쓰는 동적 라우트라 push만으로 이미 최신 이용권 상태를 받으므로
+      // refresh는 불필요했다.
       router.push(returnTo);
-      router.refresh();
     } catch {
       setError("네트워크 오류가 발생했습니다.");
       setBusy(false);

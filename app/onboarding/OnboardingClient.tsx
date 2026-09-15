@@ -92,8 +92,9 @@ function OnboardingInner({ existingProfile, reports }: { existingProfile: Existi
         setRegistered({ day_master: identity.day_master, strength_label: identity.strength_label });
       } else {
         // 응답 형태가 예상과 다르면(방어) 완료 화면 없이 예전처럼 바로 이동.
+        // push 직후 refresh는 §3-3과 동일 경합을 일으킬 수 있어 뺐다 — 이동
+        // 대상("/", "/street")도 auth()를 쓰는 동적 라우트라 push만으로 충분하다.
         router.push(nextPath ?? (from === "street" ? "/street" : "/"));
-        router.refresh();
       }
     } catch {
       setError("네트워크 연결을 확인한 뒤 다시 시도해 주세요.");
@@ -110,7 +111,6 @@ function OnboardingInner({ existingProfile, reports }: { existingProfile: Existi
 
   function goNext() {
     router.push(nextPath ?? (from === "street" ? "/street" : "/"));
-    router.refresh();
   }
 
   // §13: 등록 완료 — 버튼 라벨("내 사주 확인하기")대로 최소한의 명식(일간·
