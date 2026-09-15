@@ -10,6 +10,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { CalendarField } from "@/app/free/CalendarField";
 import { toSolar, type CalendarKind } from "@/lib/calendar/convert";
+import { writeFreeSajuHandoff } from "@/lib/free-saju-handoff";
 
 function maxBirthDate() {
   const d = new Date();
@@ -26,13 +27,14 @@ export function HomeSajuForm() {
 
   function submit() {
     if (!solarBirthDate || !form.gender) return;
-    const params = new URLSearchParams({
+    // §2-2: 생년월일시는 쿼리에 싣지 않는다(광고 스크립트로 새는 경로) —
+    // sessionStorage로 1회성 전달하고, 쿼리에는 autostart=1만 남긴다.
+    writeFreeSajuHandoff({
       birth_date: solarBirthDate,
+      birth_time: !form.no_time && form.birth_time ? form.birth_time : "",
       gender: form.gender,
-      autostart: "1",
     });
-    if (!form.no_time && form.birth_time) params.set("birth_time", form.birth_time);
-    router.push(`/free/saju?${params.toString()}`);
+    router.push(`/free/saju?autostart=1`);
   }
 
   return (

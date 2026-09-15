@@ -12,6 +12,7 @@ import { WaitingCards } from "@/components/premium/WaitingCards";
 import { CalendarField } from "../CalendarField";
 import { fetchFreeReport } from "../fetchFreeReport";
 import { toSolar, type CalendarKind } from "@/lib/calendar/convert";
+import { readAndClearFreeSajuHandoff } from "@/lib/free-saju-handoff";
 
 type Step = "form" | "ad" | "loading" | "result";
 
@@ -24,14 +25,17 @@ function maxBirthDate() {
 function FreeSajuInner() {
   // 홈 히어로 폼(§1, 2/3 문서)에서 넘어온 값. 홈은 이미 양력으로 변환해 보내므로
   // (HomeSajuForm 참고) calendar는 항상 "solar"로 둔다 — 여기서 다시 변환할 필요가
-  // 없다. birth_date가 없으면 평소처럼 빈 폼에서 시작한다.
+  // 없다. 값이 없으면 평소처럼 빈 폼에서 시작한다.
   const searchParams = useSearchParams();
-  const initialBirthDate = searchParams.get("birth_date") ?? "";
-  const initialBirthTime = searchParams.get("birth_time") ?? "";
-  const initialGender = searchParams.get("gender") === "F" || searchParams.get("gender") === "M"
-    ? searchParams.get("gender")!
-    : "";
   const autostart = searchParams.get("autostart") === "1";
+  // §2-2(CoS 실물 재검증, 2026-09-15 재발): 생년월일시를 더 이상 쿼리로 받지
+  // 않는다 — 쿼리에 실렸다가 주소창을 나중에 지워도, 그 전에 실행되는 AdSense
+  // 스크립트가 이미 캡처해 광고 요청으로 흘려보냈다(자세한 경위는
+  // lib/free-saju-handoff.ts 참고). 홈 폼이 sessionStorage로 넘긴 값을 읽는다.
+  const [handoff] = useState(() => (typeof window === "undefined" ? null : readAndClearFreeSajuHandoff()));
+  const initialBirthDate = handoff?.birth_date ?? "";
+  const initialBirthTime = handoff?.birth_time ?? "";
+  const initialGender = handoff?.gender === "F" || handoff?.gender === "M" ? handoff.gender : "";
   // step의 초기값 자체를 여기서 결정한다(useEffect로 나중에 넘기면 폼이
   // 한 프레임 보였다 바로 광고로 바뀌는 깜빡임이 생긴다). initial 값은 홈에서
   // 이미 양력으로 변환해 보낸 것이라 "solar"로 바로 검증할 수 있다.
@@ -54,15 +58,8 @@ function FreeSajuInner() {
   const [result, setResult] = useState<string>("");
   const [error, setError] = useState("");
 
-  // §2-2(CoS 실물 재검증, 2026-09-13): 홈 히어로 폼에서 넘어올 때 생년월일시가
-  // URL 쿼리(?birth_date=...&gender=...&birth_time=...)에 평문으로 실린다.
-  // 이 페이지는 곧바로 광고 게이트(step="ad")로 들어가 카카오 애드핏 스크립트를
-  // 로드하는데, 그 시점까지 주소창에 생년월일시가 남아 있으면 광고 SDK의
-  // 리퍼러를 통해 서드파티로 전달될 수 있다(프리미엄은 이미 UUID 경로로
-  // 바꿔 해결했지만, 무료는 즉시 결과 ID를 만들 구조가 아니라 결과 ID 발급을
-  // 당장 적용하기 어렵다 — 최소 조치로 광고 스크립트가 실제 요청을 보내기
-  // 전에 주소창에서만 쿼리를 지운다. 값 자체는 이미 컴포넌트 state(form)로
-  // 옮겨져 있어 동작에는 영향이 없다).
+  // §2-2: 쿼리에는 이제 autostart=1만 남는다(PII 아님) — 그래도 남겨 둘 이유가
+  // 없어 마운트 직후 주소창에서 지운다.
   useEffect(() => {
     if (searchParams.toString()) {
       window.history.replaceState(null, "", window.location.pathname);
