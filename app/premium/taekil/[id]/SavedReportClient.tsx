@@ -18,7 +18,6 @@ export function SavedReportClient({ content, best, reportId }: { content: string
     });
     if (!res.ok) throw new Error("delete failed");
     router.push("/mypage");
-    router.refresh();
   }
 
   return <TaekilReportResultView report={content} best={best} onDelete={handleDelete} />;

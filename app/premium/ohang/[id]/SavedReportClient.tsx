@@ -20,7 +20,6 @@ export function SavedReportClient({ report, target }: { report: WuxingReportData
     const res = await fetch(`/api/premium/wuxing?${q.toString()}`, { method: "DELETE" });
     if (!res.ok) throw new Error("delete failed");
     router.push("/mypage");
-    router.refresh();
   }
 
   return <WuxingReportResultView report={report} onDelete={handleDelete} />;

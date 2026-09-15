@@ -27,7 +27,6 @@ export function SavedReportClient({
     });
     if (!res.ok) throw new Error("delete failed");
     router.push("/mypage");
-    router.refresh();
   }
 
   return <CompatReportResultView report={content} score={score} pillars={pillars} onDelete={handleDelete} />;

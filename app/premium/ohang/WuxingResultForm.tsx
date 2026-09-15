@@ -74,7 +74,6 @@ export function WuxingResultForm({ saved }: { saved: SavedSaju }) {
     const res = await fetch(`/api/premium/wuxing?${q.toString()}`, { method: "DELETE" });
     if (!res.ok) throw new Error("delete failed");
     router.push("/mypage");
-    router.refresh();
   }
 
   if (step === "result" && report) {

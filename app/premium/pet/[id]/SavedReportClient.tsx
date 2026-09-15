@@ -31,7 +31,6 @@ export function SavedReportClient({
     });
     if (!res.ok) throw new Error("delete failed");
     router.push("/mypage");
-    router.refresh();
   }
 
   return <PetReportResultView report={content} species={species} petLabel={petLabel} petName={petName} onDelete={handleDelete} />;

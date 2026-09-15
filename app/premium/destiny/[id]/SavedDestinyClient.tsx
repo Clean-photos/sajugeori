@@ -21,8 +21,15 @@ export function SavedDestinyClient({ report, target }: { report: BlueprintReport
     if (target.birth_time) q.set("birth_time", target.birth_time);
     const res = await fetch(`/api/premium/destiny?${q.toString()}`, { method: "DELETE" });
     if (!res.ok) throw new Error("delete failed");
+    // §3-3(CoS 실물 재검증, 2026-09-15): 서버 삭제는 항상 성공했는데 화면이
+    // 현재 경로에 그대로 멈춰 있었다 — 바로 뒤에 있던 router.refresh()가
+    // 원인이었다. push()가 아직 "현재 경로"를 destiny로 들고 있는 채로
+    // refresh()가 같은 경로 재요청을 큐에 넣어, 두 요청이 경합하면 늦게
+    // 도착하는 destiny 응답이 push의 mypage 전환을 덮어썼다(같은 패턴이
+    // compatibility/yearly/taekil/pet/ohang의 SavedReportClient에도 있어
+    // 동일 수정을 적용했다). mypage는 auth()를 쓰는 동적 라우트라 push만으로
+    // 이미 최신 상태를 받으므로 refresh는 불필요했다.
     router.push("/mypage");
-    router.refresh();
   }
 
   return (

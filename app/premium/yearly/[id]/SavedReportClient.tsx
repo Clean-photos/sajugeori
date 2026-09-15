@@ -20,7 +20,6 @@ export function SavedReportClient({ content, year, target }: { content: string; 
     });
     if (!res.ok) throw new Error("delete failed");
     router.push("/mypage");
-    router.refresh();
   }
 
   return <YearlyReportResultView report={content} year={year} onDelete={handleDelete} />;
