@@ -165,6 +165,28 @@ function pad(n: number): string {
   return String(n).padStart(2, "0");
 }
 
+/** 지지 두 글자의 관계 하나를 판정한다(육합>삼합>충>해>형 순으로 검사). */
+function classifyBranchPair(a: C.Branch, b: C.Branch): PetBranchRelation {
+  const key = C.branchPairKey(a, b);
+  if (C.BRANCH_SIX_COMBINE.has(a + b) || C.BRANCH_SIX_COMBINE.has(b + a)) return "육합";
+  // 같은 지지가 우연히 겹칠 때(예: 12년 차이로 둘 다 辰띠) trio.includes()를 양쪽에
+  // 따로 걸면 "같은 지지 하나"만으로도 조건이 참이 되어 삼합으로 잘못 뜬다(삼합은
+  // 서로 다른 지지 조합이어야 함) — 다른 지지일 때만 삼합을 인정한다(§8-2 부수 발견).
+  if (a !== b && C.BRANCH_THREE_COMBINE.some((t) => t.trio.includes(a) && t.trio.includes(b))) return "삼합";
+  if (C.BRANCH_CLASH_PAIRS.has(key)) return "충";
+  if (C.BRANCH_HARM_PAIRS.has(key)) return "해";
+  // 상형 3그룹(寅巳申·丑戌未·子卯)과 자형(辰·午·酉·亥 동일 지지) — §8-2.
+  if ((a === b && C.BRANCH_SELF_PUNISH.has(a)) || (a !== b && C.BRANCH_PUNISH_GROUPS.some((g) => g.includes(a) && g.includes(b)))) return "형";
+  return "평범";
+}
+
+const BRANCH_RELATION_RANK: PetBranchRelation[] = ["육합", "삼합", "충", "해", "형", "평범"];
+
+/** 두 관계 중 더 뚜렷한(우선순위가 앞선) 쪽을 남긴다. */
+function strongerBranchRelation(a: PetBranchRelation, b: PetBranchRelation): PetBranchRelation {
+  return BRANCH_RELATION_RANK.indexOf(a) <= BRANCH_RELATION_RANK.indexOf(b) ? a : b;
+}
+
 export type PetBranchRelation = "육합" | "삼합" | "충" | "해" | "형" | "평범";
 
 /** 주인과 반려동물의 오행 흐름 — "반려동물이 주인을 어떻게 느끼는지"의 근거가 된다. */
@@ -249,40 +271,19 @@ export function petCompatibility(owner: SajuChart, input: PetCompatInput): PetCo
   const ownerBranch = hasDay ? owner.pillars.day.branch : owner.pillars.year.branch;
   const ownerEl = owner.day_master_element;
 
-  // 1) 지지 관계
-  let branch: PetBranchRelation = "평범";
-  const key = C.branchPairKey(ownerBranch, petBranch);
-  if (
-    C.BRANCH_SIX_COMBINE.has(ownerBranch + petBranch) ||
-    C.BRANCH_SIX_COMBINE.has(petBranch + ownerBranch)
-  ) {
-    branch = "육합";
-  } else if (
-    // §8-2 확인 중 발견(부수) — 같은 지지가 우연히 겹칠 때(예: 12년 차이로 둘 다
-    // 辰띠) trio.includes()를 양쪽에 따로 걸면 "같은 지지 하나"만으로도 조건이
-    // 참이 되어 "삼합"으로 잘못 뜬다(삼합은 서로 다른 지지 조합이어야 함).
-    // 辰·午·酉·亥는 전부 어떤 삼합의 구성원이라 자형(형) 케이스가 이 버그에
-    // 가려 한 번도 발동하지 못했다 — 다른 지지일 때만 삼합을 인정한다.
-    ownerBranch !== petBranch &&
-    C.BRANCH_THREE_COMBINE.some(
-      (t) => t.trio.includes(ownerBranch) && t.trio.includes(petBranch)
-    )
-  ) {
-    branch = "삼합";
-  } else if (C.BRANCH_CLASH_PAIRS.has(key)) {
-    branch = "충";
-  } else if (C.BRANCH_HARM_PAIRS.has(key)) {
-    branch = "해";
-  } else if (
-    // §8-2(CoS+CEO 실물 확인, 2026-09-08): 충·해만 보고 형(刑)은 빠져 있었다
-    // — 卯(1987 丁卯년)와 子(2020 庚子년)는 子卯상형인데 "충·해가 없다"로
-    // 나갔다. 상형 3그룹(寅巳申·丑戌未·子卯)과 자형(辰·午·酉·亥 동일 지지)을
-    // 마저 본다.
-    (ownerBranch === petBranch && C.BRANCH_SELF_PUNISH.has(ownerBranch)) ||
-    (ownerBranch !== petBranch && C.BRANCH_PUNISH_GROUPS.some((g) => g.includes(ownerBranch) && g.includes(petBranch)))
-  ) {
-    branch = "형";
-  }
+  // 1) 지지 관계 — 일을 모르면 월은 필수 입력인데도(입춘 경계로 년주를 바로
+  // 세우기 위해서만 쓰였다) 형충해합 판정 자체에는 전혀 반영되지 않아 "태어난
+  // 달을 입력했는데 안 쓰인다"로 지적됐다(같은 년이면 월이 달라도 판정이
+  // 항상 동일했다 — 로컬 재현 확인). 일을 모르면 띠(년지)뿐 아니라 월지도
+  // 함께 대사(주인 지지)와 견줘, 둘 중 더 뚜렷한 관계(육합>삼합>충>해>형)를
+  // 채택한다. 일을 아는 경우는 기존 그대로 일지만 본다(더 정밀한 기준이 있는데
+  // 상위 기둥을 더할 이유가 없다).
+  const branch: PetBranchRelation = hasDay
+    ? classifyBranchPair(ownerBranch, petBranch)
+    : strongerBranchRelation(
+        classifyBranchPair(ownerBranch, pet.pillars.year.branch),
+        classifyBranchPair(ownerBranch, pet.pillars.month.branch)
+      );
 
   // 2) 오행 흐름
   let flow: PetFlow;
