@@ -33,7 +33,8 @@ const PROFILE_JOIN_SOURCES: ProfileJoinSource[] = [
   { table: "premium_salpuri_reports", label: "프리미엄 살풀이", href: "/premium/salpuri", idColumn: "saju_profile_id" },
   { table: "premium_taekil_reports", label: "프리미엄 택일", href: "/premium/taekil", idColumn: "id" },
   { table: "premium_yearly_reports", label: "프리미엄 연운세", href: "/premium/yearly", idColumn: "saju_profile_id", hasYear: true },
-  { table: "premium_pet_reports", label: "반려동물 궁합", href: "/premium/pet", idColumn: "id" },
+  // 반려동물(premium_pet_reports)은 아래에서 별도로 조회한다(pet_name을 label에
+  // 붙여야 해서 — §6-6 CoS 실물 확인, 2026-09-16 참고).
   { table: "premium_wuxing_reports", label: "오행 보완 리포트", href: "/premium/ohang", idColumn: "saju_profile_id" },
   // §2-11순위(CoS 실물 재검증, 2026-09-11): "운명 설계도는 리포트 ID가 없어
   // 같은 상품을 두 번 이상 생성하면(본인 외 다른 대상) 이전 결과에 도달할
@@ -187,6 +188,32 @@ export async function listUserReports(userId: string): Promise<MyReport[]> {
       out.push({
         label: "프리미엄 궁합", href: "/premium/compatibility", created_at: row.created_at,
         target: row.person_a_birth ? formatTarget(row.person_a_birth, row.person_a_gender) : null,
+        id: row.id ?? null,
+        year: null,
+        adhocId: null,
+      });
+    }
+  } catch { /* noop */ }
+
+  // 반려동물(premium_pet_reports) — §6-6(CoS 실물 확인, 2026-09-16): 목록에
+  // 집사 생년월일만 나와 반려동물을 여러 마리 등록하면 구분이 안 됐다.
+  // pet_name을 label에 붙여 한눈에 구분되게 한다(idColumn="id"라 프로필당
+  // 여러 행이 나올 수 있는 것과 같은 이유 — 아이마다 별도 행).
+  try {
+    const { data } = await supabaseAdmin
+      .from("premium_pet_reports")
+      .select("id, created_at, saju_profile_id, pet_name, species")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(20);
+    for (const row of data ?? []) {
+      if (!row?.created_at) continue;
+      const p = await loadProfile(row.saju_profile_id as string | null);
+      const speciesKr = row.species === "cat" ? "고양이" : "강아지";
+      out.push({
+        label: row.pet_name ? `반려동물 궁합 · ${row.pet_name}(${speciesKr})` : "반려동물 궁합",
+        href: "/premium/pet", created_at: row.created_at,
+        target: p ? formatTarget(p.birth_date, p.gender, p.calendar) : null,
         id: row.id ?? null,
         year: null,
         adhocId: null,
