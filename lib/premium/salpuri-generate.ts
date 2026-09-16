@@ -40,6 +40,25 @@ const COMMON_RULES = `
 - '엔진'·'AI'·'알고리즘'·'분석 시스템' 같은 표현 대신 자연스러운 한국어 문장으로 쓸 것. 단, 정해진 관용구를 문단 서두에 매번 반복하지 말 것 — 예시 문구를 그대로 복사해 쓰지 말고 문단마다 다른 문장으로 시작할 것.
 - JSON이나 다른 포맷 없이 순수 텍스트로만 응답.`;
 
+/**
+ * §0-7 지시("용어가 다시 나오면 설명을 반복하지 말 것")는 4개 독립 호출에는
+ * 못 미친다 — 서로 다른 호출은 상대가 이미 뭘 썼는지 모른다(공유 상태 없음).
+ * 실측(2026-09-16, CoS): 역마살·고신살 등이 5회까지 반복 정의됐고, 심지어
+ * 같은 용어의 설명 문구 자체가 호출마다 다르게 지어지기도 했다(길신 사례) —
+ * 문구가 다르면 프롬프트 지시만으로는 "이미 나온 설명"인지 모델이 스스로
+ * 판단할 수 없다. 문구 일치가 아니라 "같은 용어 앞의 괄호가 다시 나오는가"만
+ * 보고 두 번째부터는 괄호째 잘라낸다 — 계산 로직이 아니라 조립 단계 후처리라
+ * 리포트 내용 자체(엔진 결과)는 건드리지 않는다.
+ */
+export function dedupeGlossaryTerms(text: string): string {
+  const seen = new Set<string>();
+  return text.replace(/([가-힣]{2,})(\([^)]{2,}\))/g, (match, term: string) => {
+    if (seen.has(term)) return term;
+    seen.add(term);
+    return match;
+  });
+}
+
 async function callText(prompt: string, maxTokens: number, label: string): Promise<string> {
   const Anthropic = (await import("@anthropic-ai/sdk")).default;
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
@@ -133,5 +152,5 @@ ${engineSummary}
 ${COMMON_RULES}`, 3000, "part4"),
   ]);
 
-  return [part1, part2, part3, part4].join("\n\n");
+  return dedupeGlossaryTerms([part1, part2, part3, part4].join("\n\n"));
 }
