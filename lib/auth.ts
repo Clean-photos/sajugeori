@@ -18,6 +18,16 @@ export const { handlers: { GET, POST }, auth, signIn, signOut } = NextAuth({
     Kakao({
       clientId: process.env.AUTH_KAKAO_ID!,
       clientSecret: process.env.AUTH_KAKAO_SECRET!,
+      // 2026-09-16(실물 확인: NULL/NULL로 가입된 카카오 계정 발견): next-auth
+      // 기본 Kakao provider의 authorization URL이 "...authorize?scope"로
+      // scope 값이 비어 있다(라이브러리 자체 결함) — 카카오는 명시적으로 요청
+      // 안 한 동의 항목은 절대 안 돌려줘서, kakao_account.email·
+      // kakao_account.profile.nickname이 둘 다 undefined로 와 NULL로 저장됐다.
+      // scope를 명시해 이메일·닉네임 동의를 요청한다. 콤마 구분(카카오 자체 규격).
+      // 단, 카카오 디벨로퍼스 콘솔의 "카카오 로그인 > 동의항목"에서 account_email·
+      // profile_nickname이 "사용함"으로 켜져 있어야 실제로 값이 온다(코드만으론
+      // 부족 — 콘솔 설정은 CEO 확인 필요).
+      authorization: "https://kauth.kakao.com/oauth/authorize?scope=profile_nickname,account_email",
     }),
     Credentials({
       credentials: {
@@ -66,13 +76,24 @@ export const { handlers: { GET, POST }, auth, signIn, signOut } = NextAuth({
           // users에 UNIQUE (oauth_provider, oauth_sub)가 걸려 있어 중복 생성되지 않는다.
           const { data: existing } = await supabaseAdmin
             .from("users")
-            .select("id")
+            .select("id, email, display_name")
             .eq("oauth_provider", provider)
             .eq("oauth_sub", sub)
             .maybeSingle();
 
           if (existing?.id) {
             token.uid = existing.id;
+            // 2026-09-16: 이 분기는 신규 가입 때만 email/display_name을 채우고
+            // 재로그인 시에는 손대지 않는다 — 카카오 scope 누락(위 authorization
+            // 참고)으로 NULL인 채 가입된 계정이 스코프를 고쳐도 재로그인만으로는
+            // 영영 복구되지 않는다. 이번에 받아온 값이 있고 DB가 비어 있을 때만
+            // 채운다(이미 있는 값은 덮어쓰지 않음 — 사용자가 바꾼 적 없다는 뜻).
+            const patch: Record<string, string> = {};
+            if (!existing.email && user?.email) patch.email = user.email;
+            if (!existing.display_name && user?.name) patch.display_name = user.name;
+            if (Object.keys(patch).length > 0) {
+              await supabaseAdmin.from("users").update(patch).eq("id", existing.id);
+            }
           } else {
             const { data: created, error } = await supabaseAdmin
               .from("users")
