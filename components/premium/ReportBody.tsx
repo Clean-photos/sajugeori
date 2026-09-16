@@ -100,12 +100,18 @@ export function ReportBody({
           return (
             <Fragment key={i}>
               <div className="flex items-center gap-2.5 mt-9 first:mt-0 mb-3.5 break-after-avoid">
-                <span
-                  className="font-serif text-[18px] font-bold tracking-wide whitespace-nowrap"
+                {/*
+                  2026-09-16(CoS 실물 확인): 【 제목 】 줄이 시각적으로만 제목처럼
+                  보이고 실제 DOM에는 span이라 h2~h4가 0개였다 — 가독성·접근성·
+                  검색 노출에 불리하다는 지적. 스타일은 그대로 두고 태그만 h2로
+                  바꾼다(이 렌더러가 다루는 제목은 전부 같은 레벨의 섹션 제목).
+                */}
+                <h2
+                  className="m-0 font-serif text-[18px] font-bold tracking-wide whitespace-nowrap"
                   style={{ color: BRAND }}
                 >
                   {heading[1]}
-                </span>
+                </h2>
                 <span className="flex-1 h-[2px] rounded-full" style={{ backgroundColor: "#E5DFD4" }} />
               </div>
               {heading[2] && (
