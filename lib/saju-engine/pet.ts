@@ -180,13 +180,6 @@ function classifyBranchPair(a: C.Branch, b: C.Branch): PetBranchRelation {
   return "평범";
 }
 
-const BRANCH_RELATION_RANK: PetBranchRelation[] = ["육합", "삼합", "충", "해", "형", "평범"];
-
-/** 두 관계 중 더 뚜렷한(우선순위가 앞선) 쪽을 남긴다. */
-function strongerBranchRelation(a: PetBranchRelation, b: PetBranchRelation): PetBranchRelation {
-  return BRANCH_RELATION_RANK.indexOf(a) <= BRANCH_RELATION_RANK.indexOf(b) ? a : b;
-}
-
 export type PetBranchRelation = "육합" | "삼합" | "충" | "해" | "형" | "평범";
 
 /** 주인과 반려동물의 오행 흐름 — "반려동물이 주인을 어떻게 느끼는지"의 근거가 된다. */
@@ -256,34 +249,26 @@ export function petCompatibility(owner: SajuChart, input: PetCompatInput): PetCo
   const iso = `${petYear}-${pad(petMonth)}-${pad(day)}T12:00:00`;
   const pet = buildChart(iso, "M", false);
 
-  // 동물의 대표 지지·오행: 일을 알면 일주 기준, 모르면 띠(년주) 기준.
-  const petBranch = hasDay ? pet.pillars.day.branch : pet.pillars.year.branch;
+  // 동물의 대표 오행(오행 흐름·개운 처방용): 일을 알면 일간 기준, 모르면 띠(년간) 기준.
+  // 지지 관계(아래 1번, 형충해합)는 2026-09-16에 "항상 년지 대 년지"로 확정됐지만,
+  // 이 petEl(오행 흐름·개운 처방에 쓰임)까지 같은 원칙을 적용할지는 이번 확인
+  // 범위 밖이라 hasDay 조건은 그대로 둔다 — 필요하면 별도로 확인.
   const petEl: Element = hasDay
     ? pet.day_master_element
     : C.STEM_ELEMENT[pet.pillars.year.stem];
 
-  // §8-2 재검증(2026-09-11 실물 확인): petBranch는 아이 생일을 모르면 띠(년지)
-  // 기준으로 내려가는데(위 §2 참고), ownerBranch는 무조건 집사의 일지로 고정돼
-  // 있었다 — "띠 대 일지"라는 급이 안 맞는 비교가 되어, 이 기능이 원래 고치려던
-  // 실측 사례(1987 丁卯년 집사 = 묘띠, 2020 庚子년 아이 = 자띠 → 子卯상형)에서
-  // 조차 형이 검출되지 않았다(집사의 일지 巳로 비교해 버림). petBranch와 같은
-  // 기준(아이 생일을 모르면 양쪽 다 띠=년지)으로 맞춘다.
-  const ownerBranch = hasDay ? owner.pillars.day.branch : owner.pillars.year.branch;
   const ownerEl = owner.day_master_element;
 
-  // 1) 지지 관계 — 일을 모르면 월은 필수 입력인데도(입춘 경계로 년주를 바로
-  // 세우기 위해서만 쓰였다) 형충해합 판정 자체에는 전혀 반영되지 않아 "태어난
-  // 달을 입력했는데 안 쓰인다"로 지적됐다(같은 년이면 월이 달라도 판정이
-  // 항상 동일했다 — 로컬 재현 확인). 일을 모르면 띠(년지)뿐 아니라 월지도
-  // 함께 대사(주인 지지)와 견줘, 둘 중 더 뚜렷한 관계(육합>삼합>충>해>형)를
-  // 채택한다. 일을 아는 경우는 기존 그대로 일지만 본다(더 정밀한 기준이 있는데
-  // 상위 기둥을 더할 이유가 없다).
-  const branch: PetBranchRelation = hasDay
-    ? classifyBranchPair(ownerBranch, petBranch)
-    : strongerBranchRelation(
-        classifyBranchPair(ownerBranch, pet.pillars.year.branch),
-        classifyBranchPair(ownerBranch, pet.pillars.month.branch)
-      );
+  // 1) 지지 관계 — 궁합 판정 범위는 항상 년지(띠) 대 년지다(2026-09-16, 설계
+  // 재확인). 월주·일주는 "아이의 사주" 성격 묘사에만 쓰이고 형충해합 판정에는
+  // 들어가지 않는다 — 실제 서술도 "두 분의 띠 사이에는…"으로 항상 띠 기준.
+  // §8-2(2026-09-11)에서 petBranch(일을 알면 일지로 내려감)에 ownerBranch를
+  // 맞춘 것 자체가 이 설계에서 벗어난 것이었다 — 우연히 양쪽 일지가 같은
+  // 지지(둘 다 巳)로 겹쳐 子卯상형이 사라지는 회귀를 실측으로 재현(1987-06-01
+  // 집사 + 2020-03-15 아이, 일자를 넣으면 형→평범으로 뒤집힘). 어제 추가한
+  // "일을 모르면 월지도 함께 본다" 확장(classifyBranchPair 다중 비교)도 같은
+  // 이유로 되돌린다 — 월지는 궁합 로직 밖이다. 년지 단일 비교로 고정.
+  const branch: PetBranchRelation = classifyBranchPair(owner.pillars.year.branch, pet.pillars.year.branch);
 
   // 2) 오행 흐름
   let flow: PetFlow;
