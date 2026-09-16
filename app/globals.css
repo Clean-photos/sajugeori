@@ -112,6 +112,20 @@ body::before {
     break-inside: avoid;
     box-shadow: none !important;
   }
+  /*
+   * 2026-09-16(CoS 실물 확인): 살풀이 인쇄본 1페이지가 "검출된 살" 칩 박스
+   * 한 줄만 찍히고 나머지 전부 백지, 본문이 2페이지로 통째로 밀렸다. 원인은
+   * 위 break-inside: avoid — 리포트 본문 카드 하나가 여러 페이지 분량의
+   * 긴 텍스트를 담는데, "안에서 쪼개지 말라"는 규칙 때문에 브라우저가 현재
+   * 페이지 남은 공간에 못 넣으면 카드 전체를 다음 페이지로 통째로 넘겨
+   * 버린다(짧은 카드에는 맞는 규칙이지만 긴 본문 카드에는 안 맞음). 본문처럼
+   * 페이지에 걸쳐 자연스럽게 이어져야 하는 카드에는 이 클래스를 추가로 붙여
+   * break-inside만 되돌린다(box-shadow 제거 등 다른 인쇄 스타일은 유지).
+   */
+  .print-area .print-card-flow {
+    page-break-inside: auto;
+    break-inside: auto;
+  }
   .print-footer {
     display: block !important;
     page-break-inside: avoid;

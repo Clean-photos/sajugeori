@@ -34,7 +34,7 @@ export function TaekilReportResultView({
             ))}
           </div>
         )}
-        <div className="print-card bg-[#FBF8F2] border border-[#E5DFD4] rounded-2xl p-5 shadow-sm">
+        <div className="print-card print-card-flow bg-[#FBF8F2] border border-[#E5DFD4] rounded-2xl p-5 shadow-sm">
           <div className="flex items-center gap-2 mb-4 pb-3 border-b border-[#E5DFD4]">
             <span className="text-base">📅</span>
             <span className="text-xs font-medium text-[#6B6661] tracking-wide">프리미엄 택일 분석</span>

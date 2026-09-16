@@ -23,7 +23,7 @@ export function WuxingReportResultView({
   return (
     <div className="flex flex-col gap-4">
       <div className="print-area">
-        <div className="print-card">
+        <div className="print-card print-card-flow">
           <WuxingReport data={report} />
         </div>
         <PrintReportFooter />
