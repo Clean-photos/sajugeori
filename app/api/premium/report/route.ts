@@ -53,7 +53,7 @@ export async function GET(req: NextRequest) {
   // 동시 중복 생성(더블클릭 레이스) 차단 — 입력은 서버 저장된 profile이라 재입력 걱정은 없다.
   const started = await startAttempt(userId, PRODUCT_ID, undefined, { saju_profile_id: profile.id });
   if (!started.ok) {
-    return NextResponse.json({ error: started.error }, { status: started.status });
+    return NextResponse.json({ error: started.error, busy: started.busy ?? false }, { status: started.status });
   }
 
   // 구독자 또는 990원 1회 이용권 보유자만 신규 생성 가능
@@ -153,7 +153,7 @@ export async function POST(req: NextRequest) {
 
   const started = await startAttempt(userId, PRODUCT_ID, undefined, { birth_date: birthDate, birth_time: timeKey, gender });
   if (!started.ok) {
-    return NextResponse.json({ error: started.error }, { status: started.status });
+    return NextResponse.json({ error: started.error, busy: started.busy ?? false }, { status: started.status });
   }
 
   const { allowed, passId } = await checkReportAccess(userId, PRODUCT_ID);

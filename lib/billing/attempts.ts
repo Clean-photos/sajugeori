@@ -20,7 +20,7 @@ function isStale(updatedAt: string | null | undefined): boolean {
 
 export type StartAttemptResult =
   | { ok: true; attemptId: string | null; input: Record<string, unknown> }
-  | { ok: false; status: number; error: string };
+  | { ok: false; status: number; error: string; busy?: boolean };
 
 /**
  * 리포트 생성 시도를 시작한다 (결제-생성 원자성의 핵심).
@@ -52,7 +52,7 @@ export async function startAttempt(
         return { ok: false, status: 404, error: "재생성할 요청을 찾을 수 없습니다. 처음부터 다시 시도해주세요." };
       }
       if (data.status === "pending" && !isStale(data.updated_at)) {
-        return { ok: false, status: 409, error: "이미 생성 중입니다. 잠시 후 다시 시도해주세요." };
+        return { ok: false, status: 409, error: "이미 생성 중입니다. 잠시 후 다시 시도해주세요.", busy: true };
       }
       await supabaseAdmin
         .from("premium_generation_attempts")
@@ -86,7 +86,7 @@ export async function startAttempt(
           console.warn("[attempt_takeover]", JSON.stringify({ userId, productId, attemptId: stuck.id }));
           return { ok: true, attemptId: stuck.id, input: freshInput };
         }
-        return { ok: false, status: 409, error: "이미 생성 중입니다. 잠시 후 다시 시도해주세요." };
+        return { ok: false, status: 409, error: "이미 생성 중입니다. 잠시 후 다시 시도해주세요.", busy: true };
       }
       // 테이블 미생성 등 — 잠금 없이 통과(하위 호환)
       return { ok: true, attemptId: null, input: freshInput };
@@ -117,6 +117,27 @@ export async function finishAttemptFailed(attemptId: string | null, message: str
       .update({ status: "failed", error_message: message, updated_at: new Date().toISOString() })
       .eq("id", attemptId);
   } catch { /* noop */ }
+}
+
+/**
+ * 진행 중인 attempt의 updated_at을 지금 시각으로 갱신한다("아직 살아있음" 신호).
+ *
+ * 2026-09-16(CoS 동시 생성 충돌 재검증 후속): 여러 스텝에 걸쳐 진행되는 생성
+ * (운명 설계도처럼 폴링 한 번당 스텝 하나씩 진행하는 상품)은 startAttempt가
+ * updated_at을 처음 한 번만 찍고 이후 스텝에서는 손대지 않아, 전체 생성이
+ * STALE_PENDING_MS(90초)보다 오래 걸리면 실제로는 멀쩡히 진행 중인데도 "죽은
+ * 시도"로 오판되어 두 번째 탭이 같은 스텝을 동시에 또 실행할 수 있었다(중복
+ * LLM 호출·DB 쓰기 경합). 스텝을 시작할 때마다 이걸 호출해 살아있음을 갱신한다.
+ * attemptId가 없으면(테이블 미생성 등 하위 호환 경로) 아무 것도 하지 않는다.
+ */
+export async function touchAttempt(attemptId: string | null): Promise<void> {
+  if (!attemptId) return;
+  try {
+    await supabaseAdmin
+      .from("premium_generation_attempts")
+      .update({ updated_at: new Date().toISOString() })
+      .eq("id", attemptId).eq("status", "pending");
+  } catch { /* noop — 하트비트 실패는 치명적이지 않음(그래도 다음 스텝에서 재시도) */ }
 }
 
 /** 이용권 부족 등 '생성 시도'로 볼 수 없는 조기 반환 시 시도 기록을 정리한다. */

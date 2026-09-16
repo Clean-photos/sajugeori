@@ -86,7 +86,7 @@ export async function POST(req: NextRequest) {
     birth_date: input.birthDate, birth_time: timeKeyOf(input.birthTime), gender: input.gender,
   });
   if (!started.ok) {
-    return NextResponse.json({ error: started.error }, { status: started.status });
+    return NextResponse.json({ error: started.error, busy: started.busy ?? false }, { status: started.status });
   }
 
   // 신살이 6개 이상이면 전부 똑같이 자세히 쓰라고 하면 콜 하나의 소요 시간이

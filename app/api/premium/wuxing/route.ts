@@ -125,7 +125,7 @@ export async function POST(req: NextRequest) {
     birth_date: input.birthDate, birth_time: timeKeyOf(input.birthTime), gender: input.gender,
   });
   if (!started.ok) {
-    return NextResponse.json({ error: started.error }, { status: started.status });
+    return NextResponse.json({ error: started.error, busy: started.busy ?? false }, { status: started.status });
   }
 
   const { allowed, passId } = await checkReportAccess(userId, PRODUCT_ID);

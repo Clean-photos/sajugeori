@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
 
   const started = await startAttempt(userId, PRODUCT_ID, attemptId, body);
   if (!started.ok) {
-    return NextResponse.json({ error: started.error }, { status: started.status });
+    return NextResponse.json({ error: started.error, busy: started.busy ?? false }, { status: started.status });
   }
   const input = started.input;
 
