@@ -128,7 +128,10 @@ export default async function PremiumPage() {
               {[
                 ["4영역", "8영역"],
                 ["대운 ✕", "대운 ○"],
-                ["용신 ✕", "용신 ○"],
+                // 2026-09-16(CoS 실물 확인): 무료(/free/saju)도 용신을 안내한다
+                // (오행 하나만 단순 제시) — "용신 ✕"는 표기와 실제 동작이
+                // 어긋났다. 실제 차이인 "단순 제시 vs 억부·조후 병기"로 정정.
+                ["용신 (단순)", "용신 (억부·조후 병기)"],
                 ["다시보기 ✕", "1년간 다시보기 ○"],
               ].map((row, i) => (
                 <div key={i} className="grid grid-cols-2 text-center text-[13px] border-t border-[#E5DFD4]">
