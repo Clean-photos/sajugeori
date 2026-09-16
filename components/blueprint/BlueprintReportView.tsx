@@ -31,6 +31,25 @@ function Gauge({ label, value }: { label: string; value: number }) {
   );
 }
 
+// 2026-09-16(CEO 결정): 오행 분포 줄이 "토1.48 · 목2 · 수1 · 화3 · 금1.32"처럼
+// 소수점 숫자를 그대로 보여줘 이해하기 어렵다는 지적 — 지장간까지 반영한 근사
+// 가중치라 사용자가 셀 수 있는 "글자 개수"가 아니다. Gauge와 같은 막대 도표로
+// 바꾸고, 값은 이 사주 안에서 가장 강한 오행 대비 상대적 길이로 보여준다.
+function ElementBar({ label, value, max }: { label: string; value: number; max: number }) {
+  const pct = max > 0 ? Math.max(4, (value / max) * 100) : 0;
+  return (
+    <div>
+      <div className="flex justify-between text-xs text-[#6B6661] mb-0.5">
+        <span>{label}</span>
+        <span className="font-semibold text-[#1A1A18]">{value.toFixed(2)}</span>
+      </div>
+      <div className="h-2 rounded-full bg-[#E5DFD4] overflow-hidden">
+        <div className="h-full bg-[#1F3D34]" style={{ width: `${pct}%` }} />
+      </div>
+    </div>
+  );
+}
+
 function PillarCell({ label, stem, branch, tgStem, tgBranch }: {
   label: string; stem?: string; branch?: string; tgStem?: string; tgBranch?: string;
 }) {
@@ -151,9 +170,19 @@ export function BlueprintReportView({ report, showPrintButton = true }: { report
           <p className="text-xs text-[#6B6661] mt-3">
             일간 {facts.dayMaster} — 신강도: {facts.strengthVerdict}
           </p>
-          <p className="text-xs text-[#6B6661] mt-1">
-            오행: {(Object.entries(chart.elements) as [string, number][]).map(([e, v]) => `${C.ELEMENT_KR[e as keyof typeof C.ELEMENT_KR]}${v}`).join(" · ")}
-          </p>
+          <div className="mt-3 pt-3 border-t border-[#E5DFD4]">
+            <p className="text-xs text-[#6B6661] mb-2">오행 분포 — 이 오행이 사주 전체에서 실제로 얼마나 힘을 갖는지 근사치</p>
+            <div className="flex flex-col gap-1.5">
+              {C.ELEMENTS.map((e) => (
+                <ElementBar
+                  key={e}
+                  label={C.ELEMENT_KR[e]}
+                  value={chart.elements[e]}
+                  max={Math.max(...C.ELEMENTS.map((k) => chart.elements[k]))}
+                />
+              ))}
+            </div>
+          </div>
 
           {/* §0-2②(CoS 실물 재검증, 2026-09-10): "용신 토·금 / 기신 화·수" 한
               오행 단정 표기를 폐기하고 오행 리포트와 같은 억부·조후 병기로 —
