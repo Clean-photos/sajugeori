@@ -7,6 +7,7 @@ import { SajuInputForm, type SavedSaju } from "@/components/premium/SajuInputFor
 import { premiumErrorInfo, type PremiumErrorInfo } from "@/components/premium/premiumError";
 import { PremiumErrorBanner } from "@/components/premium/PremiumErrorBanner";
 import { TaekilReportResultView, type TaekilBestDate } from "@/components/premium/TaekilReportResultView";
+import { postWithBusyRetry } from "@/lib/premium/generate-with-retry";
 
 type Step = "form" | "loading" | "result" | "deleted";
 
@@ -56,28 +57,28 @@ export function TaekilForm({ saved }: { saved: SavedSaju }) {
     setTarget(t);
     setStep("loading");
     setError(null);
-    try {
-      const res = await fetch("/api/premium/taekil", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(regenerate && attemptId ? { attemptId, ...t } : { ...form, ...t }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setAttemptId(typeof data.attemptId === "string" ? data.attemptId : null);
-        setError(premiumErrorInfo(data, "분석에 실패했습니다. 입력하신 정보는 그대로 남아 있어요."));
+    const result = await postWithBusyRetry<{ report: string; best?: TaekilBestDate[]; id?: string; attemptId?: string }>(
+      "/api/premium/taekil",
+      regenerate && attemptId ? { attemptId, ...t } : { ...form, ...t },
+      { onRetry: () => setError({ message: "다른 창에서 이미 생성 중이에요. 자동으로 다시 확인하고 있어요..." }) }
+    );
+    if (!result.ok) {
+      if (result.status === 0) {
+        setError({ message: "네트워크 연결을 확인한 뒤 다시 시도해주세요." });
         setStep("form");
         return;
       }
-      setAttemptId(null);
-      setReport(cleanReportText(data.report));
-      setBest(data.best ?? []);
-      setReportId(typeof data.id === "string" ? data.id : null);
-      setStep("result");
-    } catch {
-      setError({ message: "네트워크 연결을 확인한 뒤 다시 시도해주세요." });
+      const data = result.data as { attemptId?: string };
+      setAttemptId(typeof data?.attemptId === "string" ? data.attemptId : null);
+      setError(premiumErrorInfo(result.data, "분석에 실패했습니다. 입력하신 정보는 그대로 남아 있어요."));
       setStep("form");
+      return;
     }
+    setAttemptId(null);
+    setReport(cleanReportText(result.data.report));
+    setBest(result.data.best ?? []);
+    setReportId(typeof result.data.id === "string" ? result.data.id : null);
+    setStep("result");
   }
 
   const canSubmit = form.range_from.length === 10 && form.range_to.length === 10;
@@ -129,7 +130,7 @@ export function TaekilForm({ saved }: { saved: SavedSaju }) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center gap-4 py-24">
         <div className="w-10 h-10 border-2 border-[#C8743A]/30 border-t-[#C8743A] rounded-full animate-spin" />
-        <p className="text-sm text-[#6B6661]">일진을 계산하고 있어요…</p>
+        <p className="text-sm text-[#6B6661]">{error?.message ?? "일진을 계산하고 있어요…"}</p>
         <p className="text-xs text-[#6B6661]/60">최대 1분 정도 걸릴 수 있어요</p>
         <WaitingCards />
       </div>

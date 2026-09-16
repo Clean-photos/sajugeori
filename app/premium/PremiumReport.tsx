@@ -13,6 +13,9 @@ import { Spinner } from "@/components/ui/Spinner";
 import { DESTINY_UPGRADE } from "@/lib/billing/plans";
 import { premiumErrorInfo, type PremiumErrorInfo } from "@/components/premium/premiumError";
 import { PremiumErrorBanner } from "@/components/premium/PremiumErrorBanner";
+import { getWithBusyRetry, postWithBusyRetry } from "@/lib/premium/generate-with-retry";
+
+const BUSY_MESSAGE: PremiumErrorInfo = { message: "다른 창에서 이미 생성 중이에요. 자동으로 다시 확인하고 있어요..." };
 
 const SECTIONS: { id: string; label: string; icon: string }[] = [
   { id: "personality", label: "타고난 성격·기질", icon: "🧠" },
@@ -72,47 +75,47 @@ export function PremiumReport({
   async function load(regenerate = false) {
     setError(null);
     if (regenerate) setRegenerating(true); else setLoading(true);
-    try {
-      const res = await fetch(`/api/premium/report${regenerate ? "?regenerate=1" : ""}`);
-      const data = await res.json();
-      if (!res.ok) {
-        setError(premiumErrorInfo(data, "불러오지 못했습니다."));
-        return;
-      }
-      const cleaned: Report = {};
-      for (const k of Object.keys(data.report ?? {})) cleaned[k] = cleanReportText(data.report[k]);
-      setReport(cleaned);
-    } catch {
-      setError({ message: "네트워크 연결을 확인한 뒤 다시 시도해주세요." });
-    } finally {
+    const result = await getWithBusyRetry<{ report?: Record<string, string> }>(
+      `/api/premium/report${regenerate ? "?regenerate=1" : ""}`,
+      { onRetry: () => setError(BUSY_MESSAGE) }
+    );
+    if (!result.ok) {
+      setError(result.status === 0
+        ? { message: "네트워크 연결을 확인한 뒤 다시 시도해주세요." }
+        : premiumErrorInfo(result.data, "불러오지 못했습니다."));
       setLoading(false);
       setRegenerating(false);
+      return;
     }
+    setError(null);
+    const reportData = result.data.report ?? {};
+    const cleaned: Report = {};
+    for (const k of Object.keys(reportData)) cleaned[k] = cleanReportText(reportData[k]);
+    setReport(cleaned);
+    setLoading(false);
+    setRegenerating(false);
   }
 
   /** 화면에서 입력한 사주로 풀이를 만든다. 저장 규칙은 서버가 판단한다. */
   async function submitSaju(v: { birth_date: string; birth_time: string | null; gender: string }) {
     setSubmitting(true);
     setError(null);
-    try {
-      const res = await fetch("/api/premium/report", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(v),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(premiumErrorInfo(data, "풀이를 만들지 못했습니다."));
-        setSubmitting(false);
-        return;
-      }
-      const cleaned: Report = {};
-      for (const k of Object.keys(data.report ?? {})) cleaned[k] = cleanReportText(data.report[k]);
-      setReport(cleaned);
-      setShowForm(false);
-    } catch {
-      setError({ message: "네트워크 연결을 확인한 뒤 다시 시도해주세요." });
+    const result = await postWithBusyRetry<{ report?: Record<string, string> }>(
+      "/api/premium/report", v, { onRetry: () => setError(BUSY_MESSAGE) }
+    );
+    if (!result.ok) {
+      setError(result.status === 0
+        ? { message: "네트워크 연결을 확인한 뒤 다시 시도해주세요." }
+        : premiumErrorInfo(result.data, "풀이를 만들지 못했습니다."));
+      setSubmitting(false);
+      return;
     }
+    setError(null);
+    const reportData = result.data.report ?? {};
+    const cleaned: Report = {};
+    for (const k of Object.keys(reportData)) cleaned[k] = cleanReportText(reportData[k]);
+    setReport(cleaned);
+    setShowForm(false);
     setSubmitting(false);
   }
 
@@ -144,7 +147,7 @@ export function PremiumReport({
     return (
       <div className="px-4 py-10 flex flex-col items-center gap-3">
         <div className="text-3xl animate-pulse">🔮</div>
-        <p className="text-sm text-[#6B6661]">사주를 깊이 있게 풀이하고 있어요...</p>
+        <p className="text-sm text-[#6B6661]">{error?.message ?? "사주를 깊이 있게 풀이하고 있어요..."}</p>
         <p className="text-xs text-[#9B968F]">처음 생성은 1분 정도 걸릴 수 있어요</p>
         <WaitingCards />
       </div>

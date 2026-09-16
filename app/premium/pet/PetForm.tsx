@@ -7,6 +7,7 @@ import { SajuInputForm, type SavedSaju } from "@/components/premium/SajuInputFor
 import { premiumErrorInfo, type PremiumErrorInfo } from "@/components/premium/premiumError";
 import { PremiumErrorBanner } from "@/components/premium/PremiumErrorBanner";
 import { PetReportResultView } from "@/components/premium/PetReportResultView";
+import { postWithBusyRetry } from "@/lib/premium/generate-with-retry";
 
 type Step = "form" | "loading" | "result" | "deleted";
 type Species = "dog" | "cat";
@@ -88,41 +89,39 @@ export function PetForm({ saved }: { saved: SavedSaju }) {
     setTarget(t);
     setStep("loading");
     setError(null);
-    try {
-      const res = await fetch("/api/premium/pet", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(
-          regenerate && attemptId
-            ? { attemptId, ...t }
-            : {
-                species,
-                petName: name.trim(),
-                petYear: yearNum,
-                petMonth: noMonth ? null : parseInt(month),
-                petDay: noMonth || !day ? null : parseInt(day),
-                ...t,
-              }
-        ),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setAttemptId(typeof data.attemptId === "string" ? data.attemptId : null);
-        setError(premiumErrorInfo(data, "분석에 실패했습니다. 입력하신 정보는 그대로 남아 있어요."));
+    const body = regenerate && attemptId
+      ? { attemptId, ...t }
+      : {
+          species,
+          petName: name.trim(),
+          petYear: yearNum,
+          petMonth: noMonth ? null : parseInt(month),
+          petDay: noMonth || !day ? null : parseInt(day),
+          ...t,
+        };
+    const result = await postWithBusyRetry<{ report: string; petName: string; pet: { zodiac: string; element: string }; attemptId?: string }>(
+      "/api/premium/pet", body,
+      { onRetry: () => setError({ message: "다른 창에서 이미 생성 중이에요. 자동으로 다시 확인하고 있어요..." }) }
+    );
+    if (!result.ok) {
+      if (result.status === 0) {
+        setError({ message: "네트워크 연결을 확인한 뒤 다시 시도해주세요." });
         setStep("form");
         return;
       }
-      setAttemptId(null);
-      setReport(cleanReportText(data.report));
-      setPetLabel(
-        `${data.petName} · ${data.pet.zodiac}띠 · ${data.pet.element}(${species === "cat" ? "고양이" : "강아지"})`
-      );
-      setStep("result");
-      clearDraft(); // 생성 성공 — 임시 저장한 초안은 더 이상 필요 없다.
-    } catch {
-      setError({ message: "네트워크 연결을 확인한 뒤 다시 시도해주세요." });
+      const data = result.data as { attemptId?: string };
+      setAttemptId(typeof data?.attemptId === "string" ? data.attemptId : null);
+      setError(premiumErrorInfo(result.data, "분석에 실패했습니다. 입력하신 정보는 그대로 남아 있어요."));
       setStep("form");
+      return;
     }
+    setAttemptId(null);
+    setReport(cleanReportText(result.data.report));
+    setPetLabel(
+      `${result.data.petName} · ${result.data.pet.zodiac}띠 · ${result.data.pet.element}(${species === "cat" ? "고양이" : "강아지"})`
+    );
+    setStep("result");
+    clearDraft(); // 생성 성공 — 임시 저장한 초안은 더 이상 필요 없다.
   }
 
   async function handleDelete() {
@@ -172,7 +171,7 @@ export function PetForm({ saved }: { saved: SavedSaju }) {
       <div className="flex-1 flex flex-col items-center justify-center gap-4 py-24">
         <div className="w-10 h-10 border-2 border-[#C8743A]/30 border-t-[#C8743A] rounded-full animate-spin" />
         <p className="text-sm text-[#6B6661]">
-          {name.trim() || "아이"}와의 궁합을 살펴보고 있어요…
+          {error?.message ?? `${name.trim() || "아이"}와의 궁합을 살펴보고 있어요…`}
         </p>
         <p className="text-xs text-[#6B6661]/60">최대 1분 정도 걸릴 수 있어요</p>
         <WaitingCards />

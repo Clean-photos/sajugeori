@@ -8,6 +8,7 @@ import { WaitingCards } from "@/components/premium/WaitingCards";
 import { SajuInputForm, type SavedSaju } from "@/components/premium/SajuInputForm";
 import { premiumErrorInfo, type PremiumErrorInfo } from "@/components/premium/premiumError";
 import { PremiumErrorBanner } from "@/components/premium/PremiumErrorBanner";
+import { postWithBusyRetry } from "@/lib/premium/generate-with-retry";
 
 type Step = "form" | "loading" | "result";
 
@@ -35,31 +36,26 @@ export function WuxingResultForm({ saved }: { saved: SavedSaju }) {
     setStep("loading");
     setError(null);
     setTarget(v);
-    try {
-      const res = await fetch("/api/premium/wuxing", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(v),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        // WUXING_ENABLED가 꺼져 있으면 404 — 결제 게이트를 통과했더라도(구독자 등)
-        // 아직 준비 중이라고 안내한다("생성 실패"로 보이면 버그처럼 읽힌다).
-        setError(
-          res.status === 404
-            ? { message: "아직 준비 중인 리포트입니다. 조금만 기다려 주세요." }
-            : premiumErrorInfo(data, "생성에 실패했습니다. 잠시 후 다시 시도해주세요.")
-        );
-        setStep("form");
-        return;
-      }
-      setReport(data.report as WuxingReportData);
-      setProfileId(typeof data.profileId === "string" ? data.profileId : null);
-      setStep("result");
-    } catch {
-      setError({ message: "네트워크 연결을 확인한 뒤 다시 시도해주세요." });
+    const result = await postWithBusyRetry<{ report: WuxingReportData; profileId?: string }>(
+      "/api/premium/wuxing", v,
+      { onRetry: () => setError({ message: "다른 창에서 이미 생성 중이에요. 자동으로 다시 확인하고 있어요..." }) }
+    );
+    if (!result.ok) {
+      // WUXING_ENABLED가 꺼져 있으면 404 — 결제 게이트를 통과했더라도(구독자 등)
+      // 아직 준비 중이라고 안내한다("생성 실패"로 보이면 버그처럼 읽힌다).
+      setError(
+        result.status === 404
+          ? { message: "아직 준비 중인 리포트입니다. 조금만 기다려 주세요." }
+          : result.status === 0
+            ? { message: "네트워크 연결을 확인한 뒤 다시 시도해주세요." }
+            : premiumErrorInfo(result.data, "생성에 실패했습니다. 잠시 후 다시 시도해주세요.")
+      );
       setStep("form");
+      return;
     }
+    setReport(result.data.report);
+    setProfileId(typeof result.data.profileId === "string" ? result.data.profileId : null);
+    setStep("result");
   }
 
   async function handleDelete() {
@@ -93,7 +89,7 @@ export function WuxingResultForm({ saved }: { saved: SavedSaju }) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center gap-4 py-24">
         <div className="w-10 h-10 border-2 border-[#C8743A]/30 border-t-[#C8743A] rounded-full animate-spin" />
-        <p className="text-sm text-[#6B6661]">오행 지도와 3년 처방을 준비하고 있어요…</p>
+        <p className="text-sm text-[#6B6661]">{error?.message ?? "오행 지도와 3년 처방을 준비하고 있어요…"}</p>
         <p className="text-xs text-[#6B6661]/60">최대 30초 정도 걸릴 수 있어요</p>
         <WaitingCards />
       </div>

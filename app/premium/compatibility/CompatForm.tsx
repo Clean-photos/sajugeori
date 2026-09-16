@@ -9,6 +9,7 @@ import { PremiumErrorBanner } from "@/components/premium/PremiumErrorBanner";
 import { CompatReportResultView } from "@/components/premium/CompatReportResultView";
 import { toSolar, type CalendarKind } from "@/lib/calendar/convert";
 import type { CompatPillarSummary } from "@/lib/premium/compat-pillars";
+import { postWithBusyRetry } from "@/lib/premium/generate-with-retry";
 
 type Step = "form" | "loading" | "result" | "deleted";
 
@@ -61,34 +62,34 @@ export function CompatForm({ saved }: { saved: SavedSaju }) {
     setTarget(t);
     setStep("loading");
     setError(null);
-    try {
-      const partnerPayload = {
-        partner_birth: partnerConv.solar,
-        partner_birth_time: partnerNoTime ? null : partnerTime || null,
-        partner_gender: form.partner_gender,
-        context: form.context,
-      };
-      const res = await fetch("/api/premium/compatibility", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(regenerate && attemptId ? { attemptId, ...t } : { ...partnerPayload, ...t }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setAttemptId(typeof data.attemptId === "string" ? data.attemptId : null);
-        setError(premiumErrorInfo(data, "분석에 실패했습니다. 입력하신 정보는 그대로 남아 있어요."));
+    const partnerPayload = {
+      partner_birth: partnerConv.solar,
+      partner_birth_time: partnerNoTime ? null : partnerTime || null,
+      partner_gender: form.partner_gender,
+      context: form.context,
+    };
+    const result = await postWithBusyRetry<{ report: string; score?: number; pillars?: { a: CompatPillarSummary; b: CompatPillarSummary }; attemptId?: string }>(
+      "/api/premium/compatibility",
+      regenerate && attemptId ? { attemptId, ...t } : { ...partnerPayload, ...t },
+      { onRetry: () => setError({ message: "다른 창에서 이미 생성 중이에요. 자동으로 다시 확인하고 있어요..." }) }
+    );
+    if (!result.ok) {
+      if (result.status === 0) {
+        setError({ message: "네트워크 연결을 확인한 뒤 다시 시도해주세요." });
         setStep("form");
         return;
       }
-      setAttemptId(null);
-      setReport(cleanReportText(data.report));
-      setScore(data.score ?? null);
-      setPillars(data.pillars ?? null);
-      setStep("result");
-    } catch {
-      setError({ message: "네트워크 연결을 확인한 뒤 다시 시도해주세요." });
+      const data = result.data as { attemptId?: string };
+      setAttemptId(typeof data?.attemptId === "string" ? data.attemptId : null);
+      setError(premiumErrorInfo(result.data, "분석에 실패했습니다. 입력하신 정보는 그대로 남아 있어요."));
       setStep("form");
+      return;
     }
+    setAttemptId(null);
+    setReport(cleanReportText(result.data.report));
+    setScore(result.data.score ?? null);
+    setPillars(result.data.pillars ?? null);
+    setStep("result");
   }
 
   const canSubmit = !!partnerConv?.ok && !!form.partner_gender;
@@ -140,7 +141,7 @@ export function CompatForm({ saved }: { saved: SavedSaju }) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center gap-4 py-24">
         <div className="w-10 h-10 border-2 border-[#C8743A]/30 border-t-[#C8743A] rounded-full animate-spin" />
-        <p className="text-sm text-[#6B6661]">두 사주를 맞춰보고 있어요…</p>
+        <p className="text-sm text-[#6B6661]">{error?.message ?? "두 사주를 맞춰보고 있어요…"}</p>
         <p className="text-xs text-[#6B6661]/60">최대 1분 정도 걸릴 수 있어요</p>
         <WaitingCards />
       </div>

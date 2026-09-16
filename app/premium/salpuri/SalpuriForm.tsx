@@ -7,6 +7,7 @@ import { SajuInputForm, type SavedSaju } from "@/components/premium/SajuInputFor
 import { premiumErrorInfo, type PremiumErrorInfo } from "@/components/premium/premiumError";
 import { PremiumErrorBanner } from "@/components/premium/PremiumErrorBanner";
 import { SalpuriReportResultView, type DetectedSal } from "@/components/premium/SalpuriReportResultView";
+import { postWithBusyRetry } from "@/lib/premium/generate-with-retry";
 
 type Step = "form" | "loading" | "result" | "deleted";
 
@@ -24,25 +25,20 @@ export function SalpuriForm({ saved }: { saved: SavedSaju }) {
     setStep("loading");
     setError(null);
     setTarget(v);
-    try {
-      const res = await fetch("/api/premium/salpuri", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(v),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(premiumErrorInfo(data, "분석에 실패했습니다. 잠시 후 다시 시도해주세요."));
-        setStep("form");
-        return;
-      }
-      setReport(cleanReportText(data.report));
-      setSal(data.sal ?? []);
-      setStep("result");
-    } catch {
-      setError({ message: "네트워크 연결을 확인한 뒤 다시 시도해주세요." });
+    const result = await postWithBusyRetry<{ report: string; sal?: DetectedSal[] }>(
+      "/api/premium/salpuri", v,
+      { onRetry: () => setError({ message: "다른 창에서 이미 생성 중이에요. 자동으로 다시 확인하고 있어요..." }) }
+    );
+    if (!result.ok) {
+      setError(result.status === 0
+        ? { message: "네트워크 연결을 확인한 뒤 다시 시도해주세요." }
+        : premiumErrorInfo(result.data, "분석에 실패했습니다. 잠시 후 다시 시도해주세요."));
       setStep("form");
+      return;
     }
+    setReport(cleanReportText(result.data.report));
+    setSal(result.data.sal ?? []);
+    setStep("result");
   }
 
   async function handleDelete() {
@@ -84,7 +80,7 @@ export function SalpuriForm({ saved }: { saved: SavedSaju }) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center gap-4 py-24">
         <div className="w-10 h-10 border-2 border-[#C8743A]/30 border-t-[#C8743A] rounded-full animate-spin" />
-        <p className="text-sm text-[#6B6661]">사주에 들어 있는 살을 찾고 있어요…</p>
+        <p className="text-sm text-[#6B6661]">{error?.message ?? "사주에 들어 있는 살을 찾고 있어요…"}</p>
         <p className="text-xs text-[#6B6661]/60">최대 1분 정도 걸릴 수 있어요</p>
         <WaitingCards />
       </div>
