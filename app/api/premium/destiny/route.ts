@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/db/client";
 import { checkDestinyAccess, consumeOneTimePass } from "@/lib/billing/access";
-import { startAttempt, finishAttemptDone, finishAttemptFailed, discardAttempt } from "@/lib/billing/attempts";
+import { startAttempt, finishAttemptDone, finishAttemptFailed, discardAttempt, touchAttempt } from "@/lib/billing/attempts";
 import { reportExpiresAtIso, notExpiredFilter } from "@/lib/billing/report-ttl";
 import { parseTargetBody, resolveTarget, ensureTargetProfileId, isoOf, loadOwnProfile } from "@/lib/billing/report-target";
 import { runBlueprintStep, type BlueprintPartial, type BlueprintResumeState, type BlueprintReport } from "@/lib/blueprint-engine/generate";
@@ -37,6 +37,19 @@ type Row = {
   regenerate_count: number;
 };
 
+/**
+ * 2026-09-16(동시 생성 충돌 조사 후속): startAttempt가 busy(다른 요청이 지금
+ * 이 스텝을 실제로 밟고 있음)를 돌려주면, 하드 에러로 끝내는 대신 "지금 아는
+ * 만큼의 진행 상태"를 generating으로 돌려준다 — 폴링 중인 클라이언트
+ * (DestinyReport.tsx의 driveSteps)는 이미 status==="generating"이면 잠시 후
+ * 다시 폴링하도록 되어 있어, 코드 변경 없이 그대로 기다렸다가 상대 요청이
+ * 끝나는 대로 이어받는다. 여기서 새로 스텝을 진행하지 않으므로 중복 LLM
+ * 호출도 없다.
+ */
+function pollableResponse(existing: Row | null) {
+  return NextResponse.json({ status: "generating", partial: existing?.content ?? {}, partsDone: existing?.parts_done ?? [] });
+}
+
 function resumeFrom(content: BlueprintPartial): BlueprintResumeState {
   return { chart: content.chart, facts: content.facts, narrative: content.narrative, overview: content.overview, axes: content.axes };
 }
@@ -63,6 +76,11 @@ async function runOneStep(params: {
   merged: BlueprintPartial; partsDone: string[]; regenerateCount: number;
 }) {
   const { profileId, attemptId, passId, iso, gender, hasHour, merged, partsDone, regenerateCount } = params;
+  // 2026-09-16(동시 생성 충돌 조사 후속): 이 스텝을 실제로 밟기 시작한다는
+  // "살아있음" 신호를 attempts 행에 남긴다 — 아래 폴링 분기의 startAttempt
+  // 재확인이, 다음 폴링이 언제 오든(전체 생성은 몇 분씩 걸린다) "지금 이
+  // 스텝이 진행 중"인지 정확히 판단하려면 이 하트비트가 필요하다.
+  await touchAttempt(attemptId);
   try {
     const result = await runBlueprintStep(resumeFrom(merged), iso, gender, hasHour);
     const nextMerged = mergePartial(merged, result.partial);
@@ -152,7 +170,10 @@ export async function GET(req: NextRequest) {
     // 이중 재생성(이중 과금은 아니지만 이중 원가 지출)을 막는다. 이용권은
     // 이미 소진된 상태이므로 여기서는 접근권 재확인·소진 없이 잠금만 빌린다.
     const started = await startAttempt(userId, PRODUCT_ID, undefined, { saju_profile_id: profile.id });
-    if (!started.ok) return NextResponse.json({ error: started.error }, { status: started.status });
+    if (!started.ok) {
+      if (started.busy) return pollableResponse(existing);
+      return NextResponse.json({ error: started.error, busy: false }, { status: started.status });
+    }
     await supabaseAdmin.from("blueprint_reports").update({
       status: "generating", content: {}, parts_done: [], error_message: null,
       attempt_id: started.attemptId, pass_id: null,
@@ -185,7 +206,10 @@ export async function GET(req: NextRequest) {
   // --- 실패했던 시도 이어가기: 접근권을 다시 확인하고 같은 attempt를 pending으로 되돌린다 ---
   if (existing?.status === "failed") {
     const started = await startAttempt(userId, PRODUCT_ID, existing.attempt_id ?? undefined, { saju_profile_id: profile.id });
-    if (!started.ok) return NextResponse.json({ error: started.error }, { status: started.status });
+    if (!started.ok) {
+      if (started.busy) return pollableResponse(existing);
+      return NextResponse.json({ error: started.error, busy: false }, { status: started.status });
+    }
     let passId = existing.pass_id;
     if (!passId) {
       const access = await checkDestinyAccess(userId);
@@ -205,16 +229,35 @@ export async function GET(req: NextRequest) {
   }
 
   // --- 진행 중인 생성 이어가기(폴링) ---
+  // 2026-09-16(동시 생성 충돌 조사 후속): 여기는 원래 잠금이 없었다 — 두 탭이
+  // 같은 순간에 폴링하면 둘 다 runOneStep을 부르고(중복 LLM 호출), 둘 다
+  // 같은 행에 결과를 덮어써 스텝이 꼬일 수 있었다. startAttempt로 같은
+  // attempt_id를 다시 "잠가" 본다 — 이미 남이 밟고 있으면(busy) 이번 요청은
+  // 스텝을 진행하지 않고 지금 상태만 그대로 돌려준다.
   if (existing?.status === "generating") {
+    const claimed = await startAttempt(userId, PRODUCT_ID, existing.attempt_id ?? undefined, { saju_profile_id: profile.id });
+    if (!claimed.ok) {
+      if (claimed.busy) return pollableResponse(existing);
+      // busy가 아닌 실패(예: attempt 행이 이미 없어짐)는 사실상 일어나지 않아야
+      // 정상이다 — 무한 폴링 루프로 사용자를 가두는 대신, 잠금 없이 진행하던
+      // 예전 동작으로 안전하게 폴백한다(최악의 경우도 지금까지의 동작과 같다).
+      return await runOneStep({
+        profileId: profile.id, attemptId: existing.attempt_id, passId: existing.pass_id,
+        iso, gender, hasHour, merged: existing.content, partsDone: existing.parts_done, regenerateCount: existing.regenerate_count,
+      });
+    }
     return await runOneStep({
-      profileId: profile.id, attemptId: existing.attempt_id, passId: existing.pass_id,
+      profileId: profile.id, attemptId: claimed.attemptId, passId: existing.pass_id,
       iso, gender, hasHour, merged: existing.content, partsDone: existing.parts_done, regenerateCount: existing.regenerate_count,
     });
   }
 
   // --- 최초 생성 시작 ---
   const started = await startAttempt(userId, PRODUCT_ID, undefined, { saju_profile_id: profile.id });
-  if (!started.ok) return NextResponse.json({ error: started.error }, { status: started.status });
+  if (!started.ok) {
+    if (started.busy) return pollableResponse(existing);
+    return NextResponse.json({ error: started.error, busy: false }, { status: started.status });
+  }
   const { allowed, passId } = await checkDestinyAccess(userId);
   if (!allowed) {
     await discardAttempt(started.attemptId);
