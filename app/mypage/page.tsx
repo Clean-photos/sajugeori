@@ -21,47 +21,57 @@ export default async function MypagePage() {
   if (loggedIn) {
     const userId = session!.user!.id!;
 
-    profile = await loadOwnProfile(userId, { withDisplay: true });
+    // 2026-09-17(CoS 실물 확인: 삭제 후 마이페이지 리다이렉트가 7~10초 걸림):
+    // 아래 5개(프로필·구독·단건결제·리포트 목록·계정 종류)가 전부 서로 무관한
+    // 독립 쿼리인데 하나씩 순서대로 await되고 있었다 — 마이페이지가 서버
+    // 컴포넌트라 이게 다 끝나야 페이지를 보낼 수 있어, "느린 리다이렉트"의
+    // 실체는 router.push가 아니라 이 함수 자체였다. 동시에 실행한다.
+    const [profileResult, subsResult, otpResult, reportsResult, userResult] = await Promise.all([
+      loadOwnProfile(userId, { withDisplay: true }),
+      supabaseAdmin
+        .from("subscriptions")
+        .select("plan, status, created_at")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false }),
+      (async () => {
+        try {
+          return await supabaseAdmin
+            .from("one_time_purchases")
+            .select("product_id, amount, status, used_at, created_at")
+            .eq("user_id", userId)
+            .order("created_at", { ascending: false });
+        } catch {
+          return { data: null }; // 테이블 없음 → 구독만 표시
+        }
+      })(),
+      listUserReports(String(userId)),
+      supabaseAdmin.from("users").select("oauth_provider").eq("id", userId).single(),
+    ]);
+
+    profile = profileResult;
 
     // 결제 내역은 구독(subscriptions)과 단건 이용권(one_time_purchases) 양쪽에 나뉘어
     // 있다. 예전에는 구독만 조회해서, 990원 단건을 결제한 사람은 결제 내역이
     // 비어 보였다(실측: 990원 2건 결제했는데 "결제 내역이 없습니다").
-    const { data: subs } = await supabaseAdmin
-      .from("subscriptions")
-      .select("plan, status, created_at")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false });
-    for (const s of subs ?? []) {
+    for (const s of subsResult.data ?? []) {
       payments.push({ label: s.plan ?? "프리미엄 구독", status: s.status, created_at: s.created_at });
     }
-
-    try {
-      const { data: otp } = await supabaseAdmin
-        .from("one_time_purchases")
-        .select("product_id, amount, status, used_at, created_at")
-        .eq("user_id", userId)
-        .order("created_at", { ascending: false });
-      for (const o of otp ?? []) {
-        const label = REPORT_PRODUCTS.find((r) => r.productId === o.product_id)?.label
-          ?? (DESTINY_PRODUCT_IDS.includes(o.product_id) ? "운명 설계도" : o.product_id);
-        payments.push({
-          label,
-          amount: o.amount,
-          status: o.status === "canceled" ? "환불" : o.used_at ? "사용함" : "미사용",
-          created_at: o.created_at,
-        });
-      }
-    } catch { /* 테이블 없음 → 구독만 표시 */ }
-
+    for (const o of otpResult.data ?? []) {
+      const label = REPORT_PRODUCTS.find((r) => r.productId === o.product_id)?.label
+        ?? (DESTINY_PRODUCT_IDS.includes(o.product_id) ? "운명 설계도" : o.product_id);
+      payments.push({
+        label,
+        amount: o.amount,
+        status: o.status === "canceled" ? "환불" : o.used_at ? "사용함" : "미사용",
+        created_at: o.created_at,
+      });
+    }
     payments.sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
 
     // 마이페이지 — 실제로 만들어 둔 리포트 목록. 어떤 걸 봤는지 여기서 바로 다시 열 수 있다.
-    reports = await listUserReports(String(userId));
+    reports = reportsResult;
 
-    const { data: u } = await supabaseAdmin
-      .from("users").select("oauth_provider")
-      .eq("id", userId).single();
-    isEmailAccount = u?.oauth_provider === "email";
+    isEmailAccount = userResult.data?.oauth_provider === "email";
   }
 
   return (

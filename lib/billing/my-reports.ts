@@ -143,128 +143,144 @@ export async function listUserReports(userId: string): Promise<MyReport[]> {
     return profileCache.get(id) ?? null;
   }
 
-  await Promise.all(
-    PROFILE_JOIN_SOURCES.map(async (s) => {
+  // 2026-09-17(CoS 실물 확인: 삭제 후 마이페이지 리다이렉트가 7~10초 걸림):
+  // 아래 5개 조회 블록(공용 소스 루프 + 궁합·펫·016·018)이 전부 서로 무관한
+  // 독립 쿼리인데도 하나씩 순서대로 await되고 있었다 — 리다이렉트가 느린 게
+  // 아니라 이 함수 자체가 "쿼리 8개를 차례로 기다리는" 구조였다(마이페이지가
+  // 서버 컴포넌트라 이 함수가 다 끝나야 페이지를 보낼 수 있다). 서로 데이터
+  // 의존이 없으므로 전부 하나의 Promise.all로 동시에 실행한다.
+  await Promise.all([
+    Promise.all(
+      PROFILE_JOIN_SOURCES.map(async (s) => {
+        try {
+          const cols = ["created_at", "saju_profile_id"];
+          if (s.idColumn === "id") cols.push("id");
+          if (s.hasYear) cols.push("year");
+          const { data, error } = await supabaseAdmin
+            .from(s.table)
+            .select(cols.join(", "))
+            .eq("user_id", userId)
+            .order("created_at", { ascending: false })
+            .limit(20);
+          if (error || !data) return;
+          for (const row of data as unknown as Record<string, unknown>[]) {
+            if (!row?.created_at) continue;
+            const p = await loadProfile(row.saju_profile_id as string | null);
+            out.push({
+              label: s.label, href: s.href, created_at: row.created_at as string,
+              target: p ? formatTarget(p.birth_date, p.gender, p.calendar) : null,
+              id: (s.idColumn === "id" ? (row.id as string | null) : (row.saju_profile_id as string | null)) ?? null,
+              year: s.hasYear ? ((row.year as number | null) ?? null) : null,
+              adhocId: null,
+            });
+          }
+        } catch {
+          /* 테이블 없음·권한 없음 → 이 항목만 건너뛴다 */
+        }
+      })
+    ),
+
+    // 궁합(011)은 person_a_birth/gender를 이미 직접 들고 있어 join이 필요 없다.
+    // §1(CoS 결정 2026-09-08): 프로필당 여러 행(상대·관계유형 조합별)이라 이
+    // 테이블 자체의 PK(id)를 열람 라우트 식별자로 쓴다(택일·펫과 동일 이유).
+    (async () => {
       try {
-        const cols = ["created_at", "saju_profile_id"];
-        if (s.idColumn === "id") cols.push("id");
-        if (s.hasYear) cols.push("year");
-        const { data, error } = await supabaseAdmin
-          .from(s.table)
-          .select(cols.join(", "))
+        const { data } = await supabaseAdmin
+          .from("premium_compatibility_reports")
+          .select("id, created_at, person_a_birth, person_a_gender")
           .eq("user_id", userId)
           .order("created_at", { ascending: false })
           .limit(20);
-        if (error || !data) return;
-        for (const row of data as unknown as Record<string, unknown>[]) {
+        for (const row of data ?? []) {
           if (!row?.created_at) continue;
-          const p = await loadProfile(row.saju_profile_id as string | null);
           out.push({
-            label: s.label, href: s.href, created_at: row.created_at as string,
-            target: p ? formatTarget(p.birth_date, p.gender, p.calendar) : null,
-            id: (s.idColumn === "id" ? (row.id as string | null) : (row.saju_profile_id as string | null)) ?? null,
-            year: s.hasYear ? ((row.year as number | null) ?? null) : null,
+            label: "프리미엄 궁합", href: "/premium/compatibility", created_at: row.created_at,
+            target: row.person_a_birth ? formatTarget(row.person_a_birth, row.person_a_gender) : null,
+            id: row.id ?? null,
+            year: null,
             adhocId: null,
           });
         }
-      } catch {
-        /* 테이블 없음·권한 없음 → 이 항목만 건너뛴다 */
-      }
-    })
-  );
+      } catch { /* noop */ }
+    })(),
 
-  // 궁합(011)은 person_a_birth/gender를 이미 직접 들고 있어 join이 필요 없다.
-  // §1(CoS 결정 2026-09-08): 프로필당 여러 행(상대·관계유형 조합별)이라 이
-  // 테이블 자체의 PK(id)를 열람 라우트 식별자로 쓴다(택일·펫과 동일 이유).
-  try {
-    const { data } = await supabaseAdmin
-      .from("premium_compatibility_reports")
-      .select("id, created_at, person_a_birth, person_a_gender")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false })
-      .limit(20);
-    for (const row of data ?? []) {
-      if (!row?.created_at) continue;
-      out.push({
-        label: "프리미엄 궁합", href: "/premium/compatibility", created_at: row.created_at,
-        target: row.person_a_birth ? formatTarget(row.person_a_birth, row.person_a_gender) : null,
-        id: row.id ?? null,
-        year: null,
-        adhocId: null,
-      });
-    }
-  } catch { /* noop */ }
+    // 반려동물(premium_pet_reports) — §6-6(CoS 실물 확인, 2026-09-16): 목록에
+    // 집사 생년월일만 나와 반려동물을 여러 마리 등록하면 구분이 안 됐다.
+    // pet_name을 label에 붙여 한눈에 구분되게 한다(idColumn="id"라 프로필당
+    // 여러 행이 나올 수 있는 것과 같은 이유 — 아이마다 별도 행).
+    (async () => {
+      try {
+        const { data } = await supabaseAdmin
+          .from("premium_pet_reports")
+          .select("id, created_at, saju_profile_id, pet_name, species")
+          .eq("user_id", userId)
+          .order("created_at", { ascending: false })
+          .limit(20);
+        for (const row of data ?? []) {
+          if (!row?.created_at) continue;
+          const p = await loadProfile(row.saju_profile_id as string | null);
+          const speciesKr = row.species === "cat" ? "고양이" : "강아지";
+          out.push({
+            label: row.pet_name ? `반려동물 궁합 · ${row.pet_name}(${speciesKr})` : "반려동물 궁합",
+            href: "/premium/pet", created_at: row.created_at,
+            target: p ? formatTarget(p.birth_date, p.gender, p.calendar) : null,
+            id: row.id ?? null,
+            year: null,
+            adhocId: null,
+          });
+        }
+      } catch { /* noop */ }
+    })(),
 
-  // 반려동물(premium_pet_reports) — §6-6(CoS 실물 확인, 2026-09-16): 목록에
-  // 집사 생년월일만 나와 반려동물을 여러 마리 등록하면 구분이 안 됐다.
-  // pet_name을 label에 붙여 한눈에 구분되게 한다(idColumn="id"라 프로필당
-  // 여러 행이 나올 수 있는 것과 같은 이유 — 아이마다 별도 행).
-  try {
-    const { data } = await supabaseAdmin
-      .from("premium_pet_reports")
-      .select("id, created_at, saju_profile_id, pet_name, species")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false })
-      .limit(20);
-    for (const row of data ?? []) {
-      if (!row?.created_at) continue;
-      const p = await loadProfile(row.saju_profile_id as string | null);
-      const speciesKr = row.species === "cat" ? "고양이" : "강아지";
-      out.push({
-        label: row.pet_name ? `반려동물 궁합 · ${row.pet_name}(${speciesKr})` : "반려동물 궁합",
-        href: "/premium/pet", created_at: row.created_at,
-        target: p ? formatTarget(p.birth_date, p.gender, p.calendar) : null,
-        id: row.id ?? null,
-        year: null,
-        adhocId: null,
-      });
-    }
-  } catch { /* noop */ }
+    // 016 — 프리미엄 사주 직접 입력(1회성 캐시). birth_date/gender를 직접 들고 있다.
+    (async () => {
+      try {
+        const { data } = await supabaseAdmin
+          .from("premium_saju_adhoc_reports")
+          .select("created_at, birth_date, birth_time, gender")
+          .eq("user_id", userId)
+          .order("created_at", { ascending: false })
+          .limit(20);
+        for (const row of data ?? []) {
+          if (!row?.created_at) continue;
+          out.push({
+            label: "프리미엄 사주 (직접 입력)", href: "/premium", created_at: row.created_at,
+            target: row.birth_date ? formatTarget(row.birth_date, row.gender) : null,
+            id: null, // 016(직접입력) 전용 열람 라우트가 아직 없다 — 정적 href로 폴백.
+            year: null,
+            adhocId: null,
+          });
+        }
+      } catch { /* noop */ }
+    })(),
 
-  // 016 — 프리미엄 사주 직접 입력(1회성 캐시). birth_date/gender를 직접 들고 있다.
-  try {
-    const { data } = await supabaseAdmin
-      .from("premium_saju_adhoc_reports")
-      .select("created_at, birth_date, birth_time, gender")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false })
-      .limit(20);
-    for (const row of data ?? []) {
-      if (!row?.created_at) continue;
-      out.push({
-        label: "프리미엄 사주 (직접 입력)", href: "/premium", created_at: row.created_at,
-        target: row.birth_date ? formatTarget(row.birth_date, row.gender) : null,
-        id: null, // 016(직접입력) 전용 열람 라우트가 아직 없다 — 정적 href로 폴백.
-        year: null,
-        adhocId: null,
-      });
-    }
-  } catch { /* noop */ }
-
-  // 018 — 전 상품 공통 "가족·지인 대상" 1회성 캐시. 지금까지 이 함수가 조회하지
-  // 않아 마이페이지에서 통째로 안 보였다(위 주석 참고, §3 점검 중 발견).
-  try {
-    const { data } = await supabaseAdmin
-      .from("premium_adhoc_reports")
-      .select("id, created_at, product_id, birth_date, birth_time, gender")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false })
-      .limit(50);
-    for (const row of data ?? []) {
-      if (!row?.created_at) continue;
-      const meta = ADHOC_PRODUCT_MAP[row.product_id as string];
-      if (!meta) continue; // 모르는 product_id는 목록을 깨뜨리느니 건너뛴다
-      out.push({
-        label: meta.label, href: meta.href, created_at: row.created_at,
-        target: row.birth_date ? formatTarget(row.birth_date, row.gender) : null,
-        id: null,
-        year: null,
-        // §0-2⑥: 오행만 전용 소급 라우트(/premium/ohang/adhoc/[id])가 있다.
-        // 나머지 상품은 아직 없어 정적 href로 폴백한다(다음 회차로 이월).
-        adhocId: row.product_id === "wuxing_one" ? (row.id as string) : null,
-      });
-    }
-  } catch { /* noop */ }
+    // 018 — 전 상품 공통 "가족·지인 대상" 1회성 캐시. 지금까지 이 함수가 조회하지
+    // 않아 마이페이지에서 통째로 안 보였다(위 주석 참고, §3 점검 중 발견).
+    (async () => {
+      try {
+        const { data } = await supabaseAdmin
+          .from("premium_adhoc_reports")
+          .select("id, created_at, product_id, birth_date, birth_time, gender")
+          .eq("user_id", userId)
+          .order("created_at", { ascending: false })
+          .limit(50);
+        for (const row of data ?? []) {
+          if (!row?.created_at) continue;
+          const meta = ADHOC_PRODUCT_MAP[row.product_id as string];
+          if (!meta) continue; // 모르는 product_id는 목록을 깨뜨리느니 건너뛴다
+          out.push({
+            label: meta.label, href: meta.href, created_at: row.created_at,
+            target: row.birth_date ? formatTarget(row.birth_date, row.gender) : null,
+            id: null,
+            year: null,
+            // §0-2⑥: 오행만 전용 소급 라우트(/premium/ohang/adhoc/[id])가 있다.
+            // 나머지 상품은 아직 없어 정적 href로 폴백한다(다음 회차로 이월).
+            adhocId: row.product_id === "wuxing_one" ? (row.id as string) : null,
+          });
+        }
+      } catch { /* noop */ }
+    })(),
+  ]);
 
   return out.sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
 }
