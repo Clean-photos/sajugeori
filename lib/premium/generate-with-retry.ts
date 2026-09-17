@@ -13,18 +13,33 @@
  * 한다. 새 LLM 호출을 만들어내지 않는다 — 매 재시도도 startAttempt를 다시
  * 타므로, A가 아직 진행 중이면 여전히 busy로 막히고 재시도만 반복된다.
  */
+import { trackEvent } from "@/lib/analytics";
+
 export type GenerateRetryResult<T> =
   | { ok: true; data: T }
   | { ok: false; data: unknown; status: number };
 
 const RETRY_INTERVAL_MS = 4000;
 
+/**
+ * §1(CoS 실물 확인, 2026-09-16): report_generated/generation_failed 이벤트가
+ * 하나도 안 나가, "결제됐는데 생성만 실패하는" 비율(환불·CS 직결)을 알 방법이
+ * 없었다. 7개 상품(사주·궁합·반려동물·택일·연운세·살풀이·오행)이 전부 이
+ * 래퍼 하나를 공유하므로, 각 상품 폼을 따로 건드리지 않고 여기 한 곳에서
+ * 계측한다 — item_id는 URL 경로에서 뽑는다(/api/premium/{product}).
+ */
+function productIdFromUrl(url: string): string {
+  return url.match(/\/api\/premium\/([a-z]+)/)?.[1] ?? "unknown";
+}
+
 async function requestWithBusyRetry<T>(
+  url: string,
   doFetch: () => Promise<Response>,
   opts?: { maxWaitMs?: number; onRetry?: (attempt: number) => void }
 ): Promise<GenerateRetryResult<T>> {
   const maxWaitMs = opts?.maxWaitMs ?? 90_000;
   const start = Date.now();
+  const itemId = productIdFromUrl(url);
   let attempt = 0;
 
   for (;;) {
@@ -32,6 +47,7 @@ async function requestWithBusyRetry<T>(
     try {
       res = await doFetch();
     } catch {
+      trackEvent("generation_failed", { item_id: itemId, reason: "network_error" });
       return { ok: false, data: null, status: 0 };
     }
 
@@ -42,7 +58,10 @@ async function requestWithBusyRetry<T>(
       // 본문이 없거나 JSON이 아님 — 아래에서 res.ok로만 판단.
     }
 
-    if (res.ok) return { ok: true, data: data as T };
+    if (res.ok) {
+      trackEvent("report_generated", { item_id: itemId, duration_ms: Date.now() - start });
+      return { ok: true, data: data as T };
+    }
 
     const busy = res.status === 409 && (data as { busy?: boolean } | null)?.busy === true;
     if (busy && Date.now() - start + RETRY_INTERVAL_MS < maxWaitMs) {
@@ -51,6 +70,8 @@ async function requestWithBusyRetry<T>(
       await new Promise((r) => setTimeout(r, RETRY_INTERVAL_MS));
       continue;
     }
+    const reason = (data as { error?: string } | null)?.error ?? `http_${res.status}`;
+    trackEvent("generation_failed", { item_id: itemId, reason });
     return { ok: false, data, status: res.status };
   }
 }
@@ -61,6 +82,7 @@ export function postWithBusyRetry<T = unknown>(
   opts?: { maxWaitMs?: number; onRetry?: (attempt: number) => void }
 ): Promise<GenerateRetryResult<T>> {
   return requestWithBusyRetry<T>(
+    url,
     () => fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
     opts
   );
@@ -70,5 +92,5 @@ export function getWithBusyRetry<T = unknown>(
   url: string,
   opts?: { maxWaitMs?: number; onRetry?: (attempt: number) => void }
 ): Promise<GenerateRetryResult<T>> {
-  return requestWithBusyRetry<T>(() => fetch(url), opts);
+  return requestWithBusyRetry<T>(url, () => fetch(url), opts);
 }

@@ -7,6 +7,7 @@ import { DeleteReportButton } from "@/components/premium/DeleteReportButton";
 import { WaitingCards } from "@/components/premium/WaitingCards";
 import { SajuInputForm, type SavedSaju } from "@/components/premium/SajuInputForm";
 import { Spinner } from "@/components/ui/Spinner";
+import { trackEvent } from "@/lib/analytics";
 
 type ApiState =
   | { status: "loading" }
@@ -68,12 +69,25 @@ export function DestinyReport({ saved, hasOwnReport = false }: { saved: SavedSaj
     runningRef.current = true;
     setBusy(true);
     const base = targetQuery(t);
+    // §1(CoS 실물 확인, 2026-09-16): report_generated/generation_failed가
+    // 하나도 안 나가 "결제됐는데 생성만 실패하는" 비율을 알 방법이 없었다.
+    // 폴링(스텝 여러 번)이 최종 상태(done/failed/error)에 도달할 때 1회만
+    // 보낸다 — 중간 "generating" 스텝마다 보내면 이벤트가 부풀려진다.
+    const start = Date.now();
     try {
       let next = await fetchOnce(extra ? `${base}&${extra}` : base);
       setState(next);
       while (next.status === "generating") {
         next = await fetchOnce(base);
         setState(next);
+      }
+      if (next.status === "done") {
+        trackEvent("report_generated", { item_id: "destiny", duration_ms: Date.now() - start });
+      } else if (next.status === "failed" || next.status === "error") {
+        trackEvent("generation_failed", {
+          item_id: "destiny",
+          reason: next.status === "failed" ? next.error : next.message,
+        });
       }
     } finally {
       runningRef.current = false;

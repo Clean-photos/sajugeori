@@ -2,7 +2,8 @@
 
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { REPORT_PRODUCTS, BUNDLE_CREDITS, DESTINY_PRODUCT_IDS } from "@/lib/billing/plans";
+import { REPORT_PRODUCTS, BUNDLE_CREDITS, DESTINY_PRODUCT_IDS, getPlan } from "@/lib/billing/plans";
+import { trackEvent } from "@/lib/analytics";
 
 /** 결제한 상품에 맞는 완료 화면 문구와 이동 경로. 구독은 더 이상 판매하지 않지만
  *  기존 구독자의 갱신 결제가 들어올 수 있어 fallback을 남긴다. */
@@ -80,6 +81,15 @@ function SuccessInner() {
           }
           return;
         }
+        // §1(CoS 실물 확인, 2026-09-16): purchase 이벤트가 전혀 안 나가 GA4
+        // 총수익이 항상 ₩0으로 잡혔다 — 결제가 실제로 확정된 이 지점(res.ok)
+        // 에서만 보낸다(재시도·실패 케이스는 여기 안 옴 = 중복·오탐 없음).
+        trackEvent("purchase", {
+          transaction_id: orderId,
+          value: Number(amount),
+          currency: "KRW",
+          items: [{ item_id: planId, item_name: getPlan(planId)?.name ?? planId }],
+        });
         setState("done");
       } catch {
         setState("error");

@@ -6,6 +6,7 @@ import { getPlan, REPORT_PRODUCTS, DESTINY_BLUEPRINT_ONE } from "@/lib/billing/p
 import { Spinner } from "@/components/ui/Spinner";
 import { LaunchNotifyForm } from "@/components/premium/LaunchNotifyForm";
 import { CouponForm } from "@/components/premium/CouponForm";
+import { trackEvent } from "@/lib/analytics";
 
 // Toss "기존 결제창"(API 개별연동, v1) SDK 타입 (최소).
 // 이 계정은 API 개별연동 상품이 자동결제(빌링)·기존 결제창·정산지급대행·
@@ -46,6 +47,14 @@ export function BuyClient({ planId, returnTo }: { planId: string; returnTo: stri
   const tossRef = useRef<TossPaymentsV1 | null>(null);
 
   const plan = getPlan(planId);
+
+  // §1(CoS 실물 확인, 2026-09-16): begin_checkout이 안 나가 결제 시작 단계
+  // 자체를 GA4에서 볼 수 없었다. 결제 가능 여부와 무관하게 이 화면에
+  // 도달한 시점(구매 의사)을 잡는다.
+  useEffect(() => {
+    trackEvent("begin_checkout", { item_id: planId, value: plan?.amount, currency: "KRW" });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 마운트 시 1회만
+  }, []);
 
   useEffect(() => {
     if (!PAYMENTS_ENABLED) {
