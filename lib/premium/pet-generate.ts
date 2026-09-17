@@ -1,4 +1,6 @@
 import type { petCompatibility, PET_BRANCH_HINT, PET_FLOW_HINT } from "@/lib/saju-engine";
+import type { SajuChart } from "@/lib/saju-engine/engine";
+import { buildYongsinDualTrack, yongsinDualTrackPromptLine } from "@/lib/premium/yongsin-track";
 
 // 단일 호출(7500토큰)로 실측 79.6초가 나와 Vercel Hobby의 60초 상한을 넘긴다
 // (2026-08-11 실측). compat/salpuri/taekil과 같은 이유로 병렬 2콜로 쪼갠다.
@@ -10,6 +12,7 @@ type Facts = ReturnType<typeof petCompatibility>;
 const COMMON_RULES = `
 규칙:
 - 반드시 위 데이터에 근거. 없는 사실(구체적 사건·수명·질병·품종 등) 지어내기 금지.
+- §확인(2026-09-17 실물 확인): "기운 보완"에 도드라지는 오행이 없다고 데이터에 나와 있으면, 오행 흐름(상극 관계 포함)을 설명할 때 "보완한다·채워 준다·도와준다·기운이 살아난다" 같은 표현을 쓰지 말 것 — 특히 아이가 주인을 극(克)하는 관계(예: 火가 金을 극함)일 때, 그 오행이 마치 주인에게 필요한 기운을 더해 주는 것처럼 쓰면 실제와 반대되는 조언(예: 燥熱한 사주에 火를 권하는 것)이 된다. 이 경우 "기운 보완"이 아니라 애교·성격 궁합 결로만 풀어 쓸 것(둘의 관계 힌트에 이미 그런 방향이 주어져 있다).
 - 반려동물 궁합이므로 부정적 판정·경고·불안 조장 절대 금지. 충·해가 있어도 사랑스러운 긍정으로 풀 것.
 - 겁주기, 부적·굿 등 금전 지출 암시 금지.
 - 따뜻하고 다정한 존댓말. 이모지 사용 금지.
@@ -41,9 +44,11 @@ async function callText(prompt: string, maxTokens: number): Promise<string> {
 
 function buildEngineSummary(
   facts: Facts, petName: string,
-  branchHint: typeof PET_BRANCH_HINT, flowHint: typeof PET_FLOW_HINT
+  branchHint: typeof PET_BRANCH_HINT, flowHint: typeof PET_FLOW_HINT,
+  ownerYongsin: Pick<SajuChart, "yongsin">
 ): string {
   const sp = facts.speciesInfo;
+  const yongsinLine = yongsinDualTrackPromptLine(buildYongsinDualTrack(ownerYongsin));
   return `
 [반려동물]
 이름: ${petName} (${sp.label})
@@ -56,6 +61,7 @@ ${sp.label}가 애정을 드러내는 방식: ${sp.loveSigns.join(", ")}
 
 [주인]
 일간 ${facts.owner.dayMaster} (오행 ${facts.owner.element}) / ${facts.owner.strength}
+${yongsinLine}
 
 [둘의 관계 — 아래 힌트에 근거해 서술할 것]
 띠 관계: ${branchHint[facts.relation.branch]}
@@ -83,10 +89,11 @@ ${facts.lifestyle.shared
 /** 반려동물 궁합 데이터로 프리미엄 리포트 전문을 생성한다. */
 export async function generatePetReport(
   facts: Facts, petName: string,
-  branchHint: typeof PET_BRANCH_HINT, flowHint: typeof PET_FLOW_HINT
+  branchHint: typeof PET_BRANCH_HINT, flowHint: typeof PET_FLOW_HINT,
+  ownerYongsin: Pick<SajuChart, "yongsin">
 ): Promise<string> {
   const sp = facts.speciesInfo;
-  const engineSummary = buildEngineSummary(facts, petName, branchHint, flowHint);
+  const engineSummary = buildEngineSummary(facts, petName, branchHint, flowHint, ownerYongsin);
   const otherSpeciesNote = facts.species === "cat"
     ? "산책 줄을 매고 함께 걷기, 현관에서 꼬리 흔들며 반기기 등"
     : "캣타워에 오르기, 골골 소리 내기 등";
@@ -119,7 +126,7 @@ ${engineSummary}
 반드시 ${sp.label}다운 장면으로 묘사하세요. 위 '${sp.label}의 행동 심리'에 나온 습성과 애정 표현 방식을 사주의 기운과 엮어 서술하고, 다른 종의 행동(${otherSpeciesNote})은 쓰지 마세요.
 
 【 집사님의 사주 】
-주인의 일간·오행·강약을 근거로 8~10문장의 충실한 분석을 쓰세요. 타고난 기질과 성향, 사람을 대하는 방식, 어떤 상황에서 힘을 얻고 어떤 상황에서 지치는지, 신강·신약이 일상에서 어떻게 드러나는지를 차근차근 풀어 주세요. 그리고 그런 집사님이 왜 반려동물과 함께 사는 삶에 잘 어울리는지, 아이를 어떤 방식으로 사랑하는 사람인지까지 이어서 서술해 주세요.
+주인의 일간·오행·강약을 근거로 8~10문장의 충실한 분석을 쓰세요. 타고난 기질과 성향, 사람을 대하는 방식, 어떤 상황에서 힘을 얻고 어떤 상황에서 지치는지, 신강·신약이 일상에서 어떻게 드러나는지를 차근차근 풀어 주세요. 위 [주인] 데이터의 억부·조후 용신 병기 줄을 반영해, 집사님에게 필요한 기운이 무엇인지도 짚어 주세요(다른 상품과 같은 원칙 — 한 오행만 단정하지 말고 병기할 것). 그리고 그런 집사님이 왜 반려동물과 함께 사는 삶에 잘 어울리는지, 아이를 어떤 방식으로 사랑하는 사람인지까지 이어서 서술해 주세요.
 ${tail}`, 3400),
 
     callText(`${head}
