@@ -58,8 +58,9 @@ export async function POST(req: NextRequest) {
   }
 
   let facts;
+  let owner: ReturnType<typeof buildChart>;
   try {
-    const owner = buildChart(isoOf(target), target.gender, !!target.birthTime);
+    owner = buildChart(isoOf(target), target.gender, !!target.birthTime);
     facts = petCompatibility(owner, { species, petYear, petMonth, petDay, petName });
   } catch (e) {
     console.error("premium pet engine error:", e);
@@ -105,7 +106,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const report = await generatePetReport(facts, petName, PET_BRANCH_HINT, PET_FLOW_HINT);
+    const report = await generatePetReport(facts, petName, PET_BRANCH_HINT, PET_FLOW_HINT, owner);
     // 캐시 저장 (테이블 없으면 무시)
     if (isAdhoc) {
       // 1회성 — 본인 프로필도, 본인 리포트 캐시도 건드리지 않는다.
