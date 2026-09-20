@@ -163,7 +163,10 @@ export async function POST(req: NextRequest) {
         try {
           // §1(CoS 결정 2026-09-08): 생성된 행의 id를 돌려줘야 "보기 →"가
           // /premium/compatibility/{id}로 연결할 수 있다.
-          const { data: inserted } = await supabaseAdmin.from("premium_compatibility_reports").insert(row).select("id").single();
+          const { data: inserted, error: insertErr } = await supabaseAdmin.from("premium_compatibility_reports").insert(row).select("id").single();
+          // supabase-js는 실패해도 예외를 던지지 않고 { error }로 돌려준다 — 그대로 두면 아래 catch 폴백이
+          // 한 번도 실행되지 않고 저장 유실이 조용히 지나간다. 던져서 폴백을 실제로 태운다.
+          if (insertErr) throw insertErr;
           savedId = inserted?.id ?? null;
         } catch (e) {
           // §7-1 재검증(2026-09-13 실물 확인): 마이그레이션 020(partner_birth_time
@@ -177,7 +180,8 @@ export async function POST(req: NextRequest) {
           try {
             const { partner_birth_time: _drop, ...rowWithoutTime } = row;
             void _drop;
-            const { data: inserted } = await supabaseAdmin.from("premium_compatibility_reports").insert(rowWithoutTime).select("id").single();
+            const { data: inserted, error: insertErr2 } = await supabaseAdmin.from("premium_compatibility_reports").insert(rowWithoutTime).select("id").single();
+            if (insertErr2) throw insertErr2;
             savedId = inserted?.id ?? null;
           } catch (e2) {
             console.error("궁합 저장 2차 실패, 캐시 없이 리포트만 반환:", e2);

@@ -130,18 +130,13 @@ export async function listUserReports(userId: string): Promise<MyReport[]> {
 
   // saju_profile_id로 저장된 리포트들 — 같은 사용자가 과거에 여러 번 재등록했다면
   // 서로 다른 profile row를 가리킬 수 있다(재등록은 INSERT라 옛 row가 남는다).
-  // id별로 한 번만 조회해 재사용한다.
-  type ProfileRow = { birth_date: string; birth_time: string | null; gender: string; calendar: string };
-  const profileCache = new Map<string, ProfileRow | null>();
-  async function loadProfile(id: string | null | undefined): Promise<ProfileRow | null> {
-    if (!id) return null;
-    if (!profileCache.has(id)) {
-      const { data } = await supabaseAdmin
-        .from("saju_profiles").select("birth_date, birth_time, gender, calendar").eq("id", id).maybeSingle();
-      profileCache.set(id, data ?? null);
-    }
-    return profileCache.get(id) ?? null;
-  }
+  // 대상 사주 표시(target)는 각 소스 조회가 끝난 뒤 profile id를 모아 한 번에 읽는다 —
+  // 예전엔 행마다 순서대로 await해 왕복이 리포트 수만큼 늘었다(2026-09-19 마이페이지 4.6초 후속).
+  type ProfileRow = { id: string; birth_date: string; birth_time: string | null; gender: string; calendar: string };
+  const profileIdOf = new Map<MyReport, string>();
+  const remember = (r: MyReport, profileId: unknown) => {
+    if (typeof profileId === "string" && profileId) profileIdOf.set(r, profileId);
+  };
 
   // 2026-09-17(CoS 실물 확인: 삭제 후 마이페이지 리다이렉트가 7~10초 걸림):
   // 아래 5개 조회 블록(공용 소스 루프 + 궁합·펫·016·018)이 전부 서로 무관한
@@ -165,14 +160,15 @@ export async function listUserReports(userId: string): Promise<MyReport[]> {
           if (error || !data) return;
           for (const row of data as unknown as Record<string, unknown>[]) {
             if (!row?.created_at) continue;
-            const p = await loadProfile(row.saju_profile_id as string | null);
-            out.push({
+            const r: MyReport = {
               label: s.label, href: s.href, created_at: row.created_at as string,
-              target: p ? formatTarget(p.birth_date, p.gender, p.calendar) : null,
+              target: null,
               id: (s.idColumn === "id" ? (row.id as string | null) : (row.saju_profile_id as string | null)) ?? null,
               year: s.hasYear ? ((row.year as number | null) ?? null) : null,
               adhocId: null,
-            });
+            };
+            remember(r, row.saju_profile_id);
+            out.push(r);
           }
         } catch {
           /* 테이블 없음·권한 없음 → 이 항목만 건너뛴다 */
@@ -218,16 +214,17 @@ export async function listUserReports(userId: string): Promise<MyReport[]> {
           .limit(20);
         for (const row of data ?? []) {
           if (!row?.created_at) continue;
-          const p = await loadProfile(row.saju_profile_id as string | null);
           const speciesKr = row.species === "cat" ? "고양이" : "강아지";
-          out.push({
+          const r: MyReport = {
             label: row.pet_name ? `반려동물 궁합 · ${row.pet_name}(${speciesKr})` : "반려동물 궁합",
             href: "/premium/pet", created_at: row.created_at,
-            target: p ? formatTarget(p.birth_date, p.gender, p.calendar) : null,
+            target: null,
             id: row.id ?? null,
             year: null,
             adhocId: null,
-          });
+          };
+          remember(r, row.saju_profile_id);
+          out.push(r);
         }
       } catch { /* noop */ }
     })(),
@@ -281,6 +278,20 @@ export async function listUserReports(userId: string): Promise<MyReport[]> {
       } catch { /* noop */ }
     })(),
   ]);
+
+  // 대상 사주 표시 — 모인 profile id를 한 번의 쿼리로 읽는다. 실패해도 목록은 그대로(target=null).
+  const profileIds = [...new Set(profileIdOf.values())];
+  if (profileIds.length > 0) {
+    try {
+      const { data } = await supabaseAdmin
+        .from("saju_profiles").select("id, birth_date, birth_time, gender, calendar").in("id", profileIds);
+      const byId = new Map((data as ProfileRow[] | null ?? []).map((p) => [p.id, p]));
+      for (const [r, pid] of profileIdOf) {
+        const p = byId.get(pid);
+        if (p) r.target = formatTarget(p.birth_date, p.gender, p.calendar);
+      }
+    } catch { /* 표시 문구만 비는 것 — 무시 */ }
+  }
 
   return out.sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
 }

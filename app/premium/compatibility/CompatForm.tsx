@@ -92,7 +92,23 @@ export function CompatForm({ saved }: { saved: SavedSaju }) {
     setStep("result");
   }
 
-  const canSubmit = !!partnerConv?.ok && !!form.partner_gender;
+  // 상대방 쪽 미충족 항목을 화면 위→아래 순서대로 첫 번째만 버튼 문구로 알린다(무료 궁합 ctaLabel과 같은
+  // 원칙). 예전엔 성별을 안 골라도 버튼이 살아 있는데 눌러도 아무 일이 없었다(CoS 2026-09-19).
+  // "시각 모름"을 풀고 시각을 비워 둔 채 진행하면 값이 조용히 버려져 시주 없이 계산되므로 그것도 막는다.
+  const partnerTimeFilled = /^([01]\d|2[0-3]):[0-5]\d$/.test(partnerTime);
+  const blockedLabel: string | null =
+    form.partner_birth.length !== 10
+      ? "상대방 생년월일을 입력해주세요"
+      : !partnerConv?.ok
+        ? "상대방 생년월일을 확인해주세요"
+        : !partnerNoTime && partnerTime === ""
+          ? "상대방 태어난 시각을 입력해주세요"
+          : !partnerNoTime && !partnerTimeFilled
+            ? "상대방 태어난 시각을 확인해주세요"
+            : !form.partner_gender
+              ? "상대방 성별을 선택해주세요"
+              : null;
+  const canSubmit = blockedLabel === null;
 
   // 입력을 바꾸면 이전 실패 시도(attemptId)는 더 이상 유효하지 않다 — 새 시도로 취급.
   function updateForm(patch: Partial<typeof form>) {
@@ -194,15 +210,20 @@ export function CompatForm({ saved }: { saved: SavedSaju }) {
 
       <div>
         <label className="block text-xs font-medium text-[#6B6661] uppercase tracking-wider mb-2">상대방 태어난 시각 (선택)</label>
-        <input type="text" inputMode="numeric" placeholder="HH:MM (예: 14:30)" disabled={partnerNoTime}
+        {/* 시각을 적기 시작하면 "시각 모름"을 자동으로 푼다. 예전엔 "시각 모름"이 켜진 채 입력칸이
+            비활성이었는데, 값이 채워진 듯 보이는 상태에서도 서버로는 시각 없이 전송돼(CoS 2026-09-19:
+            19:20 입력 → "시각 모름") 입력값이 조용히 버려질 수 있었다. 화면 값과 전송 값을 항상 일치시킨다. */}
+        <input type="text" inputMode="numeric" placeholder="HH:MM (예: 14:30)"
           value={partnerTime} maxLength={5}
           onChange={(e) => {
             let v = e.target.value.replace(/[^0-9]/g, "");
             if (v.length > 2) v = v.slice(0, 2) + ":" + v.slice(2);
-            setPartnerTime(v.slice(0, 5));
+            v = v.slice(0, 5);
+            setPartnerTime(v);
+            if (v !== "") setPartnerNoTime(false);
             setAttemptId(null); setError(null);
           }}
-          className="w-full border border-[#E5DFD4] rounded-xl px-4 py-3.5 text-sm bg-[#FBF8F2] disabled:opacity-40 focus:outline-none focus:border-[#1F3D34] tracking-widest" />
+          className={`w-full border border-[#E5DFD4] rounded-xl px-4 py-3.5 text-sm bg-[#FBF8F2] focus:outline-none focus:border-[#1F3D34] tracking-widest ${partnerNoTime ? "opacity-40" : ""}`} />
         <label
           onClick={() => { setPartnerNoTime(!partnerNoTime); setPartnerTime(""); setAttemptId(null); setError(null); }}
           className="flex items-center gap-2.5 mt-2.5 text-sm text-[#6B6661] cursor-pointer select-none">
@@ -251,6 +272,7 @@ export function CompatForm({ saved }: { saved: SavedSaju }) {
           confirmMode
           onSubmit={(v) => { if (canSubmit) submit(false, v); }}
           submitLabel="이 사주로 궁합 보기"
+          blockedLabel={blockedLabel}
         />
       )}
     </>

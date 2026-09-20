@@ -26,14 +26,19 @@ export default async function MypagePage() {
     // 독립 쿼리인데 하나씩 순서대로 await되고 있었다 — 마이페이지가 서버
     // 컴포넌트라 이게 다 끝나야 페이지를 보낼 수 있어, "느린 리다이렉트"의
     // 실체는 router.push가 아니라 이 함수 자체였다. 동시에 실행한다.
+    // 어느 조회가 느린지 프로덕션 로그에서 바로 보이도록 구간별 소요를 잰다(합계 1.5초 넘을 때만 출력).
+    const t0 = Date.now();
+    const spans: Record<string, number> = {};
+    const timed = <T,>(label: string, p: PromiseLike<T>): Promise<T> =>
+      Promise.resolve(p).then((v) => { spans[label] = Date.now() - t0; return v; });
     const [profileResult, subsResult, otpResult, reportsResult, userResult] = await Promise.all([
-      loadOwnProfile(userId, { withDisplay: true }),
-      supabaseAdmin
+      timed("profile", loadOwnProfile(userId, { withDisplay: true })),
+      timed("subs", supabaseAdmin
         .from("subscriptions")
         .select("plan, status, created_at")
         .eq("user_id", userId)
-        .order("created_at", { ascending: false }),
-      (async () => {
+        .order("created_at", { ascending: false })),
+      timed("otp", (async () => {
         try {
           return await supabaseAdmin
             .from("one_time_purchases")
@@ -43,10 +48,11 @@ export default async function MypagePage() {
         } catch {
           return { data: null }; // 테이블 없음 → 구독만 표시
         }
-      })(),
-      listUserReports(String(userId)),
-      supabaseAdmin.from("users").select("oauth_provider").eq("id", userId).single(),
+      })()),
+      timed("reports", listUserReports(String(userId))),
+      timed("user", supabaseAdmin.from("users").select("oauth_provider").eq("id", userId).single()),
     ]);
+    if (Date.now() - t0 > 1500) console.warn("[mypage_slow]", JSON.stringify(spans));
 
     profile = profileResult;
 

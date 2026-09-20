@@ -28,6 +28,7 @@ export function SajuInputForm({
   confirmMode = false,
   submitLabel,
   busyLabel,
+  blockedLabel,
 }: {
   saved: SavedSaju;
   busy: boolean;
@@ -47,6 +48,12 @@ export function SajuInputForm({
   confirmMode?: boolean;
   submitLabel?: string;
   busyLabel?: string;
+  /**
+   * 이 폼 밖(예: 궁합의 상대방 입력)에서 아직 채워지지 않은 항목이 있을 때 그 안내 문구.
+   * 값이 있으면 버튼을 비활성화하고 문구를 버튼 라벨로 보여준다 — 눌러도 아무 반응이
+   * 없는 "죽은 버튼"을 막는다(무료 폼의 ctaLabel과 같은 원칙).
+   */
+  blockedLabel?: string | null;
 }) {
   // confirmMode에서는 등록된 사주를 처음부터 채워 둔다("생성 직전 컨펌" 구조).
   const prefill = confirmMode && saved;
@@ -295,11 +302,11 @@ export function SajuInputForm({
               calendar: "solar",
             })
           }
-          disabled={!canSubmit}
+          disabled={!canSubmit || !!blockedLabel}
           className="w-full flex items-center justify-center gap-2 bg-[#C8743A] text-white rounded-xl py-3.5 font-semibold text-sm disabled:opacity-40 active:scale-[0.97] transition-all shadow-md"
         >
           {busy && <Spinner />}
-          {busy ? (busyLabel ?? "풀이 생성 중...") : (submitLabel ?? "이 사주로 풀이 보기")}
+          {busy ? (busyLabel ?? "풀이 생성 중...") : (blockedLabel ?? submitLabel ?? "이 사주로 풀이 보기")}
         </button>
       </div>
     </div>

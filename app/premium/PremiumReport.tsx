@@ -181,7 +181,7 @@ export function PremiumReport({
           <div key={sec.id} className="print-card bg-[#FBF8F2] border border-[#E5DFD4] rounded-2xl p-4">
             <div className="flex items-center gap-2 mb-2">
               <span>{sec.icon}</span>
-              <span className="text-sm font-semibold text-[#1B3A4B]">{sec.label}</span>
+              <h2 className="m-0 text-sm font-semibold text-[#1B3A4B]">{sec.label}</h2>
             </div>
             <ReportBody text={report?.[sec.id] ?? "준비 중입니다."} />
           </div>
