@@ -1,34 +1,23 @@
 "use client";
 
 // 프리미엄 살풀이 결과 최상단 요약 카드 — 명식 배치도형 (CoS §C-2 ②).
-// 네 기둥(연·월·일·시)에 어떤 살이 어느 자리에 앉았는지, 한 자리에 겹쳤는지를 한 장에 보여준다.
-// 해석이 아니라 사실만: 자리·이름·겹침·용신 후보(억부·조후 병기, 단일 용신으로 단정하지 않음).
+// 네 기둥(연·월·일·시)에 어떤 살이 어느 자리에 앉았는지를 한 장에 보여주고, 맨 아래에 "그래서 무슨
+// 기운이 두드러지는 사주인지"를 한 줄로 결론 낸다.
+//
+// 2026-09-22(CEO 실물 확인): 처음 버전은 "월지 중첩·일지 중첩"이라는 자리 용어와 "용신 후보"(억부·조후
+// 병기) 블록을 그대로 실었는데, "그래서 좋다는 거야 뭐야?", "용신 후보는 왜 있는지 모르겠다"는 반응이
+// 나왔다 — 둘 다 명리 용어를 그대로 노출한 것이 원인이라 보고 뺐다. 자리 중첩은 카드 안에서 이미 테두리
+// 색과 ▲ 표시로 강조되고 있어 별도 문구가 없어도 시각적으로 전달된다. 용신 후보는 이 카드의 주제(검출된
+// 살)와 다른 축이라 오히려 "그래서 결론이 뭔데"를 흐렸다.
+//
 // 생년월일·시각은 넣지 않는다. 세로 600px 이내(390px 폭 기준).
 import { useRef } from "react";
-import type { SalpuriCardData, SalpuriCardElement } from "@/lib/premium/salpuri-card";
+import type { SalpuriCardData } from "@/lib/premium/salpuri-card";
 import { ResultCardActions } from "@/components/share/ResultCardActions";
-
-function Els({ items }: { items: SalpuriCardElement[] }) {
-  if (items.length === 0) return <span className="text-[#6B6661]">해당 없음</span>;
-  return (
-    <span className="font-serif font-bold text-[#1A1A18]">
-      {items.map((e) => `${e.el}(${e.kr})`).join(" · ")}
-    </span>
-  );
-}
 
 export function SalpuriSummaryCard({ card }: { card: SalpuriCardData }) {
   const cardRef = useRef<HTMLDivElement>(null);
   const overlapPositions = new Set(card.overlaps.map((o) => o.position));
-  // 같은 조합이 여러 자리에 겹치면 한 줄로 묶는다: "월지·일지 중첩 — 역마 + 고신"
-  const merged = new Map<string, { positions: string[]; names: string[] }>();
-  for (const o of card.overlaps) {
-    const key = o.names.join("+");
-    const cur = merged.get(key);
-    if (cur) cur.positions.push(o.position);
-    else merged.set(key, { positions: [o.position], names: o.names });
-  }
-  const shownOverlaps = [...merged.values()].slice(0, 3);
 
   return (
     <div className="flex flex-col gap-2.5">
@@ -76,22 +65,11 @@ export function SalpuriSummaryCard({ card }: { card: SalpuriCardData }) {
           })}
         </div>
 
-        {shownOverlaps.length > 0 && (
-          <div className="mt-3 rounded-xl px-3 py-2 text-[12px] leading-relaxed" style={{ backgroundColor: "#FDF0E3", border: "1px solid #E9D9C4", color: "#8A5228" }}>
-            {shownOverlaps.map((o) => (
-              <p key={o.positions.join("·")}>
-                <b>{o.positions.join("·")} 중첩</b> — {o.names.join(" + ")}
-              </p>
-            ))}
+        {card.verdict && (
+          <div className="mt-3 rounded-xl px-3 py-2.5 text-[13px] font-semibold leading-relaxed" style={{ backgroundColor: "#FDF0E3", border: "1px solid #E9D9C4", color: "#8A5228" }}>
+            {card.verdict}
           </div>
         )}
-
-        <div className="mt-3 pt-3 border-t border-[#E5DFD4] flex flex-col gap-1 text-[12px] text-[#1F3D34]">
-          <p className="font-bold">용신 후보 <span className="font-normal text-[10.5px] text-[#6B6661]">두 관점 병기 · 단정 아님</span></p>
-          <p>억부 <Els items={card.yongsin.eokbu} /></p>
-          <p>조후 <Els items={card.yongsin.johu} /></p>
-          {card.yongsin.hourUnknown && <p className="text-[10.5px] text-[#6B6661]">태어난 시각을 몰라 시주는 제외한 결과입니다</p>}
-        </div>
 
         <div className="mt-3 flex items-center justify-between text-[10.5px] text-[#6B6661]">
           <span>오락·참고용</span>
