@@ -10,6 +10,7 @@ import {
 } from "@/lib/billing/report-target";
 import { buildChart, scoreYear } from "@/lib/saju-engine";
 import { generateYearlyReport } from "@/lib/premium/yearly-generate";
+import { buildYearlyCard } from "@/lib/premium/yearly-card";
 
 // 생성이 여러 병렬 LLM 호출로 나뉘어 있어도(lib/premium/yearly-generate.ts 참고)
 // 전체 요청 처리 시간은 Vercel Hobby 플랜의 60초 제한 안에 들어와야 한다.
@@ -45,17 +46,31 @@ export async function POST(req: NextRequest) {
   // 같은 대상이라도 연도가 다르면 다른 리포트다.
   const variant = String(year);
 
+  // 확정한 대상 사주로 차트 구성 후 세운·월운 스코어링.
+  // 2026-09-22(카드 도입): 같은 입력이면 항상 같은 출력(결정적)이라 캐시 히트 때도 이걸 다시 돌려
+  // 카드를 만든다 — 저장하지 않고 매번 재계산(오행·살풀이 카드와 동일 원칙).
+  let yr;
+  let chart;
+  try {
+    chart = buildChart(isoOf(input), input.gender, !!input.birthTime);
+    yr = scoreYear(chart, year);
+  } catch (e) {
+    console.error("premium yearly engine error:", e);
+    return NextResponse.json({ error: "사주 계산 오류" }, { status: 500 });
+  }
+  const card = buildYearlyCard(yr);
+
   // 캐시 조회 (테이블 없으면 조용히 무시)
   if (isAdhoc) {
     const cached = await readAdhocCache(userId, PRODUCT_ID, input, variant);
-    if (cached) return NextResponse.json({ report: cached, year, cached: true, adhoc: true });
+    if (cached) return NextResponse.json({ report: cached, year, card, cached: true, adhoc: true });
   } else if (ownProfile?.id) {
     try {
       const { data: cached } = await supabaseAdmin
         .from("premium_yearly_reports").select("content")
         .eq("saju_profile_id", ownProfile.id).eq("year", year).or(notExpiredFilter()).limit(1).maybeSingle();
       if (cached?.content) {
-        return NextResponse.json({ report: cached.content, year, cached: true });
+        return NextResponse.json({ report: cached.content, year, card, cached: true });
       }
     } catch { /* 테이블 없음 → 생성 진행 */ }
   }
@@ -66,17 +81,6 @@ export async function POST(req: NextRequest) {
   });
   if (!started.ok) {
     return NextResponse.json({ error: started.error, busy: started.busy ?? false }, { status: started.status });
-  }
-
-  let yr;
-  let chart;
-  try {
-    chart = buildChart(isoOf(input), input.gender, !!input.birthTime);
-    yr = scoreYear(chart, year);
-  } catch (e) {
-    console.error("premium yearly engine error:", e);
-    await finishAttemptFailed(started.attemptId, "사주 계산 오류");
-    return NextResponse.json({ error: "사주 계산 오류", attemptId: started.attemptId }, { status: 500 });
   }
 
   try {
@@ -105,7 +109,7 @@ export async function POST(req: NextRequest) {
     if (access.passId) await consumeOneTimePass(access.passId);
     await finishAttemptDone(started.attemptId);
 
-    return NextResponse.json({ report, year, cached: false });
+    return NextResponse.json({ report, year, card, cached: false });
   } catch (e) {
     console.error("premium yearly LLM error:", e);
     await finishAttemptFailed(started.attemptId, "LLM 호출 오류");

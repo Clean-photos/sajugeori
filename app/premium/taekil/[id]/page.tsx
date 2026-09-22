@@ -4,10 +4,19 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/db/client";
 import { BottomTabBar } from "@/components/layout/BottomTabBar";
+import { buildChart, rankDates } from "@/lib/saju-engine";
+import type { TaekilPurpose } from "@/lib/saju-engine";
+import { isoOf } from "@/lib/billing/report-target";
+import { buildTaekilCard, type TaekilCardData } from "@/lib/premium/taekil-card";
 import { SavedReportClient } from "./SavedReportClient";
 
 export const metadata: Metadata = {
   title: "프리미엄 택일 | 사주거리",
+};
+
+const PURPOSE_LABEL: Record<string, string> = {
+  wedding: "결혼식", move: "이사", business: "개업·계약",
+  travel: "여행·출발", surgery: "수술·시술", other: "기타",
 };
 
 /**
@@ -25,7 +34,7 @@ export default async function SavedTaekilReportPage({ params }: { params: Promis
 
   const { data: row } = await supabaseAdmin
     .from("premium_taekil_reports")
-    .select("content, best")
+    .select("content, best, saju_profile_id, purpose, range_from, range_to")
     .eq("id", id)
     .eq("user_id", userId)
     .maybeSingle();
@@ -45,6 +54,32 @@ export default async function SavedTaekilReportPage({ params }: { params: Promis
     );
   }
 
+  // 결과 최상단 요약 카드용 — 저장된 content/best는 그대로 쓰고, 카드에 필요한 1위 근거 문구(notes)는
+  // 저장하지 않으므로 같은 chart로 다시 계산한다(결정적, 재계산 비용 0 — 오행·살풀이와 동일 원칙).
+  let card: TaekilCardData | null = null;
+  if (row.saju_profile_id && row.purpose && row.range_from && row.range_to) {
+    try {
+      const { data: profile } = await supabaseAdmin
+        .from("saju_profiles")
+        .select("birth_date, birth_time, gender")
+        .eq("id", row.saju_profile_id)
+        .maybeSingle();
+      if (profile) {
+        const gender = profile.gender as "M" | "F";
+        const chart = buildChart(
+          isoOf({ birthDate: profile.birth_date, birthTime: profile.birth_time, gender, calendar: "solar" }),
+          gender,
+          !!profile.birth_time
+        );
+        const purpose = row.purpose as TaekilPurpose;
+        const ranked = rankDates(chart, row.range_from, row.range_to, purpose);
+        card = buildTaekilCard(ranked, PURPOSE_LABEL[purpose] ?? purpose);
+      }
+    } catch (e) {
+      console.error("택일 카드 데이터 실패(카드만 생략):", e);
+    }
+  }
+
   return (
     <div className="min-h-screen bg-[#F6F1E7] flex flex-col pb-24">
       <div className="relative overflow-hidden px-6 pt-14 pb-8 bg-[#1F3D34]">
@@ -57,7 +92,7 @@ export default async function SavedTaekilReportPage({ params }: { params: Promis
         <h1 className="relative font-serif text-[28px] font-bold text-white leading-tight">프리미엄 택일</h1>
       </div>
 
-      <SavedReportClient content={row.content} best={row.best ?? []} reportId={id} />
+      <SavedReportClient content={row.content} best={row.best ?? []} card={card} reportId={id} />
 
       <BottomTabBar hasProfile />
     </div>

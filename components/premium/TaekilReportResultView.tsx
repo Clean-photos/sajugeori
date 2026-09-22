@@ -4,6 +4,8 @@ import { PrintReportFooter } from "@/components/premium/PrintReport";
 import { SaveReportButtons } from "@/components/premium/SaveReportButtons";
 import { DeleteReportButton } from "@/components/premium/DeleteReportButton";
 import { ReportBody } from "@/components/premium/ReportBody";
+import { TaekilSummaryCard } from "@/components/premium/TaekilSummaryCard";
+import type { TaekilCardData } from "@/lib/premium/taekil-card";
 
 export type TaekilBestDate = { date: string; weekday: string; ganji: string };
 
@@ -15,14 +17,23 @@ export type TaekilBestDate = { date: string; weekday: string; ganji: string };
 export function TaekilReportResultView({
   report,
   best,
+  card,
   onDelete,
 }: {
   report: string;
   best: TaekilBestDate[];
+  /** 결과 최상단 요약 카드 데이터. 없으면(엔진 오류·구버전 응답) 카드는 생략한다. */
+  card?: TaekilCardData | null;
   onDelete: () => Promise<void>;
 }) {
   return (
     <div className="px-5 py-6 flex flex-col gap-4">
+      {/* 결과 최상단 요약 카드 — 캡처·공유용 (CoS 2026-09-19 §C). 인쇄본에는 아래 칩·본문과 중복이라 넣지 않는다. */}
+      {card && (
+        <div className="no-print">
+          <TaekilSummaryCard card={card} />
+        </div>
+      )}
       <div className="print-area flex flex-col gap-4">
         {best.length > 0 && (
           <div className="print-card flex flex-wrap gap-2">

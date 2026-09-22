@@ -8,6 +8,7 @@ import { premiumErrorInfo, type PremiumErrorInfo } from "@/components/premium/pr
 import { PremiumErrorBanner } from "@/components/premium/PremiumErrorBanner";
 import { YearlyReportResultView } from "@/components/premium/YearlyReportResultView";
 import { postWithBusyRetry } from "@/lib/premium/generate-with-retry";
+import type { YearlyCardData } from "@/lib/premium/yearly-card";
 
 type Step = "form" | "loading" | "result" | "deleted";
 
@@ -18,6 +19,7 @@ export function YearlyForm({ saved }: { saved: SavedSaju }) {
   const [step, setStep] = useState<Step>("form");
   const [year, setYear] = useState(thisYear);
   const [report, setReport] = useState("");
+  const [card, setCard] = useState<YearlyCardData | null>(null);
   const [error, setError] = useState<PremiumErrorInfo | null>(null);
   // 어떤 대상으로 만든 리포트인지 — 삭제할 때 같은 대상을 지워야 한다.
   const [target, setTarget] = useState<Target | null>(null);
@@ -26,7 +28,7 @@ export function YearlyForm({ saved }: { saved: SavedSaju }) {
     setStep("loading");
     setError(null);
     setTarget(v);
-    const result = await postWithBusyRetry<{ report: string }>(
+    const result = await postWithBusyRetry<{ report: string; card?: YearlyCardData }>(
       "/api/premium/yearly", { year, ...v },
       { onRetry: () => setError({ message: "다른 창에서 이미 생성 중이에요. 자동으로 다시 확인하고 있어요..." }) }
     );
@@ -38,6 +40,7 @@ export function YearlyForm({ saved }: { saved: SavedSaju }) {
       return;
     }
     setReport(cleanReportText(result.data.report));
+    setCard(result.data.card ?? null);
     setStep("result");
   }
 
@@ -65,8 +68,8 @@ export function YearlyForm({ saved }: { saved: SavedSaju }) {
   if (step === "result") {
     return (
       <div className="flex flex-col gap-2">
-        <YearlyReportResultView report={report} year={year} onDelete={handleDelete} />
-        <button onClick={() => { setStep("form"); setReport(""); }}
+        <YearlyReportResultView report={report} year={year} card={card} onDelete={handleDelete} />
+        <button onClick={() => { setStep("form"); setReport(""); setCard(null); }}
           className="no-print text-sm text-[#6B6661] text-center py-2 -mt-4 active:opacity-60">
           다른 해 보기
         </button>

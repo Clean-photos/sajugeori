@@ -8,6 +8,7 @@ import { premiumErrorInfo, type PremiumErrorInfo } from "@/components/premium/pr
 import { PremiumErrorBanner } from "@/components/premium/PremiumErrorBanner";
 import { TaekilReportResultView, type TaekilBestDate } from "@/components/premium/TaekilReportResultView";
 import { postWithBusyRetry } from "@/lib/premium/generate-with-retry";
+import type { TaekilCardData } from "@/lib/premium/taekil-card";
 
 type Step = "form" | "loading" | "result" | "deleted";
 
@@ -42,6 +43,7 @@ export function TaekilForm({ saved }: { saved: SavedSaju }) {
   const [form, setForm] = useState({ purpose: "wedding", range_from: range.from, range_to: range.to });
   const [report, setReport] = useState("");
   const [best, setBest] = useState<TaekilBestDate[]>([]);
+  const [card, setCard] = useState<TaekilCardData | null>(null);
   const [error, setError] = useState<PremiumErrorInfo | null>(null);
   // 실패한 시도의 id. 있으면 "같은 정보로 재생성" — 서버에 저장된 입력값을 그대로 재사용한다.
   const [attemptId, setAttemptId] = useState<string | null>(null);
@@ -57,7 +59,7 @@ export function TaekilForm({ saved }: { saved: SavedSaju }) {
     setTarget(t);
     setStep("loading");
     setError(null);
-    const result = await postWithBusyRetry<{ report: string; best?: TaekilBestDate[]; id?: string; attemptId?: string }>(
+    const result = await postWithBusyRetry<{ report: string; best?: TaekilBestDate[]; card?: TaekilCardData; id?: string; attemptId?: string }>(
       "/api/premium/taekil",
       regenerate && attemptId ? { attemptId, ...t } : { ...form, ...t },
       { onRetry: () => setError({ message: "다른 창에서 이미 생성 중이에요. 자동으로 다시 확인하고 있어요..." }) }
@@ -77,6 +79,7 @@ export function TaekilForm({ saved }: { saved: SavedSaju }) {
     setAttemptId(null);
     setReport(cleanReportText(result.data.report));
     setBest(result.data.best ?? []);
+    setCard(result.data.card ?? null);
     setReportId(typeof result.data.id === "string" ? result.data.id : null);
     setStep("result");
   }
@@ -117,8 +120,8 @@ export function TaekilForm({ saved }: { saved: SavedSaju }) {
   if (step === "result") {
     return (
       <div className="flex flex-col gap-2">
-        <TaekilReportResultView report={report} best={best} onDelete={handleDelete} />
-        <button onClick={() => { setStep("form"); setReport(""); setBest([]); setReportId(null); }}
+        <TaekilReportResultView report={report} best={best} card={card} onDelete={handleDelete} />
+        <button onClick={() => { setStep("form"); setReport(""); setBest([]); setCard(null); setReportId(null); }}
           className="no-print text-sm text-[#6B6661] text-center py-2 -mt-4 active:opacity-60">
           다시 조회하기
         </button>

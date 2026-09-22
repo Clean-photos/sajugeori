@@ -2,12 +2,15 @@
 
 import { useRouter } from "next/navigation";
 import { TaekilReportResultView, type TaekilBestDate } from "@/components/premium/TaekilReportResultView";
+import type { TaekilCardData } from "@/lib/premium/taekil-card";
 
 /**
  * §1(CoS 결정 2026-09-08): 저장된 리포트를 다시 여는 화면 — 이용권 검사가
  * 아예 없다(서버 컴포넌트에서 소유권만 확인하고 이미 통과했다).
  */
-export function SavedReportClient({ content, best, reportId }: { content: string; best: TaekilBestDate[]; reportId: string }) {
+export function SavedReportClient({
+  content, best, card, reportId,
+}: { content: string; best: TaekilBestDate[]; card: TaekilCardData | null; reportId: string }) {
   const router = useRouter();
 
   async function handleDelete() {
@@ -20,5 +23,5 @@ export function SavedReportClient({ content, best, reportId }: { content: string
     router.push("/mypage");
   }
 
-  return <TaekilReportResultView report={content} best={best} onDelete={handleDelete} />;
+  return <TaekilReportResultView report={content} best={best} card={card} onDelete={handleDelete} />;
 }

@@ -4,6 +4,9 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/db/client";
 import { BottomTabBar } from "@/components/layout/BottomTabBar";
+import { buildChart, scoreYear } from "@/lib/saju-engine";
+import { isoOf } from "@/lib/billing/report-target";
+import { buildYearlyCard, type YearlyCardData } from "@/lib/premium/yearly-card";
 import { SavedReportClient } from "./SavedReportClient";
 
 export const metadata: Metadata = {
@@ -63,6 +66,23 @@ export default async function SavedYearlyReportPage({
     .eq("user_id", userId)
     .maybeSingle();
 
+  // 결과 최상단 요약 카드용 — 카드에 필요한 최고점 달 근거 문구(note)는 저장하지 않으므로 같은
+  // chart로 다시 계산한다(결정적, 재계산 비용 0 — 오행·살풀이·택일과 동일 원칙).
+  let card: YearlyCardData | null = null;
+  if (profile) {
+    try {
+      const gender = profile.gender as "M" | "F";
+      const chart = buildChart(
+        isoOf({ birthDate: profile.birth_date, birthTime: profile.birth_time, gender, calendar: "solar" }),
+        gender,
+        !!profile.birth_time
+      );
+      card = buildYearlyCard(scoreYear(chart, year));
+    } catch (e) {
+      console.error("연운세 카드 데이터 실패(카드만 생략):", e);
+    }
+  }
+
   return (
     <div className="min-h-screen bg-[#F6F1E7] flex flex-col pb-24">
       <div className="relative overflow-hidden px-6 pt-14 pb-8 bg-[#1F3D34]">
@@ -78,6 +98,7 @@ export default async function SavedYearlyReportPage({
       <SavedReportClient
         content={row.content}
         year={year}
+        card={card}
         target={profile ? { birth_date: profile.birth_date, birth_time: profile.birth_time, gender: profile.gender } : null}
       />
 

@@ -12,6 +12,7 @@ import { buildChart, rankDates } from "@/lib/saju-engine";
 import type { TaekilPurpose } from "@/lib/saju-engine";
 import { generateTaekilReport } from "@/lib/premium/taekil-generate";
 import { buildYongsinDualTrack, yongsinDualTrackPromptLine } from "@/lib/premium/yongsin-track";
+import { buildTaekilCard } from "@/lib/premium/taekil-card";
 
 // 택일 리포트 생성이 병렬 2콜로 나뉘어 있어도(lib/premium/taekil-generate.ts 참고)
 // 전체 요청 처리 시간은 Vercel Hobby 플랜의 60초 제한 안에 들어와야 한다.
@@ -61,6 +62,22 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "range_from, range_to are required" }, { status: 400 });
   }
 
+  // 확정한 대상 사주로 차트 구성 후 일진 스코어링.
+  // 2026-09-22(카드 도입): 같은 입력이면 항상 같은 출력(결정적)이라 캐시 히트 때도 이걸 다시 돌려
+  // 카드를 만든다 — 저장하지 않고 매번 재계산(오행·살풀이 카드와 동일 원칙). 120일 이내라 비용 미미.
+  let ranked;
+  let chart;
+  try {
+    chart = buildChart(isoOf(target), target.gender, !!target.birthTime);
+    ranked = rankDates(chart, from, to, purpose);
+  } catch (e) {
+    console.error("premium taekil engine error:", e);
+    await finishAttemptFailed(started.attemptId, "사주 계산 오류");
+    return NextResponse.json({ error: "사주 계산 오류", attemptId: started.attemptId }, { status: 500 });
+  }
+  const card = buildTaekilCard(ranked, PURPOSE_LABEL[purpose] ?? String(purpose));
+  const bestForClient = ranked.best.map((d) => ({ date: d.date, weekday: d.weekday, ganji: d.ganji }));
+
   // 같은 목적·같은 기간 조회면 재생성하지 않는다 (재열람 무료).
   // 대상 사주가 다르면 같은 조건이라도 다른 리포트이므로 variant에 함께 넣는다.
   const variant = [purpose, from, to].join("|");
@@ -69,7 +86,7 @@ export async function POST(req: NextRequest) {
     const cached = await readAdhocCache<{ content: unknown; best: unknown }>(userId, PRODUCT_ID, target, variant);
     if (cached) {
       await discardAttempt(started.attemptId);
-      return NextResponse.json({ report: cached.content, best: cached.best ?? [], purpose, range: { from, to }, cached: true, adhoc: true });
+      return NextResponse.json({ report: cached.content, best: bestForClient, card, purpose, range: { from, to }, cached: true, adhoc: true });
     }
   } else if (ownProfile?.id) {
     try {
@@ -80,7 +97,7 @@ export async function POST(req: NextRequest) {
         await discardAttempt(started.attemptId);
         // §1(CoS 결정 2026-09-08): id를 함께 돌려줘야 마이페이지 "보기 →"가
         // /premium/taekil/{id}(이용권 검사 없는 열람 라우트)로 연결할 수 있다.
-        return NextResponse.json({ report: cached.content, best: cached.best ?? [], purpose, range: { from, to }, cached: true, id: cached.id });
+        return NextResponse.json({ report: cached.content, best: bestForClient, card, purpose, range: { from, to }, cached: true, id: cached.id });
       }
     } catch { /* 테이블 없음 또는 미저장 → 생성 진행 */ }
   }
@@ -90,18 +107,6 @@ export async function POST(req: NextRequest) {
   if (!access.allowed) {
     await discardAttempt(started.attemptId);
     return NextResponse.json({ error: "premium_required", redirect: "/premium/buy?product=taekil_one" }, { status: 402 });
-  }
-
-  // 확정한 대상 사주로 차트 구성 후 일진 스코어링
-  let ranked;
-  let chart;
-  try {
-    chart = buildChart(isoOf(target), target.gender, !!target.birthTime);
-    ranked = rankDates(chart, from, to, purpose);
-  } catch (e) {
-    console.error("premium taekil engine error:", e);
-    await finishAttemptFailed(started.attemptId, "사주 계산 오류");
-    return NextResponse.json({ error: "사주 계산 오류", attemptId: started.attemptId }, { status: 500 });
   }
 
   const bestLines = ranked.best
@@ -132,7 +137,6 @@ ${avoidLines}`.trim();
 
   try {
     const report = await generateTaekilReport(engineSummary, PURPOSE_LABEL[purpose] ?? purpose);
-    const bestForClient = ranked.best.map((d) => ({ date: d.date, weekday: d.weekday, ganji: d.ganji }));
 
     // 캐시 저장 (테이블 없으면 무시)
     let savedId: string | null = null;
@@ -163,6 +167,7 @@ ${avoidLines}`.trim();
     return NextResponse.json({
       report,
       best: bestForClient,
+      card,
       purpose,
       range: ranked.range,
       cached: false,

@@ -12,6 +12,7 @@
  */
 import * as C from "@/lib/saju-engine/constants";
 import type { SajuChart } from "@/lib/saju-engine/engine";
+import { josaEulReul, josaIga } from "./kr-josa";
 
 const POSITION_LABEL = ["연", "월", "일", "시"] as const;
 const POSITION_KEY = ["연", "월", "일", "시"];
@@ -60,13 +61,6 @@ const THEME_GROUPS: { label: string; members: string[] }[] = [
   { label: "고독·독립성", members: ["과숙살", "고신살"] },
 ];
 
-/** 한글 음절의 받침 유무(유니코드 조합형 계산) — 살 이름은 늘 완성형 한글이라 이 계산으로 충분하다 */
-function hasBatchim(text: string): boolean {
-  const ch = text.charCodeAt(text.length - 1) - 0xac00;
-  if (ch < 0 || ch > 11171) return false;
-  return ch % 28 !== 0;
-}
-
 /**
  * 검출된 살 이름들에서 가장 두드러진 축 하나를 골라 한 줄 결론을 만든다.
  * 여러 축이 걸리면 매칭된 살이 가장 많은 축을 대표로 낸다(동률이면 THEME_GROUPS 순서).
@@ -82,9 +76,7 @@ export function buildSalVerdict(names: string[]): string | null {
   }
   if (!best) return null;
   const namesStr = best.matched.join("·");
-  const labelJosa = hasBatchim(best.label) ? "을" : "를";
-  const namesJosa = hasBatchim(namesStr) ? "이" : "가";
-  return `${best.label}${labelJosa} 뜻하는 ${namesStr}${namesJosa} 두드러지는 사주입니다.`;
+  return `${best.label}${josaEulReul(best.label)} 뜻하는 ${namesStr}${josaIga(namesStr)} 두드러지는 사주입니다.`;
 }
 
 /** "역마살"→"역마", "귀문관살"→"귀문관". 귀인류는 이름 그대로("천을귀인"). */
