@@ -7,7 +7,10 @@ import { CardReferralTracker } from "@/components/share/CardReferralTracker";
 import "./globals.css";
 
 const ADSENSE_CLIENT = process.env.NEXT_PUBLIC_ADSENSE_CLIENT;
-const GA4_ID = process.env.NEXT_PUBLIC_GA4_ID;
+// GA4는 프로덕션 배포에서만 로드한다(CoS 2026-09-20): 커밋마다 생기는 Vercel 미리보기 주소와 로컬에서도
+// 운영 속성(G-…)으로 이벤트가 전송돼 하루 활성 3명 규모의 지표가 오염됐다. IP 필터로는 작업 장소가 바뀌면
+// 막을 수 없다. VERCEL_ENV는 Vercel이 배포마다 주입하는 시스템 값(production/preview/development)이다.
+const GA4_ID = process.env.VERCEL_ENV === "production" ? process.env.NEXT_PUBLIC_GA4_ID : undefined;
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),

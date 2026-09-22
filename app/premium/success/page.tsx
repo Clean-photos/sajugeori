@@ -88,7 +88,7 @@ function SuccessInner() {
           transaction_id: orderId,
           value: Number(amount),
           currency: "KRW",
-          items: [{ item_id: planId, item_name: getPlan(planId)?.name ?? planId }],
+          items: [{ item_id: planId, item_name: getPlan(planId)?.name ?? planId, price: Number(amount), quantity: 1 }],
         });
         setState("done");
       } catch {
