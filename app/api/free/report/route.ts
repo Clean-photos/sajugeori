@@ -27,12 +27,9 @@ export async function POST(req: NextRequest) {
     });
     const j = result.saju_json;
 
-    const elementGuide: Record<string, string> = {
-      "木": "숲·산·공원", "火": "따뜻한 남쪽",
-      "土": "대지·내륙", "金": "도시·서쪽", "水": "바다·강변",
-    };
-    const yongsin = j.yongsin.eokbu.length > 0 ? j.yongsin.eokbu : j.yongsin.johu;
-    const kaiun = yongsin.map((e: string) => elementGuide[e] ?? e).join(", ");
+    // 2026-09-22(CEO 결정, CoS §C-4): 무료 결과가 용신·개운 처방까지 내주면 유료(오행 보완·프리미엄 사주)를
+    // 살 이유가 사라진다. 무료는 "진단"(성격·현재 운세·조언·대운 요약)까지만 주고, 용신·채울 오행·개운
+    // 처방은 프롬프트 입력에서도 뺀다(지시만 빼면 모델이 오행 데이터로 스스로 처방을 지어낼 수 있다).
 
     // 현재 나이 계산 (실제 연도 기준 — 삼재 판정과도 동일 기준을 쓴다)
     const birthYear = parseInt(birthDate.slice(0, 4));
@@ -60,7 +57,6 @@ export async function POST(req: NextRequest) {
 강점: ${j.personality.strengths.slice(0, 3).join(", ")}
 약점: ${j.personality.weaknesses.slice(0, 3).join(", ")}
 오행: ${Object.entries(j.elements).map(([e, v]) => `${e}${v}`).join(" ")}
-용신: ${yongsin.join(", ")} / 개운장소: ${kaiun || "없음"}
 현재나이: ${currentAge}세 (${nowYear}년 기준)
 현재대운: ${currentCycle ? `${currentCycle.start_age}~${currentCycle.end_age}세 ${currentCycle.ganji}(${currentCycle.favorability})` : "정보 없음"}
 대운주의: ${j.current_phase.warnings.slice(0, 2).join(", ") || "없음"}
@@ -103,11 +99,8 @@ ${engineSummary}
 현재나이와 현재대운(ganji, favorability)을 반드시 언급. "현재 XX세, XX대운 시기로..." 형식으로 시작. ${nowYear}년 지금 이 시기의 운세를 3문장으로.
 ${samjaeSection}
 
-【 개운 포인트 】
-용신 오행 기반 개운 장소·방향 2가지. 2문장.
-
 【 조언 】
-강점 활용 + 약점 보완 실용 조언. 반드시 2문장만. 각 문장 40자 이내로 짧게.
+강점 활용 + 약점 보완 실용 조언. 반드시 2문장만. 각 문장 40자 이내로 짧게. 부족한 오행을 채우는 방법·개운 장소·방향·색·음식 같은 처방은 쓰지 말 것(프리미엄 영역).
 
 【 대운 (大運) 】
 전체대운(참고용) 데이터를 근거로 평생 대운 흐름을 3문장으로 요약. 현재대운 시기가 어떤 흐름인지 반드시 짚고, 다음 대운으로 넘어가면 무엇이 달라지는지도 한 문장 포함.
@@ -126,7 +119,7 @@ ${samjaeSection}
       try {
         // §2-6(CoS 실물 재검증, 2026-09-13): 무료 사주 마지막 문장("...신중한
         // 발언과 행동이 필수입니")이 중간에 잘렸다 — 5개 섹션(핵심 성격·현재
-        // 운세·개운 포인트·조언·대운, 삼재 섹션까지 포함하면 6개)을 전부 채운
+        // 운세·개운 포인트·조언·대운, 삼재 섹션까지 포함하면 6개 — 개운 포인트는 2026-09-22 제거)을 전부 채운
         // 응답이 max_tokens 1100을 가끔 넘겨 문장 중간에 끊겼다. 무료 상품이라
         // 프리미엄만큼 여유를 주진 않되, 잘림이 재발하지 않을 만큼만 올린다.
         const aiStream = client.messages.stream({

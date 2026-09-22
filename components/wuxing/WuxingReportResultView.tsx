@@ -3,6 +3,7 @@
 import type { WuxingReportData } from "@/lib/wuxing/report";
 import { wuxingReportToPlainText } from "@/lib/wuxing/report";
 import { WuxingReport } from "./WuxingReport";
+import { WuxingSummaryCard } from "./WuxingSummaryCard";
 import { SaveReportButtons } from "@/components/premium/SaveReportButtons";
 import { DeleteReportButton } from "@/components/premium/DeleteReportButton";
 import { PrintReportFooter } from "@/components/premium/PrintReport";
@@ -22,6 +23,10 @@ export function WuxingReportResultView({
 }) {
   return (
     <div className="flex flex-col gap-4">
+      {/* 결과 최상단 요약 카드 — 캡처·공유용 (CoS 2026-09-19 §C). 인쇄본에는 본문과 중복이라 넣지 않는다. */}
+      <div className="no-print px-5 pt-4">
+        <WuxingSummaryCard data={report} />
+      </div>
       <div className="print-area">
         <div className="print-card print-card-flow">
           <WuxingReport data={report} />

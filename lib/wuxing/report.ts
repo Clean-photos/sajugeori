@@ -416,7 +416,20 @@ export interface WuxingNarratives {
   seunFlow?: string;
 }
 
+/** 결과 요약 카드(캡처용)에 쓰는 명식 요약 — 생년월일·시각 같은 개인정보는 넣지 않는다 */
+export interface WuxingCardMeta {
+  /** 예: "辛(신)" */
+  dayMaster: string;
+  /** 예: "극신약(極身弱)" — 엔진의 신강약 판정 문구 그대로 */
+  strength: string;
+}
+
 export interface WuxingReportData {
+  /**
+   * 결과 최상단 요약 카드용. 열람 시 재조립(buildWuxingReport)되므로 예전 저장본에도 붙지만,
+   * 재조립이 불가능한 경우를 위해 optional로 둔다 — 없으면 카드는 일간 줄을 생략한다.
+   */
+  card?: WuxingCardMeta;
   diagnosis: DiagnosisSkeleton;
   map: WuxingMapData;
   fill: FillSectionData;
@@ -434,6 +447,10 @@ export function buildWuxingReport(
   fromYear?: number
 ): WuxingReportData {
   return {
+    card: {
+      dayMaster: `${chart.day_master}(${C.STEM_KR[chart.day_master]})`,
+      strength: chart.strength.verdict,
+    },
     diagnosis: buildDiagnosis(chart, cls),
     map: buildWuxingMap(chart, cls),
     fill: buildFillSection(chart, cls),

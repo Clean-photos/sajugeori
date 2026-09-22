@@ -3,6 +3,7 @@ import Script from "next/script";
 import { Suspense } from "react";
 import { SITE_URL } from "@/lib/site";
 import { RouteProgressBar } from "@/components/ui/RouteProgressBar";
+import { CardReferralTracker } from "@/components/share/CardReferralTracker";
 import "./globals.css";
 
 const ADSENSE_CLIENT = process.env.NEXT_PUBLIC_ADSENSE_CLIENT;
@@ -77,6 +78,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Suspense fallback={null}>
           <RouteProgressBar />
         </Suspense>
+        <CardReferralTracker />
         <main className="min-h-screen mx-auto max-w-[480px] relative">
           {children}
         </main>

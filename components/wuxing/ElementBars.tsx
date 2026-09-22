@@ -8,7 +8,7 @@
 import type { ElementBar } from "@/lib/wuxing/map-section";
 import { ELEMENT_COLOR } from "@/lib/wuxing/circle-diagram";
 
-const TIER_STYLE: Record<string, { bg: string; fg: string }> = {
+export const TIER_STYLE: Record<string, { bg: string; fg: string }> = {
   absent: { bg: "#FBE9E7", fg: "#B3261E" },
   scarce: { bg: "#FDF0E3", fg: "#8A5228" },
   normal: { bg: "#EDF1EC", fg: "#41614B" },
