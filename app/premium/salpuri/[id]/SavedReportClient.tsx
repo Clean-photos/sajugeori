@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { SalpuriReportResultView, type DetectedSal } from "@/components/premium/SalpuriReportResultView";
+import type { SalpuriCardData } from "@/lib/premium/salpuri-card";
 
 type Target = { birth_date: string; birth_time: string | null; gender: string };
 
@@ -10,7 +11,7 @@ type Target = { birth_date: string; birth_time: string | null; gender: string };
  * 아예 없다(서버 컴포넌트에서 소유권만 확인하고 이미 통과했다). 삭제만
  * 클라이언트에서 처리하고, 삭제 후에는 마이페이지로 돌려보낸다.
  */
-export function SavedReportClient({ content, sal, target }: { content: string; sal: DetectedSal[]; target: Target }) {
+export function SavedReportClient({ content, sal, card, target }: { content: string; sal: DetectedSal[]; card: SalpuriCardData | null; target: Target }) {
   const router = useRouter();
 
   async function handleDelete() {
@@ -22,5 +23,5 @@ export function SavedReportClient({ content, sal, target }: { content: string; s
     router.refresh();
   }
 
-  return <SalpuriReportResultView report={content} sal={sal} onDelete={handleDelete} />;
+  return <SalpuriReportResultView report={content} sal={sal} card={card} onDelete={handleDelete} />;
 }

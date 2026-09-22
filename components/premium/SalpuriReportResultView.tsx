@@ -6,6 +6,8 @@ import { PrintReportFooter } from "@/components/premium/PrintReport";
 import { SaveReportButtons } from "@/components/premium/SaveReportButtons";
 import { DeleteReportButton } from "@/components/premium/DeleteReportButton";
 import { ReportBody } from "@/components/premium/ReportBody";
+import { SalpuriSummaryCard } from "@/components/premium/SalpuriSummaryCard";
+import type { SalpuriCardData } from "@/lib/premium/salpuri-card";
 
 export type DetectedSal = { name: string; where: string[] };
 
@@ -22,14 +24,23 @@ function slugForSal(name: string): string | undefined {
 export function SalpuriReportResultView({
   report,
   sal,
+  card,
   onDelete,
 }: {
   report: string;
   sal: DetectedSal[];
+  /** 결과 최상단 요약 카드 데이터. 없으면(엔진 오류·구버전 응답) 카드는 생략한다. */
+  card?: SalpuriCardData | null;
   onDelete: () => Promise<void>;
 }) {
   return (
     <div className="px-5 py-6 flex flex-col gap-4">
+      {/* 결과 최상단 요약 카드 — 캡처·공유용 (CoS 2026-09-19 §C). 인쇄본에는 아래 칩·본문과 중복이라 넣지 않는다. */}
+      {card && card.count > 0 && (
+        <div className="no-print">
+          <SalpuriSummaryCard card={card} />
+        </div>
+      )}
       <div className="print-area flex flex-col gap-4">
         {sal.length > 0 && (
           <div className="print-card bg-[#FBF8F2] border border-[#E5DFD4] rounded-2xl p-4">

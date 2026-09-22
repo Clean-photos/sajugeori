@@ -13,6 +13,7 @@ import { buildChart, stemBranchKr } from "@/lib/saju-engine";
 import { generateSalpuriReport } from "@/lib/premium/salpuri-generate";
 import { sinsalHanja, PILLAR_POSITION_NOTE } from "@/lib/premium/sinsal-glossary";
 import { buildYongsinDualTrack, yongsinDualTrackPromptLine } from "@/lib/premium/yongsin-track";
+import { buildSalpuriCard } from "@/lib/premium/salpuri-card";
 
 // 살풀이 리포트 생성이 병렬 2콜로 나뉘어 있어도(lib/premium/salpuri-generate.ts 참고)
 // 전체 요청 처리 시간은 Vercel Hobby 플랜의 60초 제한 안에 들어와야 한다.
@@ -57,19 +58,22 @@ export async function POST(req: NextRequest) {
   }
 
   const salList = [...grouped.entries()].map(([name, v]) => ({ name, where: v.where }));
+  // 결과 최상단 요약 카드용(캐시 히트·신규 생성 모두 같은 chart에서 뽑는다). 카드 조립 실패가 리포트를 막으면 안 된다.
+  let card: ReturnType<typeof buildSalpuriCard> | null = null;
+  try { card = buildSalpuriCard(chart); } catch (e) { console.error("살풀이 카드 데이터 실패(카드만 생략):", e); }
 
   // 캐시를 게이트보다 먼저 본다. 990원 이용권으로 이미 본 사용자는 이용권이 소진된 뒤라
   // 게이트를 먼저 통과시키면 자기 결과를 다시 열지 못한다. 본인 것만 조회하므로 안전하다.
   if (isAdhoc) {
     const cached = await readAdhocCache(userId, PRODUCT_ID, input);
-    if (cached) return NextResponse.json({ report: cached, sal: salList, cached: true, adhoc: true });
+    if (cached) return NextResponse.json({ report: cached, sal: salList, card, cached: true, adhoc: true });
   } else if (ownProfile?.id) {
     try {
       const { data: cached } = await supabaseAdmin
         .from("premium_salpuri_reports").select("content")
         .eq("saju_profile_id", ownProfile.id).or(notExpiredFilter()).limit(1).maybeSingle();
       if (cached?.content) {
-        return NextResponse.json({ report: cached.content, sal: salList, cached: true });
+        return NextResponse.json({ report: cached.content, sal: salList, card, cached: true });
       }
     } catch { /* 테이블 없음 또는 미저장 → 생성 진행 */ }
   }
@@ -170,7 +174,7 @@ ${salSection}`.trim();
     if (passId) await consumeOneTimePass(passId);
     await finishAttemptDone(started.attemptId);
 
-    return NextResponse.json({ report, sal: salList, cached: false });
+    return NextResponse.json({ report, sal: salList, card, cached: false });
   } catch (e) {
     console.error("premium salpuri LLM error:", e);
     await finishAttemptFailed(started.attemptId, "LLM 호출 오류");

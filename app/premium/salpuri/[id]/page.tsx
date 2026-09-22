@@ -6,6 +6,7 @@ import { supabaseAdmin } from "@/lib/db/client";
 import { BottomTabBar } from "@/components/layout/BottomTabBar";
 import { buildChart } from "@/lib/saju-engine";
 import { isoOf } from "@/lib/billing/report-target";
+import { buildSalpuriCard } from "@/lib/premium/salpuri-card";
 import type { DetectedSal } from "@/components/premium/SalpuriReportResultView";
 import { SavedReportClient } from "./SavedReportClient";
 
@@ -72,6 +73,8 @@ export default async function SavedSalpuriReportPage({ params }: { params: Promi
     else grouped.set(s.name, { where: [s.where] });
   }
   const salList: DetectedSal[] = [...grouped.entries()].map(([name, v]) => ({ name, where: v.where }));
+  let card: ReturnType<typeof buildSalpuriCard> | null = null;
+  try { card = buildSalpuriCard(chart); } catch (e) { console.error("살풀이 카드 데이터 실패(카드만 생략):", e); }
 
   return (
     <div className="min-h-screen bg-[#F6F1E7] flex flex-col pb-24">
@@ -88,6 +91,7 @@ export default async function SavedSalpuriReportPage({ params }: { params: Promi
       <SavedReportClient
         content={row.content}
         sal={salList}
+        card={card}
         target={{ birth_date: profile.birth_date, birth_time: profile.birth_time, gender: profile.gender }}
       />
 

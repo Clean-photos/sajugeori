@@ -7,6 +7,7 @@ import { SajuInputForm, type SavedSaju } from "@/components/premium/SajuInputFor
 import { premiumErrorInfo, type PremiumErrorInfo } from "@/components/premium/premiumError";
 import { PremiumErrorBanner } from "@/components/premium/PremiumErrorBanner";
 import { SalpuriReportResultView, type DetectedSal } from "@/components/premium/SalpuriReportResultView";
+import type { SalpuriCardData } from "@/lib/premium/salpuri-card";
 import { postWithBusyRetry } from "@/lib/premium/generate-with-retry";
 
 type Step = "form" | "loading" | "result" | "deleted";
@@ -17,6 +18,7 @@ export function SalpuriForm({ saved }: { saved: SavedSaju }) {
   const [step, setStep] = useState<Step>("form");
   const [report, setReport] = useState("");
   const [sal, setSal] = useState<DetectedSal[]>([]);
+  const [card, setCard] = useState<SalpuriCardData | null>(null);
   const [error, setError] = useState<PremiumErrorInfo | null>(null);
   // 어떤 대상으로 만든 리포트인지 — 삭제할 때 같은 대상을 지워야 한다.
   const [target, setTarget] = useState<Target | null>(null);
@@ -25,7 +27,7 @@ export function SalpuriForm({ saved }: { saved: SavedSaju }) {
     setStep("loading");
     setError(null);
     setTarget(v);
-    const result = await postWithBusyRetry<{ report: string; sal?: DetectedSal[] }>(
+    const result = await postWithBusyRetry<{ report: string; sal?: DetectedSal[]; card?: SalpuriCardData }>(
       "/api/premium/salpuri", v,
       { onRetry: () => setError({ message: "다른 창에서 이미 생성 중이에요. 자동으로 다시 확인하고 있어요..." }) }
     );
@@ -38,6 +40,7 @@ export function SalpuriForm({ saved }: { saved: SavedSaju }) {
     }
     setReport(cleanReportText(result.data.report));
     setSal(result.data.sal ?? []);
+    setCard(result.data.card ?? null);
     setStep("result");
   }
 
@@ -67,8 +70,8 @@ export function SalpuriForm({ saved }: { saved: SavedSaju }) {
   if (step === "result") {
     return (
       <div className="flex flex-col gap-2">
-        <SalpuriReportResultView report={report} sal={sal} onDelete={handleDelete} />
-        <button onClick={() => { setStep("form"); setReport(""); setSal([]); }}
+        <SalpuriReportResultView report={report} sal={sal} card={card} onDelete={handleDelete} />
+        <button onClick={() => { setStep("form"); setReport(""); setSal([]); setCard(null); }}
           className="no-print text-sm text-[#6B6661] text-center py-2 -mt-4 active:opacity-60">
           다시 보기
         </button>
