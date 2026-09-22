@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/db/client";
-import { checkReportAccess, consumeOneTimePass } from "@/lib/billing/access";
+import { checkReportAccess, consumeOneTimePass, hasUnusedPassForRegenerate } from "@/lib/billing/access";
 import { startAttempt, finishAttemptDone, finishAttemptFailed, discardAttempt } from "@/lib/billing/attempts";
 import { reportExpiresAtIso, notExpiredFilter } from "@/lib/billing/report-ttl";
 import {
@@ -100,24 +100,30 @@ export async function POST(req: NextRequest) {
     pillars = { a: buildCompatPillarSummary(meChart, personALabel), b: buildCompatPillarSummary(otherChart, partnerLabel) };
   } catch { /* 명식표는 부가 정보 — 실패해도 리포트 생성은 계속한다 */ }
 
-  if (isAdhoc) {
-    const cached = await readAdhocCache<{ content: unknown; score: number }>(userId, PRODUCT_ID, personA, variant);
-    if (cached) {
-      await discardAttempt(started.attemptId);
-      return NextResponse.json({ report: cached.content, score: cached.score, context, cached: true, adhoc: true, pillars });
-    }
-  } else if (ownProfile?.id) {
-    try {
-      const { data: cached } = await supabaseAdmin
-        .from("premium_compatibility_reports").select("id, content, score")
-        .match(cacheKey).or(notExpiredFilter()).limit(1).maybeSingle();
-      if (cached?.content) {
+  // 2026-09-22(CEO 지시, 프로모션 이용권 배포): 지금 쓸 수 있는 미사용 이용권이 있으면
+  // 캐시를 건너뛰고 새로 생성한다 — 안 그러면 같은 두 사람·같은 관계유형으로는 새
+  // 이용권을 영영 못 쓴다(유일한 우회가 "결과 삭제하기"뿐이었다). 구독자는 대상이 아니다.
+  const skipCacheForPass = await hasUnusedPassForRegenerate(userId, PRODUCT_ID);
+  if (!skipCacheForPass) {
+    if (isAdhoc) {
+      const cached = await readAdhocCache<{ content: unknown; score: number }>(userId, PRODUCT_ID, personA, variant);
+      if (cached) {
         await discardAttempt(started.attemptId);
-        // §1(CoS 결정 2026-09-08): id를 함께 돌려줘야 마이페이지 "보기 →"가
-        // /premium/compatibility/{id}(이용권 검사 없는 열람 라우트)로 연결할 수 있다.
-        return NextResponse.json({ report: cached.content, score: cached.score, context, cached: true, id: cached.id, pillars });
+        return NextResponse.json({ report: cached.content, score: cached.score, context, cached: true, adhoc: true, pillars });
       }
-    } catch { /* 테이블 없음 또는 미저장 → 생성 진행 */ }
+    } else if (ownProfile?.id) {
+      try {
+        const { data: cached } = await supabaseAdmin
+          .from("premium_compatibility_reports").select("id, content, score")
+          .match(cacheKey).or(notExpiredFilter()).limit(1).maybeSingle();
+        if (cached?.content) {
+          await discardAttempt(started.attemptId);
+          // §1(CoS 결정 2026-09-08): id를 함께 돌려줘야 마이페이지 "보기 →"가
+          // /premium/compatibility/{id}(이용권 검사 없는 열람 라우트)로 연결할 수 있다.
+          return NextResponse.json({ report: cached.content, score: cached.score, context, cached: true, id: cached.id, pillars });
+        }
+      } catch { /* 테이블 없음 또는 미저장 → 생성 진행 */ }
+    }
   }
 
   // 구독자 또는 990원 단건 이용권 보유자만 통과. 이용권은 생성 성공 후 소진한다.

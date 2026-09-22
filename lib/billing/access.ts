@@ -58,6 +58,23 @@ export async function findUnusedOneTimePass(userId: string, productId: string): 
 }
 
 /**
+ * 미사용 단건 이용권을 실제로 "쓸 수 있는" 상태인가 — 프로모션 이용권 배포용(2026-09-22
+ * CEO 지시). 지금까지 각 상품 라우트는 캐시를 게이트보다 먼저 봤다(§ "캐시를 게이트보다
+ * 먼저 본다" 주석 — 기결제 사용자가 재생성 없이 무료로 다시 볼 수 있게 하려는 의도였다).
+ * 그런데 이 순서 때문에, 이미 그 프로필로 리포트를 한 번이라도 만들어 둔 사용자는
+ * 새로 받은 이용권을 그 프로필에는 절대 쓸 수 없었다 — 캐시가 항상 먼저 걸려 이용권
+ * 소진 코드에 도달하지 못한다. 유일한 우회는 "결과 삭제하기"로 기존 캐시를 지우는
+ * 것뿐이었는데, 프로모션으로 뿌린 이용권을 쓰라면서 자기 결과부터 지우라고 할 순 없다.
+ *
+ * 구독자는 대상이 아니다 — 구독자는 이미 무제한 무료 열람이 보장되고, 이 함수가
+ * true를 반환하면 캐시를 건너뛰고 재생성하므로(비용 발생) 구독자에게 적용하면
+ * 이유 없이 생성 비용만 는다. 순수하게 "지금 쓸 수 있는 단건 이용권이 있는가"만 본다.
+ */
+export async function hasUnusedPassForRegenerate(userId: string, productId: string): Promise<boolean> {
+  return (await findUnusedOneTimePass(userId, productId)) !== null;
+}
+
+/**
  * 운명 설계도 미사용 이용권 id. destiny_blueprint_one(직구매)과 destiny_upgrade(업그레이드)
  * 둘 다 인정하지만, ANY_REPORT_PASS(옛 묶음권) 폴백은 쓰지 않는다 — 묶음권은 990원짜리
  * 6종 리포트용이었고 운명 설계도(7,900원)는 별도 상품이라 섞이면 안 된다.

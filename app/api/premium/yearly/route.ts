@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/db/client";
-import { checkReportAccess, consumeOneTimePass } from "@/lib/billing/access";
+import { checkReportAccess, consumeOneTimePass, hasUnusedPassForRegenerate } from "@/lib/billing/access";
 import { startAttempt, finishAttemptDone, finishAttemptFailed } from "@/lib/billing/attempts";
 import { reportExpiresAtIso, notExpiredFilter } from "@/lib/billing/report-ttl";
 import {
@@ -60,19 +60,27 @@ export async function POST(req: NextRequest) {
   }
   const card = buildYearlyCard(yr);
 
-  // 캐시 조회 (테이블 없으면 조용히 무시)
-  if (isAdhoc) {
-    const cached = await readAdhocCache(userId, PRODUCT_ID, input, variant);
-    if (cached) return NextResponse.json({ report: cached, year, card, cached: true, adhoc: true });
-  } else if (ownProfile?.id) {
-    try {
-      const { data: cached } = await supabaseAdmin
-        .from("premium_yearly_reports").select("content")
-        .eq("saju_profile_id", ownProfile.id).eq("year", year).or(notExpiredFilter()).limit(1).maybeSingle();
-      if (cached?.content) {
-        return NextResponse.json({ report: cached.content, year, card, cached: true });
-      }
-    } catch { /* 테이블 없음 → 생성 진행 */ }
+  // 캐시 조회 (테이블 없으면 조용히 무시).
+  //
+  // 2026-09-22(CEO 지시, 프로모션 이용권 배포): 단, 지금 쓸 수 있는 미사용 이용권이
+  // 있으면 캐시를 건너뛰고 새로 생성한다 — 위에서 access.allowed로 이미 통과했더라도
+  // 캐시가 먼저 걸리면 consumeOneTimePass(109행)까지 절대 못 가 그 이용권이 영영
+  // 안 쓰인다. 유일한 우회가 "결과 삭제하기"뿐이었다. 구독자는 대상이 아니다.
+  const skipCacheForPass = await hasUnusedPassForRegenerate(userId, PRODUCT_ID);
+  if (!skipCacheForPass) {
+    if (isAdhoc) {
+      const cached = await readAdhocCache(userId, PRODUCT_ID, input, variant);
+      if (cached) return NextResponse.json({ report: cached, year, card, cached: true, adhoc: true });
+    } else if (ownProfile?.id) {
+      try {
+        const { data: cached } = await supabaseAdmin
+          .from("premium_yearly_reports").select("content")
+          .eq("saju_profile_id", ownProfile.id).eq("year", year).or(notExpiredFilter()).limit(1).maybeSingle();
+        if (cached?.content) {
+          return NextResponse.json({ report: cached.content, year, card, cached: true });
+        }
+      } catch { /* 테이블 없음 → 생성 진행 */ }
+    }
   }
 
   // 동시 중복 생성(더블클릭 레이스) 차단

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/db/client";
-import { isPremiumUser, findUnusedOneTimePass, consumeOneTimePass } from "@/lib/billing/access";
+import { isPremiumUser, findUnusedOneTimePass, consumeOneTimePass, hasUnusedPassForRegenerate } from "@/lib/billing/access";
 import { startAttempt, finishAttemptDone, finishAttemptFailed } from "@/lib/billing/attempts";
 import { reportExpiresAtIso, notExpiredFilter } from "@/lib/billing/report-ttl";
 import {
@@ -64,18 +64,26 @@ export async function POST(req: NextRequest) {
 
   // 캐시를 게이트보다 먼저 본다. 990원 이용권으로 이미 본 사용자는 이용권이 소진된 뒤라
   // 게이트를 먼저 통과시키면 자기 결과를 다시 열지 못한다. 본인 것만 조회하므로 안전하다.
-  if (isAdhoc) {
-    const cached = await readAdhocCache(userId, PRODUCT_ID, input);
-    if (cached) return NextResponse.json({ report: cached, sal: salList, card, cached: true, adhoc: true });
-  } else if (ownProfile?.id) {
-    try {
-      const { data: cached } = await supabaseAdmin
-        .from("premium_salpuri_reports").select("content")
-        .eq("saju_profile_id", ownProfile.id).or(notExpiredFilter()).limit(1).maybeSingle();
-      if (cached?.content) {
-        return NextResponse.json({ report: cached.content, sal: salList, card, cached: true });
-      }
-    } catch { /* 테이블 없음 또는 미저장 → 생성 진행 */ }
+  //
+  // 2026-09-22(CEO 지시, 프로모션 이용권 배포): 단, 지금 쓸 수 있는 미사용 이용권이
+  // 있으면 캐시를 건너뛰고 새로 생성한다 — 안 그러면 이미 리포트가 있는 프로필엔 새
+  // 이용권을 영영 못 쓴다(유일한 우회가 "결과 삭제하기"뿐이었다). 구독자는 대상이
+  // 아니다(무제한 무료 열람이 이미 보장돼 재생성은 비용만 늘린다).
+  const skipCacheForPass = await hasUnusedPassForRegenerate(userId, PRODUCT_ID);
+  if (!skipCacheForPass) {
+    if (isAdhoc) {
+      const cached = await readAdhocCache(userId, PRODUCT_ID, input);
+      if (cached) return NextResponse.json({ report: cached, sal: salList, card, cached: true, adhoc: true });
+    } else if (ownProfile?.id) {
+      try {
+        const { data: cached } = await supabaseAdmin
+          .from("premium_salpuri_reports").select("content")
+          .eq("saju_profile_id", ownProfile.id).or(notExpiredFilter()).limit(1).maybeSingle();
+        if (cached?.content) {
+          return NextResponse.json({ report: cached.content, sal: salList, card, cached: true });
+        }
+      } catch { /* 테이블 없음 또는 미저장 → 생성 진행 */ }
+    }
   }
 
   // 구독자 또는 990원 1회 이용권 보유자만 신규 생성 가능

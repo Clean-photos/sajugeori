@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/db/client";
-import { checkReportAccess, consumeOneTimePass } from "@/lib/billing/access";
+import { checkReportAccess, consumeOneTimePass, hasUnusedPassForRegenerate } from "@/lib/billing/access";
 import { startAttempt, finishAttemptDone, finishAttemptFailed, discardAttempt } from "@/lib/billing/attempts";
 import { reportExpiresAtIso, notExpiredFilter } from "@/lib/billing/report-ttl";
 import {
@@ -108,16 +108,26 @@ export async function POST(req: NextRequest) {
 
   // 캐시를 게이트보다 먼저 본다. 이용권은 생성 성공 시 소진되므로, 게이트를 먼저
   // 통과시키면 이미 결제해 만든 리포트를 다시 열지 못한다.
-  if (isAdhoc) {
-    const cached = await readAdhocCache(userId, PRODUCT_ID, input);
-    if (cached) return NextResponse.json({ report: cached, cached: true, adhoc: true });
-  } else if (ownProfile?.id) {
-    try {
-      const { data: cached } = await supabaseAdmin
-        .from("premium_wuxing_reports").select("content")
-        .eq("saju_profile_id", ownProfile.id).or(notExpiredFilter()).limit(1).maybeSingle();
-      if (cached?.content) return NextResponse.json({ report: cached.content, cached: true, profileId: ownProfile.id });
-    } catch { /* 테이블 없음(마이그레이션 미적용) → 생성으로 진행 */ }
+  //
+  // 2026-09-22(CEO 지시, 프로모션 이용권 배포): 단, 지금 쓸 수 있는 미사용 이용권이
+  // 있으면 캐시를 건너뛰고 새로 생성한다 — 그래야 그 이용권이 실제로 쓰인다. 이 순서
+  // 그대로 두면 이미 리포트가 있는 프로필엔 새 이용권을 영영 못 쓰고, 유일한 우회가
+  // "결과 삭제하기"뿐이었다(프로모션으로 준 이용권을 쓰라면서 기존 결과부터 지우라고
+  // 할 수 없다). 구독자는 대상이 아니다(무제한 무료 열람이 이미 보장돼 재생성은
+  // 비용만 늘린다) — hasUnusedPassForRegenerate는 구독 여부와 무관하게 단건 이용권만 본다.
+  const skipCacheForPass = await hasUnusedPassForRegenerate(userId, PRODUCT_ID);
+  if (!skipCacheForPass) {
+    if (isAdhoc) {
+      const cached = await readAdhocCache(userId, PRODUCT_ID, input);
+      if (cached) return NextResponse.json({ report: cached, cached: true, adhoc: true });
+    } else if (ownProfile?.id) {
+      try {
+        const { data: cached } = await supabaseAdmin
+          .from("premium_wuxing_reports").select("content")
+          .eq("saju_profile_id", ownProfile.id).or(notExpiredFilter()).limit(1).maybeSingle();
+        if (cached?.content) return NextResponse.json({ report: cached.content, cached: true, profileId: ownProfile.id });
+      } catch { /* 테이블 없음(마이그레이션 미적용) → 생성으로 진행 */ }
+    }
   }
 
   // 대상이 다르면 다른 생성 시도다 — 입력값을 그대로 기록해 두면 실패 원인 추적이 쉽다.

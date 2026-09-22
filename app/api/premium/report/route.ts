@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/db/client";
-import { checkReportAccess, consumeOneTimePass } from "@/lib/billing/access";
+import { checkReportAccess, consumeOneTimePass, hasUnusedPassForRegenerate } from "@/lib/billing/access";
 import { startAttempt, finishAttemptDone, finishAttemptFailed, discardAttempt } from "@/lib/billing/attempts";
 import { reportExpiresAtIso, notExpiredFilter } from "@/lib/billing/report-ttl";
 import { generateReport } from "@/lib/premium/saju-generate";
@@ -39,7 +39,12 @@ export async function GET(req: NextRequest) {
 
   // 캐시를 게이트보다 먼저 본다. 990원 이용권으로 이미 본 사용자는 이용권이 소진된 뒤라
   // 게이트를 먼저 통과시키면 자기 결과를 다시 열지 못한다. 본인 것만 조회하므로 안전하다.
-  if (!regenerate) {
+  //
+  // 2026-09-22(CEO 지시, 프로모션 이용권 배포): regenerate=1과 별개로, 지금 쓸 수 있는
+  // 미사용 이용권이 있으면 캐시를 건너뛴다 — 안 그러면 새로 받은 이용권을 쓰려 해도
+  // "결과 삭제하기"부터 해야 했다. 구독자는 대상이 아니다.
+  const skipCacheForPass = await hasUnusedPassForRegenerate(userId, PRODUCT_ID);
+  if (!regenerate && !skipCacheForPass) {
     try {
       const { data: cached } = await supabaseAdmin
         .from("premium_reports").select("content")
@@ -125,8 +130,13 @@ export async function POST(req: NextRequest) {
 
   const timeKey = birthTime ?? "";
 
+  // 2026-09-22(CEO 지시, 프로모션 이용권 배포): 지금 쓸 수 있는 미사용 이용권이 있으면
+  // 아래 두 캐시 조회를 모두 건너뛴다 — 안 그러면 새로 받은 이용권을 쓰려 해도
+  // "결과 삭제하기"부터 해야 했다. 구독자는 대상이 아니다.
+  const skipCacheForPass = await hasUnusedPassForRegenerate(userId, PRODUCT_ID);
+
   // 1회성인 경우 이미 만들어 둔 같은 조건의 리포트가 있으면 재사용한다(재열람 무료).
-  if (existingProfile?.id) {
+  if (!skipCacheForPass && existingProfile?.id) {
     try {
       const { data: cached } = await supabaseAdmin
         .from("premium_saju_adhoc_reports").select("content")
@@ -140,7 +150,7 @@ export async function POST(req: NextRequest) {
   }
 
   // 본인 대상이면 기존 premium_reports 캐시를 먼저 본다(재열람 무료).
-  if (!isAdhoc && ownProfile?.id) {
+  if (!skipCacheForPass && !isAdhoc && ownProfile?.id) {
     try {
       const { data: cached } = await supabaseAdmin
         .from("premium_reports").select("content")

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/db/client";
-import { checkReportAccess, consumeOneTimePass } from "@/lib/billing/access";
+import { checkReportAccess, consumeOneTimePass, hasUnusedPassForRegenerate } from "@/lib/billing/access";
 import { startAttempt, finishAttemptDone, finishAttemptFailed, discardAttempt } from "@/lib/billing/attempts";
 import { reportExpiresAtIso, notExpiredFilter } from "@/lib/billing/report-ttl";
 import {
@@ -79,22 +79,28 @@ export async function POST(req: NextRequest) {
     pet_month: petMonth,
     pet_day: petDay ?? 0,
   };
-  if (isAdhoc) {
-    const cached = await readAdhocCache(userId, PRODUCT_ID, target, variant);
-    if (cached) {
-      await discardAttempt(started.attemptId);
-      return NextResponse.json({ report: cached, pet: facts.pet, petName, cached: true, adhoc: true });
-    }
-  } else if (ownProfile?.id) {
-    try {
-      const { data: cached } = await supabaseAdmin
-        .from("premium_pet_reports").select("content")
-        .match(cacheKey).or(notExpiredFilter()).limit(1).maybeSingle();
-      if (cached?.content) {
+  // 2026-09-22(CEO 지시, 프로모션 이용권 배포): 지금 쓸 수 있는 미사용 이용권이 있으면
+  // 캐시를 건너뛰고 새로 생성한다 — 안 그러면 같은 아이·같은 조건으로는 새 이용권을
+  // 영영 못 쓴다(유일한 우회가 "결과 삭제하기"뿐이었다). 구독자는 대상이 아니다.
+  const skipCacheForPass = await hasUnusedPassForRegenerate(userId, PRODUCT_ID);
+  if (!skipCacheForPass) {
+    if (isAdhoc) {
+      const cached = await readAdhocCache(userId, PRODUCT_ID, target, variant);
+      if (cached) {
         await discardAttempt(started.attemptId);
-        return NextResponse.json({ report: cached.content, pet: facts.pet, petName, cached: true });
+        return NextResponse.json({ report: cached, pet: facts.pet, petName, cached: true, adhoc: true });
       }
-    } catch { /* 테이블 없음 또는 미저장 → 생성 진행 */ }
+    } else if (ownProfile?.id) {
+      try {
+        const { data: cached } = await supabaseAdmin
+          .from("premium_pet_reports").select("content")
+          .match(cacheKey).or(notExpiredFilter()).limit(1).maybeSingle();
+        if (cached?.content) {
+          await discardAttempt(started.attemptId);
+          return NextResponse.json({ report: cached.content, pet: facts.pet, petName, cached: true });
+        }
+      } catch { /* 테이블 없음 또는 미저장 → 생성 진행 */ }
+    }
   }
 
   // 캐시가 없을 때만 구독 확인 (이미 본 결과는 재열람 허용)
