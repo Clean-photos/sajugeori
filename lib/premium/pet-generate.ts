@@ -60,10 +60,11 @@ ${sp.traits.map((t) => `· ${t}`).join("\n")}
 ${sp.label}가 애정을 드러내는 방식: ${sp.loveSigns.join(", ")}
 
 [주인]
+띠: ${facts.owner.zodiac}띠
 일간 ${facts.owner.dayMaster} (오행 ${facts.owner.element}) / ${facts.owner.strength}
 ${yongsinLine}
 
-[둘의 관계 — 아래 힌트에 근거해 서술할 것]
+[둘의 관계 — 아래 힌트에 근거해 서술할 것. 두 사람의 띠 이름(집사 ${facts.owner.zodiac}띠, ${petName} ${facts.pet.zodiac}띠)을 직접 언급하며 쓸 것]
 띠 관계: ${branchHint[facts.relation.branch]}
 오행 흐름(아이의 속마음): ${flowHint[facts.relation.flow]}
 ${facts.relation.yongsinFill.length

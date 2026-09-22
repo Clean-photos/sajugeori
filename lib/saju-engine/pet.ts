@@ -211,6 +211,7 @@ export interface PetCompatFacts {
     hasDay: boolean;
   };
   owner: {
+    zodiac: string;         // 띠 (년지 한글) — 지지 관계 판정이 년지 대 년지라 서술에 필요
     dayMaster: string;      // 예: "戊(무)"
     element: string;        // 일간 오행 한글
     strength: string;       // 신강/신약 등
@@ -322,6 +323,7 @@ export function petCompatibility(owner: SajuChart, input: PetCompatInput): PetCo
       hasDay,
     },
     owner: {
+      zodiac: C.BRANCH_KR[owner.pillars.year.branch],
       dayMaster: `${owner.day_master}(${C.STEM_KR[owner.day_master]})`,
       element: C.ELEMENT_KR[ownerEl],
       strength: owner.strength.verdict,
