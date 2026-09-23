@@ -63,7 +63,20 @@ function extractBenefit(noteJoined: string): string | null {
   return null;
 }
 
-export function buildYearlyCard(result: YearlyResult): YearlyCardData {
+// 하이라이트 문구(좋은 달)에 한 번에 담을 최대 달 수 — 2026-09-22(CoS 실물 재검증):
+// 12개월 중 7개가 "좋은 달"로 뜨면 과반이라 변별력이 없다("결국 다 좋다는 거네").
+// 상위 몇 개만 짚어야 캡처했을 때 "이 달이 특히 좋다"는 게 의미를 갖는다.
+const MAX_HIGHLIGHT_MONTHS = 3;
+
+/**
+ * 연운세 카드 데이터를 만든다.
+ * @param now 기준 시각(기본 현재 시각) — 조회 연도가 올해면 "좋은 달/조심할 달/한 줄 결론"을
+ *   이번 달 이후로만 뽑는다. 2026-09-22(CoS 실물 재검증): 9월에 산 사람이 카드를 캡처했는데
+ *   "조심할 달 6월"처럼 이미 지난 달이 나와, 뒤로 갈수록 실제 조언과 안 맞았다. 12개월 막대
+ *   자체는 "한 해 전체가 어떻게 흘렀는지" 보여주는 그림이라 과거 달도 그대로 두되(월별 높이
+ *   비교는 지난달도 의미가 있다), 문구로 뽑는 하이라이트만 남은 달 기준으로 좁힌다.
+ */
+export function buildYearlyCard(result: YearlyResult, now: Date = new Date()): YearlyCardData {
   const scores = result.months.map((m) => m.score);
   const lo = Math.min(...scores);
   const hi = Math.max(...scores);
@@ -75,10 +88,20 @@ export function buildYearlyCard(result: YearlyResult): YearlyCardData {
     ratio: span > 0 ? (m.score - lo) / span : 0.5,
   }));
 
-  const goodMonthsLabel = formatMonthRanges(months.filter((m) => m.tier === "good").map((m) => m.month));
-  const cautionMonthsLabel = formatMonthRanges(months.filter((m) => m.tier === "caution").map((m) => m.month));
+  const currentMonth = result.year === now.getFullYear() ? now.getMonth() + 1 : 1;
+  const upcoming = result.months.filter((m) => m.month >= currentMonth);
+  // 조회 연도의 남은 달이 없으면(예: 12월에 올해 카드) 과거 조언만 남기느니 전체 12개월로 되돌린다.
+  const pool = upcoming.length > 0 ? upcoming : result.months;
 
-  const best = [...result.months].sort((a, b) => b.score - a.score)[0];
+  const topGood = [...pool]
+    .filter((m) => m.score >= GOOD_THRESHOLD)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, MAX_HIGHLIGHT_MONTHS)
+    .map((m) => m.month);
+  const goodMonthsLabel = formatMonthRanges(topGood);
+  const cautionMonthsLabel = formatMonthRanges(pool.filter((m) => m.score <= CAUTION_THRESHOLD).map((m) => m.month));
+
+  const best = [...pool].sort((a, b) => b.score - a.score)[0];
   let verdict: string | null = null;
   if (best && best.score > 0) {
     const benefit = extractBenefit(best.note);

@@ -61,9 +61,12 @@ export function WuxingSummaryCard({ data }: { data: WuxingReportData }) {
                     <div className="h-full rounded-[4px]" style={{ width: `${Math.max(b.ratio * 100, 4)}%`, backgroundColor: ELEMENT_COLOR[b.element] }} />
                   )}
                 </div>
-                <div className="w-[64px] flex-shrink-0 text-right">
+                {/* 2026-09-22(CoS 실물 재검증): 퍼센트는 합계를 100%로 맞추려 반올림 오차를
+                    나눠 갖는 최대잔여법을 쓴다(1/8=12.5%가 12%·13%로 갈릴 수 있음) — 캡처해
+                    돌아다니는 카드에서 "같은 1개인데 왜 %가 다르냐"는 혼란을 낳았다. 카드는
+                    개수만 보여주고 퍼센트는 뺀다(전체 리포트에는 그대로 남아 있다). */}
+                <div className="w-[40px] flex-shrink-0 text-right">
                   <span className="text-[12px] font-semibold text-[#1A1A18] tabular-nums">{b.count}개</span>
-                  <span className="text-[10.5px] text-[#6B6661] tabular-nums ml-1">{b.percent}%</span>
                 </div>
                 <span
                   className="w-[50px] flex-shrink-0 text-center text-[10px] font-semibold rounded-full py-[2px]"

@@ -35,13 +35,18 @@ function Gauge({ label, value }: { label: string; value: number }) {
 // 소수점 숫자를 그대로 보여줘 이해하기 어렵다는 지적 — 지장간까지 반영한 근사
 // 가중치라 사용자가 셀 수 있는 "글자 개수"가 아니다. Gauge와 같은 막대 도표로
 // 바꾸고, 값은 이 사주 안에서 가장 강한 오행 대비 상대적 길이로 보여준다.
-function ElementBar({ label, value, max }: { label: string; value: number; max: number }) {
+//
+// 2026-09-22(CoS 실물 재검증): 막대는 이 규칙대로 바뀌었는데 막대 옆 숫자 라벨이
+// value.toFixed(2)로 그대로 남아 "2.24" 같은 원시 가중치가 계속 보였다(같은 지적의
+// 재발) — 라벨도 총합 대비 정수 퍼센트로 바꿔 소수점이 화면에 전혀 남지 않게 한다.
+function ElementBar({ label, value, max, total }: { label: string; value: number; max: number; total: number }) {
   const pct = max > 0 ? Math.max(4, (value / max) * 100) : 0;
+  const share = total > 0 ? Math.round((value / total) * 100) : 0;
   return (
     <div>
       <div className="flex justify-between text-xs text-[#6B6661] mb-0.5">
         <span>{label}</span>
-        <span className="font-semibold text-[#1A1A18]">{value.toFixed(2)}</span>
+        <span className="font-semibold text-[#1A1A18]">{share}%</span>
       </div>
       <div className="h-2 rounded-full bg-[#E5DFD4] overflow-hidden">
         <div className="h-full bg-[#1F3D34]" style={{ width: `${pct}%` }} />
@@ -160,7 +165,16 @@ export function BlueprintReportView({ report, showPrintButton = true }: { report
         {/* 명식 표 */}
         {chart && facts && p && (
         <div className="print-card border border-[#E5DFD4] rounded-2xl p-4 bg-[#FBF8F2]">
-          <p className="font-serif text-[17px] font-bold text-[#1F3D34] mb-3">명식</p>
+          <div className="flex items-center justify-between mb-3">
+            <p className="font-serif text-[17px] font-bold text-[#1F3D34]">명식</p>
+            {/* 5-3(CoS 실물 재검증, 2026-09-22): 진태양시 보정 고지가 26,000자 리포트의
+                맨 끝 줄에만 있어 "보정을 하는지조차 안 보인다"던 차별화 포인트가 죽어
+                있었다 — 실제로는 적용 중이었으므로 명식표 옆 배지로 끌어올린다. 아래
+                판독 한계 문단은 더 자세한 설명(출생지 편차)을 그대로 유지한다. */}
+            <span className="text-[10px] font-medium text-[#8A5228] bg-[#FDF0E3] border border-[#E9D9C4] rounded-full px-2 py-[3px]">
+              진태양시 보정 적용
+            </span>
+          </div>
           <div className="grid grid-cols-4 gap-2">
             <PillarCell label="시" stem={p.hour ? `${p.hour.stem}(${C.STEM_KR[p.hour.stem]})` : undefined} branch={p.hour ? `${p.hour.branch}(${C.BRANCH_KR[p.hour.branch]})` : undefined} tgStem={chart.ten_gods.hour_stem} tgBranch={chart.ten_gods.hour_branch} />
             <PillarCell label="일" stem={`${p.day.stem}(${C.STEM_KR[p.day.stem]})`} branch={`${p.day.branch}(${C.BRANCH_KR[p.day.branch]})`} tgStem="일간(본원)" tgBranch={chart.ten_gods.day_branch} />
@@ -179,6 +193,7 @@ export function BlueprintReportView({ report, showPrintButton = true }: { report
                   label={C.ELEMENT_KR[e]}
                   value={chart.elements[e]}
                   max={Math.max(...C.ELEMENTS.map((k) => chart.elements[k]))}
+                  total={C.ELEMENTS.reduce((sum, k) => sum + chart.elements[k], 0)}
                 />
               ))}
             </div>
