@@ -4,7 +4,7 @@ import { DangerZone } from "./DangerZone";
 import { ChangePasswordSection } from "./ChangePasswordSection";
 import { auth } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/db/client";
-import { REPORT_PRODUCTS, DESTINY_PRODUCT_IDS } from "@/lib/billing/plans";
+import { REPORT_PRODUCTS, DESTINY_PRODUCT_IDS, getPlan } from "@/lib/billing/plans";
 import { listUserReports, viewHref, type MyReport } from "@/lib/billing/my-reports";
 import { loadOwnProfile, type OwnProfile } from "@/lib/billing/report-target";
 import { BirthDateConfirmBanner } from "@/components/BirthDateConfirmBanner";
@@ -60,7 +60,10 @@ export default async function MypagePage() {
     // 있다. 예전에는 구독만 조회해서, 990원 단건을 결제한 사람은 결제 내역이
     // 비어 보였다(실측: 990원 2건 결제했는데 "결제 내역이 없습니다").
     for (const s of subsResult.data ?? []) {
-      payments.push({ label: s.plan ?? "프리미엄 구독", status: s.status, created_at: s.created_at });
+      // 5-2(CoS 실물 확인, 2026-09-22): 옛 테스트 구독(premium_test 등) plan 값을
+      // 그대로 라벨로 찍어 결제 내역에 내부 코드가 그대로 노출됐다. 알려진 상품이면
+      // 이름을, 모르는 값(테스트·폐기된 코드)이면 원본 대신 안전한 기본 라벨을 쓴다.
+      payments.push({ label: getPlan(s.plan)?.name ?? "프리미엄 구독", status: s.status, created_at: s.created_at });
     }
     for (const o of otpResult.data ?? []) {
       const label = REPORT_PRODUCTS.find((r) => r.productId === o.product_id)?.label
