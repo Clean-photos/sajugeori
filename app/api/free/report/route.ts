@@ -3,6 +3,7 @@ import { getAdRewardProvider } from "@/lib/ads";
 import { runSajuEngine, checkSamjae } from "@/lib/saju-engine";
 import { PHASE_MEANING } from "@/lib/saju-engine/samjae";
 import { wrapStreamError } from "@/lib/report-stream-error";
+import { buildFreeSajuCard } from "@/lib/free/free-saju-card";
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
@@ -17,6 +18,10 @@ export async function POST(req: NextRequest) {
   const nowYear = new Date().getFullYear();
   let engineSummary = "";
   let samjaeSection = ""; // 삼재인 해에만 채워지고, 아니면 프롬프트에서 통째로 빠진다.
+  // §B-6(CoS 실물 확인, 2026-09-23): 무료 결과에 명식 8글자·오행 분포·신살 목록이
+  // 없어 얇다는 지적 — 순수 계산값(용신·처방 아님)이라 그대로 공개해도 무료/유료
+  // 경계를 해치지 않는다. 스트리밍 본문과 별도로 응답 헤더에 실어 보낸다.
+  let freeCard: ReturnType<typeof buildFreeSajuCard> | null = null;
   try {
     const birthDate: string = extra?.birth_date ?? "1990-01-01";
     const result = runSajuEngine({
@@ -26,6 +31,7 @@ export async function POST(req: NextRequest) {
       gender: extra?.gender ?? "M",
     });
     const j = result.saju_json;
+    freeCard = buildFreeSajuCard(result.saju_raw);
 
     // 2026-09-22(CEO 결정, CoS §C-4): 무료 결과가 용신·개운 처방까지 내주면 유료(오행 보완·프리미엄 사주)를
     // 살 이유가 사라진다. 무료는 "진단"(성격·현재 운세·조언·대운 요약)까지만 주고, 용신·채울 오행·개운
@@ -140,5 +146,8 @@ ${samjaeSection}
     },
   });
 
-  return new Response(stream, { headers: { "Content-Type": "text/plain; charset=utf-8" } });
+  const headers: Record<string, string> = { "Content-Type": "text/plain; charset=utf-8" };
+  // 헤더는 ASCII만 허용 — 한글 JSON을 base64로 실어 보낸다(본문 스트림 프로토콜은 그대로 둔다).
+  if (freeCard) headers["X-Saju-Card"] = Buffer.from(JSON.stringify(freeCard), "utf-8").toString("base64");
+  return new Response(stream, { headers });
 }

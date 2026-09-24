@@ -15,7 +15,7 @@ import { parseStreamError } from "@/lib/report-stream-error";
  * 사유는 그대로 노출하지 않되, 사용자가 다르게 행동해야 하는 사유(광고 토큰
  * 문제 vs 입력값 문제)는 구분해서 전달한다.
  */
-export type FreeReportResult = { ok: true; text: string } | { ok: false; message: string };
+export type FreeReportResult = { ok: true; text: string; card?: unknown } | { ok: false; message: string };
 
 function messageFor(status: number, code: string | undefined): string {
   if (code && /ad token/i.test(code)) {
@@ -57,5 +57,19 @@ export async function fetchFreeReport(url: string, body: unknown): Promise<FreeR
   const streamError = parseStreamError(text);
   if (streamError) return { ok: false, message: streamError };
 
-  return { ok: true, text };
+  // §B-6(CoS 실물 확인, 2026-09-23): 무료 사주만 명식·오행·신살 카드 데이터를
+  // X-Saju-Card 헤더(base64 JSON)로 함께 보낸다 — 본문 스트림 프로토콜은 그대로 둔다.
+  // 다른 무료 상품(궁합·택일·연운세)은 이 헤더가 없으니 card는 그냥 undefined다.
+  let card: unknown;
+  const raw = res.headers.get("X-Saju-Card");
+  if (raw) {
+    try {
+      // atob는 바이트 하나당 문자 하나로만 풀어 준다 — 서버가 UTF-8로 인코딩한
+      // 한글 JSON을 그대로 파싱하려면 바이트 배열로 바꾼 뒤 TextDecoder를 거쳐야 한다.
+      const bytes = Uint8Array.from(atob(raw), (c) => c.charCodeAt(0));
+      card = JSON.parse(new TextDecoder("utf-8").decode(bytes));
+    } catch { /* 카드 없이 본문만 보여줘도 무방 */ }
+  }
+
+  return { ok: true, text, card };
 }

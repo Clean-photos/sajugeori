@@ -13,6 +13,8 @@ import { CalendarField } from "../CalendarField";
 import { fetchFreeReport } from "../fetchFreeReport";
 import { toSolar, type CalendarKind } from "@/lib/calendar/convert";
 import { readAndClearFreeSajuHandoff } from "@/lib/free-saju-handoff";
+import { FreeSajuCard } from "./FreeSajuCard";
+import type { FreeSajuCard as FreeSajuCardData } from "@/lib/free/free-saju-card";
 
 type Step = "form" | "ad" | "loading" | "result";
 
@@ -56,6 +58,7 @@ function FreeSajuInner() {
   const conv = form.birth_date.length === 10 ? toSolar(form.birth_date, calendar) : null;
   const solarBirthDate = conv?.ok ? conv.solar : "";
   const [result, setResult] = useState<string>("");
+  const [card, setCard] = useState<FreeSajuCardData | null>(null);
   const [error, setError] = useState("");
 
   // §2-2: 쿼리에는 이제 autostart=1만 남는다(PII 아님) — 그래도 남겨 둘 이유가
@@ -85,6 +88,7 @@ function FreeSajuInner() {
     });
     if (!r.ok) { setError(r.message); setStep("form"); return; }
     setResult(cleanReportText(r.text));
+    setCard((r.card as FreeSajuCardData | undefined) ?? null);
     setStep("result");
   }
 
@@ -275,6 +279,9 @@ function FreeSajuInner() {
       </div>
 
       <div className="flex-1 px-5 py-6 flex flex-col gap-4">
+        {/* 명식·오행·신살 요약 카드 — §B-6(CoS 2026-09-23), 순수 계산값이라 무료로 공개 */}
+        {card && <FreeSajuCard card={card} />}
+
         {/* Result card */}
         <div className="bg-[#FBF8F2] border border-[#E5DFD4] rounded-2xl p-5 shadow-sm">
           <div className="flex items-center gap-2 mb-4 pb-3 border-b border-[#E5DFD4]">
@@ -306,7 +313,7 @@ function FreeSajuInner() {
         </div>
 
         <button
-          onClick={() => { setStep("form"); setResult(""); }}
+          onClick={() => { setStep("form"); setResult(""); setCard(null); }}
           className="text-sm text-[#6B6661] text-center py-2 active:opacity-60"
         >
           다시 조회하기
