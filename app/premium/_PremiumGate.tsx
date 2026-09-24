@@ -6,6 +6,7 @@ import { supabaseAdmin } from "@/lib/db/client";
 import { isPremiumUser, findUnusedOneTimePass } from "@/lib/billing/access";
 import { SAMPLE_REPORTS } from "@/lib/sample-reports";
 import { SamplePreview } from "@/components/premium/SamplePreview";
+import { listUserReports, viewHref } from "@/lib/billing/my-reports";
 
 /** 구독 없이 단건 이용권으로도 통과할 수 있는 기능의 이용권 옵션 */
 export interface OneTimeOption {
@@ -16,7 +17,7 @@ export interface OneTimeOption {
 
 type GateState =
   | { ok: true; hasProfile: true }
-  | { ok: false; kind: "login" | "subscribe" | "onboarding"; hasProfile: boolean };
+  | { ok: false; kind: "login" | "subscribe" | "onboarding"; hasProfile: boolean; userId: string | null };
 
 /**
  * §3(QA 2026-09-05): 하단 탭 라벨("내 사주" vs "사주추가")이 페이지마다 달랐다
@@ -27,7 +28,7 @@ type GateState =
 async function checkGate(oneTime?: OneTimeOption): Promise<GateState> {
   const session = await auth();
   const userId = session?.user?.id;
-  if (!userId) return { ok: false, kind: "login", hasProfile: false };
+  if (!userId) return { ok: false, kind: "login", hasProfile: false, userId: null };
 
   const [premium, profileRes] = await Promise.all([
     isPremiumUser(userId),
@@ -41,8 +42,8 @@ async function checkGate(oneTime?: OneTimeOption): Promise<GateState> {
   const hasPass = !premium && oneTime
     ? (await findUnusedOneTimePass(userId, oneTime.productId)) !== null
     : false;
-  if (!premium && !hasPass) return { ok: false, kind: "subscribe", hasProfile };
-  if (!hasProfile) return { ok: false, kind: "onboarding", hasProfile: false };
+  if (!premium && !hasPass) return { ok: false, kind: "subscribe", hasProfile, userId };
+  if (!hasProfile) return { ok: false, kind: "onboarding", hasProfile: false, userId };
 
   return { ok: true, hasProfile: true };
 }
@@ -66,6 +67,22 @@ export async function PremiumGate({
 }) {
   const gate = await checkGate(oneTime);
   const sample = sampleKey ? SAMPLE_REPORTS[sampleKey] : undefined;
+
+  // §B-3(CoS 실물 확인, 2026-09-23): "결제 후에는 언제든 다시 열어볼 수 있습니다"라고
+  // 안내하면서 정작 그 리포트로 가는 링크가 없었다 — 마이페이지를 거쳐야만 다시 볼 수
+  // 있었고, 같은 상품을 또 결제할 위험도 있었다. 이미 본인 리포트가 있으면(구독 없이도
+  // 재열람은 이용권 소모가 아니다) 재구매 버튼 옆에 최신 리포트로 가는 링크를 낸다.
+  let myReport: { href: string; dateLabel: string } | null = null;
+  if (!gate.ok && gate.kind === "subscribe" && gate.userId) {
+    try {
+      const reports = await listUserReports(gate.userId);
+      const mine = reports.find((r) => r.href === path);
+      if (mine) {
+        const d = new Date(mine.created_at);
+        myReport = { href: viewHref(mine), dateLabel: `${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")}` };
+      }
+    } catch { /* 조회 실패해도 재구매 경로는 그대로 동작해야 한다 */ }
+  }
 
   return (
     <div className="flex flex-col min-h-screen pb-24 bg-[#F6F1E7]">
@@ -99,6 +116,11 @@ export async function PremiumGate({
               <p className="text-xs text-[#6B6661] max-w-[250px] leading-relaxed">
                 리포트 한 편만 결제해서 보실 수 있어요. 결제 후에는 언제든 다시 열어볼 수 있습니다.
               </p>
+              {myReport && (
+                <Link href={myReport.href} className="rounded-xl border border-[#1F3D34] text-[#1F3D34] px-6 py-3 text-sm font-semibold">
+                  내 리포트 보기 ({myReport.dateLabel})
+                </Link>
+              )}
               {oneTime ? (
                 <>
                   <Link href={oneTime.buyPath} className="rounded-xl bg-[#C8743A] text-white px-6 py-3 text-sm font-semibold">
