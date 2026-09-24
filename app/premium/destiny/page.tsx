@@ -5,6 +5,7 @@ import { auth } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/db/client";
 import { isPremiumUser, findUnusedDestinyPass, hasSajuReport } from "@/lib/billing/access";
 import { loadOwnProfile } from "@/lib/billing/report-target";
+import { notExpiredFilter } from "@/lib/billing/report-ttl";
 import { DESTINY_BLUEPRINT_ONE, DESTINY_UPGRADE } from "@/lib/billing/plans";
 import { DestinySamplePreview } from "@/components/blueprint/DestinySamplePreview";
 import sampleFullReport from "@/lib/blueprint-engine/sample-full-report.json";
@@ -36,9 +37,15 @@ export default async function DestinyPage() {
     }
     if (p?.id) {
       try {
+        // §B-2(CoS 실물 확인, 2026-09-23): 만료 여부를 안 걸러서, 만료돼 이미
+        // GET 핸들러(app/api/premium/destiny/route.ts)가 "existing 없음"으로
+        // 취급하는 옛 행도 여기서는 "저장본 있음"으로 잘못 셌다 — hasOwnReport가
+        // true가 되어 확정 화면을 건너뛰고 곧장 생성을 시작했는데, 실제로는
+        // 신규 생성이라 확정 없이 미사용 이용권이 그대로 소모됐다. GET 핸들러가
+        // 저장본을 찾을 때 쓰는 것과 같은 기준(notExpiredFilter)으로 맞춘다.
         const { count } = await supabaseAdmin
           .from("blueprint_reports").select("saju_profile_id", { count: "exact", head: true })
-          .eq("saju_profile_id", p.id);
+          .eq("saju_profile_id", p.id).or(notExpiredFilter());
         hasReport = (count ?? 0) > 0;
       } catch { /* 테이블 없음 → 미보유로 간주 */ }
     }
