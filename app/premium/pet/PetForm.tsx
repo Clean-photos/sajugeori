@@ -8,6 +8,7 @@ import { premiumErrorInfo, type PremiumErrorInfo } from "@/components/premium/pr
 import { PremiumErrorBanner } from "@/components/premium/PremiumErrorBanner";
 import { PetReportResultView } from "@/components/premium/PetReportResultView";
 import { postWithBusyRetry } from "@/lib/premium/generate-with-retry";
+import { josaWaGwa } from "@/lib/premium/kr-josa";
 
 type Step = "form" | "loading" | "result" | "deleted";
 type Species = "dog" | "cat";
@@ -171,7 +172,7 @@ export function PetForm({ saved }: { saved: SavedSaju }) {
       <div className="flex-1 flex flex-col items-center justify-center gap-4 py-24">
         <div className="w-10 h-10 border-2 border-[#C8743A]/30 border-t-[#C8743A] rounded-full animate-spin" />
         <p className="text-sm text-[#6B6661]">
-          {error?.message ?? `${name.trim() || "아이"}와의 궁합을 살펴보고 있어요…`}
+          {error?.message ?? (() => { const n = name.trim() || "아이"; return `${n}${josaWaGwa(n)}의 궁합을 살펴보고 있어요…`; })()}
         </p>
         <p className="text-xs text-[#6B6661]/60">최대 1분 정도 걸릴 수 있어요</p>
         <WaitingCards />
@@ -303,7 +304,7 @@ export function PetForm({ saved }: { saved: SavedSaju }) {
           busy={false}
           confirmMode
           onSubmit={(v) => { if (canSubmit) submit(false, v); }}
-          submitLabel={name.trim() ? `${name.trim()}와의 궁합 보기` : "이 사주로 궁합 보기"}
+          submitLabel={name.trim() ? `${name.trim()}${josaWaGwa(name.trim())}의 궁합 보기` : "이 사주로 궁합 보기"}
         />
       )}
     </>

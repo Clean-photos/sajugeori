@@ -14,3 +14,6 @@ function hasBatchim(text: string): boolean {
 export const josaEulReul = (text: string) => (hasBatchim(text) ? "을" : "를");
 export const josaIga = (text: string) => (hasBatchim(text) ? "이" : "가");
 export const josaEunNeun = (text: string) => (hasBatchim(text) ? "은" : "는");
+// §B-1(CoS 실물 확인, 2026-09-23): "구름와의 궁합 보기"처럼 받침 있는 이름에서
+// "와/과"가 틀리는 사례가 나와 추가 — 받침 있으면 "과", 없으면 "와".
+export const josaWaGwa = (text: string) => (hasBatchim(text) ? "과" : "와");
