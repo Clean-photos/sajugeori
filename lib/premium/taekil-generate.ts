@@ -1,7 +1,11 @@
 // 990원 상품 단일 호출로 6500토큰까지 늘리면 compat-generate.ts와 같은 이유로
 // Vercel Hobby의 60초 상한을 넘길 위험이 크다(궁합에서 72.6초 실측). 앞부분
 // (택일 기준·추천 날짜)과 뒷부분(피해야 할 날·우선순위 정리·시간대 조언)을
-// 병렬 2콜로 쪼갠다.
+// 병렬 2콜로 쪼갰었다.
+// §C 🔴2(CoS 실물 확인, 2026-09-23): 그래도 "추천 날짜 5개를 3~4문장씩" 쓰는
+// 콜이 55.9~59.997초로 상한에 바짝 붙었고 실제 504도 났다. "택일 기준"(4~5문장
+// 짧은 콜)과 "추천 날짜"(날짜 5개, 무거운 콜)를 다시 분리해 총 4콜 병렬로 쪼갠다
+// — 가장 무거운 콜의 출력량을 줄이는 것이 상한을 넘길 확률을 낮추는 유일한 손잡이다.
 
 const COMMON_RULES = `
 규칙:
@@ -36,10 +40,9 @@ async function callText(prompt: string, maxTokens: number): Promise<string> {
 
 /** 일진 스코어링 데이터로 프리미엄 택일 리포트 전문을 생성한다. */
 export async function generateTaekilReport(engineSummary: string, purposeLabel: string): Promise<string> {
-  const [front, back, tips] = await Promise.all([
+  const [criteria, dates, back, tips] = await Promise.all([
     callText(`당신은 명리학 택일 대가입니다. 아래는 실제 일진(日辰)을 계산해 산출한 택일 데이터입니다.
-이 데이터로 유료 프리미엄 택일 리포트의 앞부분을 작성하세요. 990원짜리 무료 버전과는 분량·깊이가 확연히
-달라야 합니다.
+이 데이터로 유료 프리미엄 택일 리포트의 도입부를 작성하세요.
 
 ${engineSummary}
 
@@ -47,10 +50,18 @@ ${engineSummary}
 
 【 택일 기준 】
 (이 사람의 사주 관점에서 왜 이런 날들이 좋은지, 일간·용신과 일진의 관계 원칙을 4~5문장으로 충실히.)
+${COMMON_RULES}`, 1000),
+    callText(`당신은 명리학 택일 대가입니다. 아래는 실제 일진(日辰)을 계산해 산출한 택일 데이터입니다.
+이 데이터로 유료 프리미엄 택일 리포트의 "추천 날짜" 섹션을 작성하세요. 990원짜리 무료 버전과는 분량·깊이가
+확연히 달라야 합니다.
+
+${engineSummary}
+
+다음 형식으로 정확히 작성하세요:
 
 【 추천 날짜 】
 (위 최길일 후보를 좋은 순서대로 정리. 각 날짜마다 "YYYY-MM-DD (요일) — " 다음에 이 사람에게 왜 좋은지 3~4문장: 그날 일진의 오행·합충이 이 사람의 용신·일간과 어떻게 맞물리는지, 이 목적(${purposeLabel})에 특히 왜 좋은지. 위에 주어진 날짜만 사용하고 임의로 다른 날짜를 만들지 말 것.)
-${COMMON_RULES}`, 3900),
+${COMMON_RULES}`, 3200),
     callText(`당신은 명리학 택일 대가입니다. 아래는 실제 일진(日辰)을 계산해 산출한 택일 데이터입니다.
 이 데이터로 유료 프리미엄 택일 리포트의 뒷부분을 작성하세요. 990원짜리 무료 버전과는 분량·깊이가 확연히
 달라야 합니다.
@@ -80,5 +91,5 @@ ${engineSummary}
 ${COMMON_RULES}`, 2000),
   ]);
 
-  return [front, back, tips].join("\n\n");
+  return [criteria, dates, back, tips].join("\n\n");
 }

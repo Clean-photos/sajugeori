@@ -14,7 +14,7 @@ import { generateTaekilReport } from "@/lib/premium/taekil-generate";
 import { buildYongsinDualTrack, yongsinDualTrackPromptLine } from "@/lib/premium/yongsin-track";
 import { buildTaekilCard } from "@/lib/premium/taekil-card";
 
-// 택일 리포트 생성이 병렬 2콜로 나뉘어 있어도(lib/premium/taekil-generate.ts 참고)
+// 택일 리포트 생성이 병렬 4콜로 나뉘어 있어도(lib/premium/taekil-generate.ts 참고)
 // 전체 요청 처리 시간은 Vercel Hobby 플랜의 60초 제한 안에 들어와야 한다.
 export const maxDuration = 60;
 

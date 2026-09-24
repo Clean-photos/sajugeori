@@ -12,7 +12,7 @@ import { buildChart, petCompatibility, PET_DEFAULT_MONTH, PET_FLOW_HINT, PET_BRA
 import type { PetSpecies } from "@/lib/saju-engine";
 import { generatePetReport } from "@/lib/premium/pet-generate";
 
-// 펫 리포트 생성이 병렬 2콜로 나뉘어 있어도(lib/premium/pet-generate.ts 참고)
+// 펫 리포트 생성이 병렬 5콜로 나뉘어 있어도(lib/premium/pet-generate.ts 참고)
 // 전체 요청 처리 시간은 Vercel Hobby 플랜의 60초 제한 안에 들어와야 한다.
 export const maxDuration = 60;
 
