@@ -1,11 +1,11 @@
 /**
  * generate.ts — 운명 설계도 생성 오케스트레이터.
- * 순서: 앵커(제약·지렛대) 1콜 → [총론 + 축1~4] 5콜 병렬 → 실행설계·조언5 1콜. 총 7콜.
- * (스펙 8장 "축 단위 병렬 호출"을 만족하면서, 조언5는 축 결과를 재인용해야 하므로 마지막에 순차 배치)
+ * 순서: 앵커(제약·지렛대) 1콜 → [총론 + 축1~4] 5콜 병렬 → [실행설계 + 조언5] 2콜 병렬. 총 8콜.
+ * (스펙 8장 "축 단위 병렬 호출"을 만족하면서, 실행설계·조언5는 축 결과를 재인용해야 하므로 마지막에 배치)
  */
 import { buildPreciseChart, type BlueprintChart } from "./engine";
 import { computeAnchorFacts, buildAnchorNarrativePrompt, type AnchorFacts, type AnchorNarrative } from "./anchor";
-import { buildOverviewPrompt, buildAxisGroupPrompt, buildClosingPrompt } from "./prompts";
+import { buildOverviewPrompt, buildAxisGroupPrompt, buildClosingSummaryPrompt, buildAdvicePrompt } from "./prompts";
 import { AXES, type QABlock } from "./questions";
 import { sanitizeJsonString } from "@/lib/llm-json-sanitize";
 
@@ -152,9 +152,16 @@ export async function runBlueprintStep(
   }
 
   // 총론·앵커·4축 전부 완료 — 마지막 스텝: 실행설계 + 조언5. 여기서 리포트를 완성한다.
+  // §5-3(CoS 실물 확인, 2026-09-23): 예전엔 이 둘을 한 콜로 묶어 24/24 도달 후
+  // 그 단일 콜이 60초에 걸려 함수가 죽는 사고가 반복 재현됐다(재시도해도 같은
+  // 콜이 다시 느려 계속 실패). 축을 병렬 쪼갠 것과 같은 원리로 두 콜을 병렬 실행한다.
   const axes = resume.axes!;
   const axisSummaries = axes.map((a) => ({ title: a.title, verdicts: a.questions.map((q) => q.verdict) }));
-  const closing = await callJSON<BlueprintReport["closing"]>(buildClosingPrompt(facts, narrative, axisSummaries), 3500, usage);
+  const [closingSummary, adviceResult] = await Promise.all([
+    callJSON<Omit<BlueprintReport["closing"], "advice">>(buildClosingSummaryPrompt(facts, narrative, axisSummaries), 2000, usage),
+    callJSON<{ advice: string[] }>(buildAdvicePrompt(facts, narrative, axisSummaries), 2500, usage),
+  ]);
+  const closing: BlueprintReport["closing"] = { ...closingSummary, advice: adviceResult.advice };
 
   const allGrades = axes.flatMap((a) => a.questions.map((q) => q.evidenceGrade));
   const gradeACounts = allGrades.filter((g) => g === "A").length;

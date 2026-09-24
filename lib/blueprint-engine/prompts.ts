@@ -87,17 +87,28 @@ ${qList}
 ${COMMON_RULES}`;
 }
 
-export function buildClosingPrompt(
+function axisSummaryText(axisSummaries: { title: string; verdicts: string[] }[]): string {
+  return axisSummaries
+    .map((a) => `[${a.title}]\n${a.verdicts.map((v) => `- ${v}`).join("\n")}`)
+    .join("\n\n");
+}
+
+/**
+ * §5-3(CoS 실물 확인, 2026-09-23): 마지막 스텝이 "실행설계+조언5"를 한 콜로
+ * 묶어서 냈는데, 다른 스텝(총론·축 6문항)과 달리 이 콜만 병렬 분할이 없어
+ * 24/24 도달 후 이 단일 콜이 60초에 가깝거나 넘어가 함수가 죽는 사고가
+ * 재현됐다(재시도해도 같은 콜이 다시 느려 반복 실패). 축을 병렬 쪼갠 것과
+ * 같은 원리로 "keep/stop/start/재점검"과 "조언 5"를 별도 콜로 나눠
+ * Promise.all로 병렬 실행한다 — 스텝 전체 시간이 두 콜의 합이 아니라
+ * 더 느린 쪽 하나에만 좌우된다.
+ */
+export function buildClosingSummaryPrompt(
   facts: AnchorFacts,
   narrative: AnchorNarrative,
   axisSummaries: { title: string; verdicts: string[] }[]
 ): string {
-  const axisText = axisSummaries
-    .map((a) => `[${a.title}]\n${a.verdicts.map((v) => `- ${v}`).join("\n")}`)
-    .join("\n\n");
-
   return `당신은 명리학 데이터 분석가입니다. 앞서 4개 축에서 나온 판정을 바탕으로
-"운명 실행 설계"와 "운명 설계 위에 인생을 쌓을 때 잊지 말아야 할 조언 5"를 씁니다.
+"운명 실행 설계"(유지·중단·신설할 것과 재점검 시점)를 씁니다.
 
 ${anchorFactsToPromptText(facts)}
 
@@ -105,14 +116,39 @@ ${anchorFactsToPromptText(facts)}
 지렛대: ${narrative.leverages.join(" / ")}
 
 앞선 4개 축의 판정 요약:
-${axisText}
+${axisSummaryText(axisSummaries)}
 
 다음 JSON으로만 응답하세요:
 {
   "keep": ["유지할 것 1", "유지할 것 2", "유지할 것 3"],
   "stop": ["중단할 것 1", "중단할 것 2", "중단할 것 3"],
   "start": ["신설할 것 1", "신설할 것 2", "신설할 것 3"],
-  "recheckPoints": ["재점검 시점 1(연도나 나이 명시)", "재점검 시점 2", "재점검 시점 3"],
+  "recheckPoints": ["재점검 시점 1(연도나 나이 명시)", "재점검 시점 2", "재점검 시점 3"]
+}
+
+규칙:
+- keep/stop/start는 각 3개, 측정 가능한 구체 행동으로 쓸 것(추상적 조언 금지).
+${COMMON_RULES}`;
+}
+
+export function buildAdvicePrompt(
+  facts: AnchorFacts,
+  narrative: AnchorNarrative,
+  axisSummaries: { title: string; verdicts: string[] }[]
+): string {
+  return `당신은 명리학 데이터 분석가입니다. 앞서 4개 축에서 나온 판정을 바탕으로
+"운명 설계 위에 인생을 쌓을 때 잊지 말아야 할 조언 5"를 씁니다.
+
+${anchorFactsToPromptText(facts)}
+
+구조적 제약: ${narrative.constraints.join(" / ")}
+지렛대: ${narrative.leverages.join(" / ")}
+
+앞선 4개 축의 판정 요약:
+${axisSummaryText(axisSummaries)}
+
+다음 JSON으로만 응답하세요:
+{
   "advice": [
     "하나. 굵은 제목 한 줄 + 2~3문장(분량 엄수). 위 축 판정에서 도출할 것, 일반론 금지.",
     "둘. ...",
@@ -123,7 +159,6 @@ ${axisText}
 }
 
 규칙:
-- keep/stop/start는 각 3개, 측정 가능한 구체 행동으로 쓸 것(추상적 조언 금지).
 - advice는 정확히 5개. 최소 3개 항목에 앞선 축 판정의 근거(오행·간지·대운 나이 등 구조)를 재인용할 것 — 단 §3-2(CEO 지시): "연결력 62"처럼 6대 지표 이름+점수를 직접 부르지 말 것. 그 지표가 뜻하는 행동 특징과 지시로 풀어 쓸 것.
 - advice의 톤은 위로·격려조로 흐르지 말 것 — 냉정한 진단 톤을 유지.
 - advice 중 다른 명식에 그대로 붙는 범용 문장이 하나라도 있으면 안 됨.
