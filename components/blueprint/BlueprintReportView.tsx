@@ -3,6 +3,7 @@ import { AXES } from "@/lib/blueprint-engine/questions";
 import { buildDaewoonRoadmap, type DaewoonPhase } from "@/lib/blueprint-engine/daewoon-roadmap";
 import { PrintButton, PrintReportFooter } from "@/components/premium/PrintReport";
 import * as C from "@/lib/saju-engine/constants";
+import { DaewoonCurveCard } from "@/components/blueprint/DaewoonCurveCard";
 
 const GRADE_LABEL: Record<string, string> = { A: "근거 강도 A", B: "근거 강도 B", C: "근거 강도 C" };
 const GRADE_COLOR: Record<string, string> = { A: "#1F3D34", B: "#8A5228", C: "#6B6661" };
@@ -123,6 +124,9 @@ export function BlueprintReportView({ report, showPrintButton = true }: { report
   return (
     <div className="px-4 py-4 flex flex-col gap-4">
       <div className="print-area flex flex-col gap-4">
+        {/* 대운 이중 곡선 — 최상단 카드(CoS §D, 2026-09-23). 결정적 계산이라 명식·용신이 나오는 즉시 그린다. */}
+        {chart && facts && <DaewoonCurveCard chart={chart} facts={facts} />}
+
         {/* 운명총론 — §3-1(CEO 지시, 2026-09-08): 예전엔 줄바꿈 없는 한 덩어리(약
             700자)였다. 프롬프트가 이제 "1. 요약문장 …" 4문단(\n\n 구분)으로
             내지만, 렌더가 여전히 한 <p>에 몰아넣으면 브라우저가 줄바꿈을 접어
