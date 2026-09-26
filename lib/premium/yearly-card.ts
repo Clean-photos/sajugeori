@@ -26,7 +26,7 @@ export interface YearlyCardData {
   /** "1~2월 · 12월" 형태로 이미 묶여 있다 */
   goodMonthsLabel: string | null;
   cautionMonthsLabel: string | null;
-  /** "3월은 협력·기회의 해입니다." 형태. 근거를 못 찾으면 null */
+  /** "올해 가장 좋은 달은 3월입니다 — 협력·기회의 기운입니다." 형태. 근거를 못 찾으면 null */
   verdict: string | null;
 }
 
@@ -105,7 +105,10 @@ export function buildYearlyCard(result: YearlyResult, now: Date = new Date()): Y
   let verdict: string | null = null;
   if (best && best.score > 0) {
     const benefit = extractBenefit(best.note);
-    if (benefit) verdict = `${best.month}월은 ${benefit}입니다.`;
+    // §3-5③(CoS 재검증, CEO 결정 2026-09-26): "3월은 …의 해입니다"는 한 달의 근거가 연 전체
+    // 결론처럼 읽혀 어색했다 — 엔진이 쓴 근거 문구는 그대로 두고 연 단위 프레임만 앞에 붙인다.
+    const yearLabel = result.year === now.getFullYear() ? "올해" : `${result.year}년`;
+    if (benefit) verdict = `${yearLabel} 가장 좋은 달은 ${best.month}월입니다 — ${benefit.replace(/의 해$/, "의 시기")}입니다.`;
   }
 
   return {

@@ -82,12 +82,17 @@ export function WuxingSummaryCard({ data }: { data: WuxingReportData }) {
         <div className="mt-3.5 pt-3 border-t border-[#E5DFD4] flex flex-col gap-2">
           <div className="flex items-center gap-2.5">
             <span className="w-[92px] flex-shrink-0 text-[12px] font-bold text-[#1F3D34]">{isFollow ? "따라야 할 기운" : "채워야 할 기운"}</span>
-            <ElementChips items={fill} empty="해당 없음" />
+            <ElementChips items={fill} empty="특별히 채울 기운 없음" />
           </div>
           <div className="flex items-center gap-2.5">
             <span className="w-[92px] flex-shrink-0 text-[12px] font-bold text-[#1F3D34]">피해야 할 기운</span>
-            <ElementChips items={avoid} empty="해당 없음" />
+            <ElementChips items={avoid} empty="특별히 피할 기운 없음" />
           </div>
+          {/* §3-2(CoS 재검증, CEO 결정 2026-09-26): 막대엔 "다소 많음"이 뜨는데 아래엔 "피할 기운 없음"이
+              나와 모순처럼 읽혔다 — 3개는 엔진 정책상 라벨만 붙고 처방 대상이 아니다(classify.ts). */}
+          {bars.some((b) => b.tier === "mildlyMany") && (
+            <p className="text-[10.5px] leading-snug text-[#6B6661]">3개인 오행은 &lsquo;다소 많음&rsquo;으로만 표시하며, 피할 기운으로 보지 않습니다.</p>
+          )}
         </div>
 
         <div className="mt-3.5 flex items-center justify-between text-[10.5px] text-[#6B6661]">
