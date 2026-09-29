@@ -73,6 +73,13 @@ function SuccessInner() {
         if (!res.ok) {
           setState("error");
           setFailedOrderId(orderId);
+          // §(CoS 실물 확인, 2026-09-29): 토스 결제는 성공했는데 우리 서버 confirm이
+          // 실패하는 경우(과금은 됐거나 안 됐거나)도 이벤트가 0건이라 GA4에서 안 보였다.
+          // charged 여부를 함께 남겨 "결제는 됐는데 이용권을 못 받은" 사고를 구분한다.
+          trackEvent("payment_confirm_failed", {
+            item_id: planId, transaction_id: orderId, value: Number(amount),
+            charged: !!data?.charged, reason: data?.error ?? data?.stage ?? "unknown",
+          });
           if (data?.charged) {
             setCharged(true);
             setMessage(`결제는 확인되었으나 처리 중 문제가 발생했습니다. 주문번호 ${orderId}로 문의해주시면 확인해 드립니다.`);
@@ -95,6 +102,11 @@ function SuccessInner() {
         setState("error");
         setMessage("결제 확인 중 오류가 발생했습니다. 금액이 청구되었다면 문의해주세요.");
         setFailedOrderId(orderId);
+        // 네트워크 오류라 charged 여부를 서버 응답으로 알 수 없다 — "unknown"으로 남긴다.
+        trackEvent("payment_confirm_failed", {
+          item_id: planId, transaction_id: orderId, value: Number(amount),
+          charged: "unknown", reason: "network_error",
+        });
       }
     })();
   }, [params]);
