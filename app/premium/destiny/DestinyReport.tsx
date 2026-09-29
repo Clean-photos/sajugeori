@@ -11,7 +11,11 @@ import { trackEvent } from "@/lib/analytics";
 
 type ApiState =
   | { status: "loading" }
-  | { status: "done"; report: BlueprintReport; regenerateCount: number }
+  // justCompleted: 서버가 이번 요청에서 실제로 마지막 스텝을 막 끝낸 경우에만 true다
+  // (app/api/premium/destiny/route.ts의 runOneStep 성공 분기). 이미 done인 저장본을
+  // 그냥 조회만 한 경우(§1, CoS 실물 확인 2026-09-29 — 새로고침마다 report_generated가
+  // 잡히던 사고)는 이 필드가 없다 — driveSteps가 이 값으로 발화 여부를 가른다.
+  | { status: "done"; report: BlueprintReport; regenerateCount: number; justCompleted?: boolean }
   | { status: "generating"; partial: BlueprintPartial }
   | { status: "failed"; partial: BlueprintPartial; error: string }
   // 2026-09-22(CoS 실물 재검증): 마지막 스텝(실행설계·조언5)이 60초 제한에 걸려
@@ -82,7 +86,7 @@ export function DestinyReport({
           partial: lastPartialRef.current,
         };
       }
-      if (data.status === "done") return { status: "done", report: data.report as BlueprintReport, regenerateCount: data.regenerateCount ?? 0 };
+      if (data.status === "done") return { status: "done", report: data.report as BlueprintReport, regenerateCount: data.regenerateCount ?? 0, justCompleted: !!data.justCompleted };
       if (data.status === "generating") return { status: "generating", partial: (data.partial ?? {}) as BlueprintPartial };
       if (data.status === "failed") return { status: "failed", partial: (data.partial ?? {}) as BlueprintPartial, error: data.error ?? "생성에 실패했습니다." };
       return { status: "error", message: "알 수 없는 응답입니다.", partial: lastPartialRef.current };
@@ -110,8 +114,12 @@ export function DestinyReport({
         if (next.status === "generating" || next.status === "failed") lastPartialRef.current = next.partial;
         setState(next);
       }
+      // §1(CoS 실물 확인, 2026-09-29): 이미 완성된 저장본을 조회만 해도(새로고침,
+      // hasOwnReport 자동 진입) 매번 report_generated가 잡혔다(duration_ms도 생성
+      // 시간이 아니라 페이지 로드 시간이었다). 서버가 이번 요청에서 실제로 마지막
+      // 스텝을 막 끝냈을 때만 내려주는 justCompleted로만 발화한다.
       if (next.status === "done") {
-        trackEvent("report_generated", { item_id: "destiny", duration_ms: Date.now() - start });
+        if (next.justCompleted) trackEvent("report_generated", { item_id: "destiny", duration_ms: Date.now() - start });
       } else if (next.status === "failed" || next.status === "error") {
         trackEvent("generation_failed", {
           item_id: "destiny",

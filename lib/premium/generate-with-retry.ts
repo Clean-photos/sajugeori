@@ -59,7 +59,11 @@ async function requestWithBusyRetry<T>(
     }
 
     if (res.ok) {
-      trackEvent("report_generated", { item_id: itemId, duration_ms: Date.now() - start });
+      // §1(CoS 실물 확인, 2026-09-29): 캐시/저장본 응답(cached:true)에도 이 이벤트가
+      // 그대로 나가, 같은 조건으로 재조회만 해도 매번 report_generated가 잡혔다
+      // (Ads 전환·주요 이벤트 오염). 실제로 새로 생성한 응답일 때만 보낸다.
+      const isCached = !!(data as { cached?: boolean } | null)?.cached;
+      if (!isCached) trackEvent("report_generated", { item_id: itemId, duration_ms: Date.now() - start });
       return { ok: true, data: data as T };
     }
 

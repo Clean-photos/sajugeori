@@ -96,7 +96,10 @@ async function runOneStep(params: {
         grade_a_ratio: result.report.meta.gradeTotalCounts ? result.report.meta.gradeACounts / result.report.meta.gradeTotalCounts : null,
         expires_at: reportExpiresAtIso(), updated_at: new Date().toISOString(),
       }).eq("saju_profile_id", profileId);
-      return NextResponse.json({ status: "done", report: result.report, regenerateCount });
+      // justCompleted: 이 요청에서 실제로 마지막 스텝을 막 끝낸 경우에만 true —
+      // 이미 done인 저장본을 그냥 조회하는 아래 "--- 완성본 조회 ---" 분기는 이
+      // 필드를 안 실어, 클라이언트가 report_generated를 재조회 때 안 쏘게 한다.
+      return NextResponse.json({ status: "done", report: result.report, regenerateCount, justCompleted: true });
     }
 
     await supabaseAdmin.from("blueprint_reports").update({
