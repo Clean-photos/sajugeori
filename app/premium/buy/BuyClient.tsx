@@ -117,13 +117,17 @@ export function BuyClient({ planId, returnTo }: { planId: string; returnTo: stri
         orderId: prepared.orderId,
         orderName: prepared.orderName,
         successUrl: `${origin}/premium/success?planId=${plan.id}&next=${encodeURIComponent(returnTo)}`,
-        failUrl: `${origin}/premium/fail`,
+        failUrl: `${origin}/premium/fail?planId=${plan.id}`,
       });
     } catch (e) {
       setLoading(null);
       const msg = e instanceof Error ? e.message : "결제를 시작할 수 없습니다.";
-      // 사용자가 결제창을 닫은 경우는 에러로 표시하지 않음
-      if (!/cancel|닫|취소/i.test(msg)) setError(msg);
+      // §(CoS 실물 확인, 2026-09-28): 위젯을 닫아 결제를 시작하지 않은 경우는
+      // /premium/fail로 리다이렉트되지 않아(토스 SDK가 Promise만 reject) 그쪽
+      // 이벤트로도 못 잡는다 — 여기가 그 이탈을 잡을 수 있는 유일한 지점이다.
+      const canceled = /cancel|닫|취소/i.test(msg);
+      trackEvent(canceled ? "payment_canceled" : "payment_failed", { item_id: plan.id, reason: msg });
+      if (!canceled) setError(msg);
     }
   }
 
