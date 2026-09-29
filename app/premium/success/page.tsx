@@ -91,12 +91,17 @@ function SuccessInner() {
         // §1(CoS 실물 확인, 2026-09-16): purchase 이벤트가 전혀 안 나가 GA4
         // 총수익이 항상 ₩0으로 잡혔다 — 결제가 실제로 확정된 이 지점(res.ok)
         // 에서만 보낸다(재시도·실패 케이스는 여기 안 옴 = 중복·오탐 없음).
-        trackEvent("purchase", {
-          transaction_id: orderId,
-          value: Number(amount),
-          currency: "KRW",
-          items: [{ item_id: planId, item_name: getPlan(planId)?.name ?? planId, price: Number(amount), quantity: 1 }],
-        });
+        // §2 후속(CoS 실물 확인, 2026-09-29): confirm을 orderId 기준 멱등으로 바꾸며
+        // (app/api/payments/confirm/route.ts) 새로고침도 이제 res.ok=true를 받는다 —
+        // duplicate:true(이미 처리된 주문)면 매출을 중복 집계하지 않도록 건너뛴다.
+        if (!data?.duplicate) {
+          trackEvent("purchase", {
+            transaction_id: orderId,
+            value: Number(amount),
+            currency: "KRW",
+            items: [{ item_id: planId, item_name: getPlan(planId)?.name ?? planId, price: Number(amount), quantity: 1 }],
+          });
+        }
         setState("done");
       } catch {
         setState("error");

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { supabaseAdmin } from "@/lib/db/client";
 import { getPlan } from "@/lib/billing/plans";
 import { fulfillPayment } from "@/lib/billing/fulfill";
 
@@ -26,6 +27,22 @@ export async function POST(req: NextRequest) {
   // 금액 위변조 방지: 서버가 아는 플랜 금액과 일치해야 함
   if (Number(amount) !== plan.amount) {
     return NextResponse.json({ error: "결제 금액 불일치" }, { status: 400 });
+  }
+
+  // §2(CoS 실물 확인, 2026-09-29): success 페이지 새로고침·뒤로가기로 이 라우트가
+  // 같은 orderId로 다시 불리면, 토스 confirm API는 이미 승인된 결제를 다시 승인하려는
+  // 호출을 에러로 돌려준다 — 그 결과 정상 결제한 사용자에게 "결제가 완료되지
+  // 않았어요"가 뜨고 payment_confirm_failed가 오기록됐다. fulfillPayment는 이미
+  // 멱등하지만(one_time_purchases UNIQUE), 그 앞에서 토스를 매번 다시 부르는 게
+  // 문제라 — payment_orders가 이미 done이면 토스를 다시 부르지 않고 그대로 성공 처리한다.
+  try {
+    const { data: existingOrder } = await supabaseAdmin
+      .from("payment_orders").select("status").eq("order_id", orderId).eq("user_id", userId).maybeSingle();
+    if (existingOrder?.status === "done") {
+      return NextResponse.json({ ok: true, plan: plan.id, duplicate: true });
+    }
+  } catch {
+    /* 조회 실패해도 아래 정상 흐름(토스 재확인)으로 진행 */
   }
 
   const secretKey = process.env.TOSS_SECRET_KEY;
