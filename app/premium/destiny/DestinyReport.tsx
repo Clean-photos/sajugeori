@@ -256,10 +256,14 @@ export function DestinyReport({
   }
 
   if (state.status === "failed") {
+    // §4(CoS 실물 확인, 2026-09-29): stop_reason=max_tokens 같은 모델 내부 원문이
+    // 그대로 화면에 떴다 — 사용자에게는 일반 안내만, 원문은 서버 로그(route.ts의
+    // console.error)로만 남긴다.
+    if (typeof window !== "undefined") console.error("운명 설계도 생성 실패:", state.error);
     return (
       <div className="flex flex-col gap-3">
         <div className="px-4 pt-4 flex flex-col items-center gap-2 text-center">
-          <p className="text-sm text-[#C0392B]">일부 생성에 실패했습니다: {state.error}</p>
+          <p className="text-sm text-[#C0392B]">일부 항목을 다시 만드는 중이에요. 아래 버튼을 눌러 이어서 진행해 주세요.</p>
           <button onClick={() => driveSteps(target)} disabled={busy} className="flex items-center justify-center gap-1.5 text-sm text-white bg-[#1F3D34] rounded-full px-4 py-2 disabled:opacity-50">
             {busy && <Spinner size={14} />}
             {busy ? "재시도 중..." : "실패한 부분만 다시 생성"}

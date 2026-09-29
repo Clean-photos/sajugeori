@@ -41,7 +41,7 @@ interface UsageAccumulator { input: number; output: number; calls: number }
 // 항상 응답 텍스트로 간다. 설치된 SDK(^0.39.0)가 adaptive thinking 타입을 아직
 // 몰라 "disabled"만 쓸 수 있다 — 최신 SDK로 올리면 "adaptive"+낮은 effort로
 // 바꾸는 편이 더 낫다(Anthropic 권고).
-async function callJSON<T>(prompt: string, maxTokens: number, usage: UsageAccumulator): Promise<T> {
+async function callJSONOnce<T>(prompt: string, maxTokens: number, usage: UsageAccumulator): Promise<T> {
   const Anthropic = (await import("@anthropic-ai/sdk")).default;
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   const res = await client.messages.create({
@@ -61,6 +61,24 @@ async function callJSON<T>(prompt: string, maxTokens: number, usage: UsageAccumu
     return JSON.parse(sanitizeJsonString(match[0])) as T;
   } catch (e) {
     throw new Error(`JSON 파싱 실패(stop_reason=${res.stop_reason}, len=${match[0].length}): ${(e as Error).message}\n원문:\n${match[0]}`);
+  }
+}
+
+/**
+ * §3(CoS 실물 확인, 2026-09-29): "운명 실행 설계" 단계가 max_tokens 절단으로
+ * 반복 실패했다(이전 4회 중 최소 1회 확인) — 사용자가 매번 "다시 시도" 버튼을
+ * 눌러야 이어졌다. 절단(stop_reason=max_tokens라 JSON 매칭 실패)일 때만 예산을
+ * 1.5배로 늘려 자동으로 한 번 더 시도한다 — 프롬프트·형식 자체가 틀린 파싱
+ * 실패까지 무조건 재시도하면 같은 실패를 반복할 뿐이라 그 경우는 재시도하지 않는다.
+ */
+async function callJSON<T>(prompt: string, maxTokens: number, usage: UsageAccumulator): Promise<T> {
+  try {
+    return await callJSONOnce<T>(prompt, maxTokens, usage);
+  } catch (e) {
+    if (e instanceof Error && /stop_reason=max_tokens/.test(e.message)) {
+      return await callJSONOnce<T>(prompt, Math.round(maxTokens * 1.5), usage);
+    }
+    throw e;
   }
 }
 
@@ -158,7 +176,8 @@ export async function runBlueprintStep(
   const axes = resume.axes!;
   const axisSummaries = axes.map((a) => ({ title: a.title, verdicts: a.questions.map((q) => q.verdict) }));
   const [closingSummary, adviceResult] = await Promise.all([
-    callJSON<Omit<BlueprintReport["closing"], "advice">>(buildClosingSummaryPrompt(facts, narrative, axisSummaries), 2000, usage),
+    // §3 후속(CoS 실물 확인, 2026-09-29): 2000토큰으로도 절단(max_tokens)이 재현돼 2800으로 올림.
+    callJSON<Omit<BlueprintReport["closing"], "advice">>(buildClosingSummaryPrompt(facts, narrative, axisSummaries), 2800, usage),
     callJSON<{ advice: string[] }>(buildAdvicePrompt(facts, narrative, axisSummaries), 2500, usage),
   ]);
   const closing: BlueprintReport["closing"] = { ...closingSummary, advice: adviceResult.advice };

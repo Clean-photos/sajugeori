@@ -80,11 +80,14 @@ function SuccessInner() {
             item_id: planId, transaction_id: orderId, value: Number(amount),
             charged: !!data?.charged, reason: data?.error ?? data?.stage ?? "unknown",
           });
+          // §4(CoS 실물 확인, 2026-09-29): data.error(예: "알 수 없는 플랜")가 그대로
+          // 괄호로 붙어 내부 코드처럼 노출됐다 — 화면엔 일반 안내만, 원문은 이미 위
+          // trackEvent의 reason으로 남으니 서버·GA4 쪽에서 확인한다.
           if (data?.charged) {
             setCharged(true);
             setMessage(`결제는 확인되었으나 처리 중 문제가 발생했습니다. 주문번호 ${orderId}로 문의해주시면 확인해 드립니다.`);
           } else {
-            setMessage(data?.error ? `결제가 완료되지 않았습니다. 금액은 청구되지 않았습니다. (${data.error})` : "결제가 완료되지 않았습니다. 금액은 청구되지 않았습니다.");
+            setMessage("결제가 완료되지 않았습니다. 금액은 청구되지 않았습니다.");
           }
           return;
         }
