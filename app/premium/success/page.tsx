@@ -59,6 +59,13 @@ function SuccessInner() {
     if (!paymentKey || !orderId || !amount || !planId) {
       setState("error");
       setMessage("결제가 완료되지 않았습니다. 금액은 청구되지 않았습니다.");
+      // §7(CoS 실물 확인, 2026-09-29): 필수 파라미터가 없으면 API 호출도, 이벤트도
+      // 없이 바로 실패 화면만 떴다 — 퍼널에서 안 보이면서 "청구되지 않음"을
+      // 서버 확인 없이 단정하고 있었다. charged는 확인 자체를 안 했으니 "unknown".
+      trackEvent("payment_confirm_failed", {
+        item_id: planId ?? "unknown", transaction_id: orderId ?? "unknown",
+        charged: "unknown", reason: "missing_plan", currency: "KRW",
+      });
       return;
     }
 
@@ -77,7 +84,7 @@ function SuccessInner() {
           // 실패하는 경우(과금은 됐거나 안 됐거나)도 이벤트가 0건이라 GA4에서 안 보였다.
           // charged 여부를 함께 남겨 "결제는 됐는데 이용권을 못 받은" 사고를 구분한다.
           trackEvent("payment_confirm_failed", {
-            item_id: planId, transaction_id: orderId, value: Number(amount),
+            item_id: planId, transaction_id: orderId, value: Number(amount), currency: "KRW",
             charged: !!data?.charged, reason: data?.error ?? data?.stage ?? "unknown",
           });
           // §4(CoS 실물 확인, 2026-09-29): data.error(예: "알 수 없는 플랜")가 그대로
@@ -112,7 +119,7 @@ function SuccessInner() {
         setFailedOrderId(orderId);
         // 네트워크 오류라 charged 여부를 서버 응답으로 알 수 없다 — "unknown"으로 남긴다.
         trackEvent("payment_confirm_failed", {
-          item_id: planId, transaction_id: orderId, value: Number(amount),
+          item_id: planId, transaction_id: orderId, value: Number(amount), currency: "KRW",
           charged: "unknown", reason: "network_error",
         });
       }

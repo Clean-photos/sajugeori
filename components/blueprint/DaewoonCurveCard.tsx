@@ -83,22 +83,30 @@ export function DaewoonCurveCard({ chart, facts }: { chart: BlueprintChart; fact
           const p = points[a.index];
           const x = xOf(a.index);
           const yHigh = Math.min(yOf(p.e), yOf(p.s));
-          const above = yHigh > Y_TOP + 22;
-          const ty = above ? yHigh - 9 : Math.max(yOf(p.e), yOf(p.s)) + 15;
+          // §8(CoS 실물 확인, 2026-09-29): 주석 글자가 가로로 길게 퍼져 자기 점
+          // 기준으로만 위/아래를 정하면 옆 구간의 봉우리를 가로질렀다 — 좌우 두
+          // 구간씩 함께 보고 그 범위의 최고/최저를 기준으로 자리를 잡는다.
+          const nb = points.slice(Math.max(0, a.index - 2), Math.min(n, a.index + 3));
+          const nbTop = Math.min(...nb.map((q) => Math.min(yOf(q.e), yOf(q.s))));
+          const nbBottom = Math.max(...nb.map((q) => Math.max(yOf(q.e), yOf(q.s))));
+          const above = nbTop > Y_TOP + 26;
+          const ty = above ? nbTop - 12 : nbBottom + 17;
           const anchor = x < X0 + 70 ? "start" : x > X1 - 70 ? "end" : "middle";
           return (
             <g key={a.index}>
               <circle cx={x} cy={yHigh} r={3.2} fill="#FBF8F2" stroke="#8A5228" strokeWidth={1.4} />
-              <text x={x} y={ty} textAnchor={anchor} fontSize={9.5} fontWeight={600} fill="#8A5228" stroke="#FBF8F2" strokeWidth={3} paintOrder="stroke" strokeLinejoin="round">{a.text}</text>
+              <text x={x} y={ty} textAnchor={anchor} fontSize={9.5} fontWeight={600} fill="#8A5228" stroke="#FBF8F2" strokeWidth={3.5} paintOrder="stroke" strokeLinejoin="round">{a.text}</text>
             </g>
           );
         })}
 
-        {/* 가로축 — 나이 구간을 두 줄로(10개가 390px에서 겹치지 않게) */}
+        {/* 가로축 — 나이 구간을 두 줄로(10개가 390px에서 겹치지 않게).
+            §8(CoS 실물 확인, 2026-09-29): 마지막 칸은 "92~101"처럼 끝나이가 찍혀
+            헤더의 "…→ 92세"와 다른 숫자로 보였다 — 마지막 칸만 열린 구간("92~")으로 표기. */}
         {points.map((p, i) => (
           <g key={p.startAge}>
             <text x={xOf(i)} y={Y_BOTTOM + 13} textAnchor="middle" fontSize={9} fill="#1A1A18">{p.startAge}</text>
-            <text x={xOf(i)} y={Y_BOTTOM + 24} textAnchor="middle" fontSize={8} fill="#9B968F">~{p.endAge}</text>
+            <text x={xOf(i)} y={Y_BOTTOM + 24} textAnchor="middle" fontSize={8} fill="#9B968F">{i === n - 1 ? "~" : `~${p.endAge}`}</text>
           </g>
         ))}
       </svg>
