@@ -119,10 +119,15 @@ export function viewHref(r: { href: string; id: MyReport["id"]; year?: MyReport[
   }
 }
 
-function formatTarget(birthDate: string, gender: string, calendar?: string | null): string {
+// §D(CoS 실물 확인, 2026-09-29): 목록에 생년월일만 있고 시각이 없어, 시각만
+// 다르게 넣은 여러 리포트를 구분할 수 없었다. birthTime이 있으면 함께 보여주고,
+// 없으면("시각 모름"으로 등록) 그렇게 명시한다 — 값이 없는 걸 표기 누락처럼
+// 보이지 않게 한다.
+function formatTarget(birthDate: string, gender: string, calendar?: string | null, birthTime?: string | null): string {
   const genderKr = gender === "M" ? "남성" : "여성";
   const calKr = calendar === "lunar" ? "음력" : "양력";
-  return `${birthDate}(${calKr}) ${genderKr}`;
+  if (birthTime) return `${birthDate} ${birthTime.slice(0, 5)}(${calKr}) ${genderKr}`;
+  return `${birthDate}(${calKr}) ${genderKr} · 시각 모름`;
 }
 
 export async function listUserReports(userId: string): Promise<MyReport[]> {
@@ -242,7 +247,7 @@ export async function listUserReports(userId: string): Promise<MyReport[]> {
           if (!row?.created_at) continue;
           out.push({
             label: "프리미엄 사주 (직접 입력)", href: "/premium", created_at: row.created_at,
-            target: row.birth_date ? formatTarget(row.birth_date, row.gender) : null,
+            target: row.birth_date ? formatTarget(row.birth_date, row.gender, null, row.birth_time) : null,
             id: null, // 016(직접입력) 전용 열람 라우트가 아직 없다 — 정적 href로 폴백.
             year: null,
             adhocId: null,
@@ -267,7 +272,7 @@ export async function listUserReports(userId: string): Promise<MyReport[]> {
           if (!meta) continue; // 모르는 product_id는 목록을 깨뜨리느니 건너뛴다
           out.push({
             label: meta.label, href: meta.href, created_at: row.created_at,
-            target: row.birth_date ? formatTarget(row.birth_date, row.gender) : null,
+            target: row.birth_date ? formatTarget(row.birth_date, row.gender, null, row.birth_time) : null,
             id: null,
             year: null,
             // §0-2⑥: 오행만 전용 소급 라우트(/premium/ohang/adhoc/[id])가 있다.
@@ -288,7 +293,7 @@ export async function listUserReports(userId: string): Promise<MyReport[]> {
       const byId = new Map((data as ProfileRow[] | null ?? []).map((p) => [p.id, p]));
       for (const [r, pid] of profileIdOf) {
         const p = byId.get(pid);
-        if (p) r.target = formatTarget(p.birth_date, p.gender, p.calendar);
+        if (p) r.target = formatTarget(p.birth_date, p.gender, p.calendar, p.birth_time);
       }
     } catch { /* 표시 문구만 비는 것 — 무시 */ }
   }
