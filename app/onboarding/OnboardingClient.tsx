@@ -7,7 +7,6 @@ import { Spinner } from "@/components/ui/Spinner";
 import { CalendarField } from "@/app/free/CalendarField";
 import { toSolar, type CalendarKind } from "@/lib/calendar/convert";
 import { BirthDateConfirmBanner } from "@/components/BirthDateConfirmBanner";
-import { ReregisterWarningModal } from "@/components/ReregisterWarningModal";
 import type { MyReport } from "@/lib/billing/my-reports";
 
 // §13(CoS+CEO 실물 확인, 2026-09-08): 역법(양력/음력)이 3단계(성별)에 있어서,
@@ -42,8 +41,6 @@ function OnboardingInner({ existingProfile, reports }: { existingProfile: Existi
   const nextPath = nextParam && /^\/(?!\/)/.test(nextParam) ? nextParam : null;
   // 등록된 사주가 있으면 먼저 그 사주를 보여주고, "다시 등록"을 눌러야 폼으로 들어간다.
   const [showForm, setShowForm] = useState(!existingProfile);
-  // 리포트가 하나도 없으면(잃을 게 없으면) 확인창을 띄울 이유가 없다 — 바로 폼으로.
-  const [showReregisterWarning, setShowReregisterWarning] = useState(false);
   const [step, setStep] = useState(0);
   const [form, setForm] = useState({
     birth_date: "",
@@ -182,23 +179,23 @@ function OnboardingInner({ existingProfile, reports }: { existingProfile: Existi
             이 사주로 프리미엄 리포트 보기
           </Link>
           <button
-            onClick={() => (reports.length > 0 ? setShowReregisterWarning(true) : setShowForm(true))}
+            onClick={() => setShowForm(true)}
             className="text-center border border-[#E5DFD4] text-[#1F3D34] rounded-xl py-3.5 font-semibold text-sm active:scale-[0.97] transition-all"
           >
-            사주 다시 등록하기
+            다른 사주 등록하기
           </button>
+          {/* CoS[다중 사주 우선순위 확정, 2026-09-30]: 재등록은 기존 리포트를
+              지우지 않는다(saju_profiles는 INSERT일 뿐 옛 row가 그대로 남고,
+              마이페이지는 이 계정의 모든 리포트를 직접 조회한다) — "N건이
+              삭제됩니다"라는 이전 경고창은 사실과 달라 다른 사람 사주를 보려는
+              시도 자체를 막고 있었다. 확인창을 없애고, 사실에 맞는 안내로 대체. */}
+          {reports.length > 0 && (
+            <p className="text-center text-[11.5px] text-[#6B6661] leading-relaxed">
+              지금까지 만든 리포트 {reports.length}건은 계속 마이페이지에서 볼 수 있어요.
+              가족·반려동물의 사주로 새로 등록해도 사라지지 않습니다.
+            </p>
+          )}
         </div>
-
-        {showReregisterWarning && (
-          <ReregisterWarningModal
-            reports={reports}
-            onCancel={() => setShowReregisterWarning(false)}
-            onConfirm={() => {
-              setShowReregisterWarning(false);
-              setShowForm(true);
-            }}
-          />
-        )}
       </div>
     );
   }

@@ -7,6 +7,7 @@ import { BottomTabBar } from "@/components/layout/BottomTabBar";
 import { buildChart, petCompatibility } from "@/lib/saju-engine";
 import type { PetSpecies } from "@/lib/saju-engine";
 import { isoOf } from "@/lib/billing/report-target";
+import { listUserReports, viewHref } from "@/lib/billing/my-reports";
 import { SavedReportClient } from "./SavedReportClient";
 
 export const metadata: Metadata = {
@@ -74,6 +75,14 @@ export default async function SavedPetReportPage({ params }: { params: Promise<{
     } catch { /* 라벨만 단순 폴백 — 본문 열람에는 영향 없음 */ }
   }
 
+  // §[다중 사주 우선순위 확정, 2026-09-30]: 이 화면(저장된 결과 재열람)에는
+  // 다른 아이로 건너갈 방법이 없었다 — 같은 계정의 다른 펫 리포트를 모아
+  // 현재 보고 있는 것만 제외하고 넘긴다.
+  const allPetReports = await listUserReports(userId);
+  const otherPets = allPetReports
+    .filter((r) => r.href === "/premium/pet" && r.id !== id)
+    .map((r) => ({ href: viewHref(r), label: r.label.replace(/^반려동물 궁합\s*·\s*/, "") }));
+
   return (
     <div className="min-h-screen bg-[#F6F1E7] flex flex-col pb-24">
       <div className="relative overflow-hidden px-6 pt-14 pb-8 bg-[#1F3D34]">
@@ -86,7 +95,7 @@ export default async function SavedPetReportPage({ params }: { params: Promise<{
         <h1 className="relative font-serif text-[28px] font-bold text-white leading-tight">반려동물 궁합</h1>
       </div>
 
-      <SavedReportClient content={row.content} species={species} petLabel={petLabel} petName={row.pet_name} reportId={id} />
+      <SavedReportClient content={row.content} species={species} petLabel={petLabel} petName={row.pet_name} reportId={id} otherPets={otherPets} />
 
       <BottomTabBar hasProfile />
     </div>

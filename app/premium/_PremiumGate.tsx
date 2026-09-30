@@ -71,16 +71,24 @@ export async function PremiumGate({
   // §B-3(CoS 실물 확인, 2026-09-23): "결제 후에는 언제든 다시 열어볼 수 있습니다"라고
   // 안내하면서 정작 그 리포트로 가는 링크가 없었다 — 마이페이지를 거쳐야만 다시 볼 수
   // 있었고, 같은 상품을 또 결제할 위험도 있었다. 이미 본인 리포트가 있으면(구독 없이도
-  // 재열람은 이용권 소모가 아니다) 재구매 버튼 옆에 최신 리포트로 가는 링크를 낸다.
-  let myReport: { href: string; dateLabel: string } | null = null;
+  // 재열람은 이용권 소모가 아니다) 재구매 버튼 옆에 리포트로 가는 링크를 낸다.
+  //
+  // §[다중 사주 우선순위 확정, 2026-09-30]: .find()로 이 상품(path)의 리포트 중
+  // 딱 1건(가장 최근)만 골랐었다 — 반려동물처럼 같은 상품에 대상이 여럿이면
+  // (아이 3마리 각각 별도 리포트) 나머지는 이 화면에서 영영 닿을 방법이 없었다
+  // ("내 리포트 보기가 3마리 중 1마리만 연결됨", CoS 실물 확인). 이 상품에 해당하는
+  // 리포트를 전부 모아 목록으로 보여준다 — label에 이미 대상 구분(예: "· 나비(고양이)")이
+  // 들어가 있는 소스(펫)는 자동으로 구분되어 보인다.
+  let myReports: { href: string; dateLabel: string; label: string }[] = [];
   if (!gate.ok && gate.kind === "subscribe" && gate.userId) {
     try {
       const reports = await listUserReports(gate.userId);
-      const mine = reports.find((r) => r.href === path);
-      if (mine) {
-        const d = new Date(mine.created_at);
-        myReport = { href: viewHref(mine), dateLabel: `${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")}` };
-      }
+      myReports = reports
+        .filter((r) => r.href === path)
+        .map((r) => {
+          const d = new Date(r.created_at);
+          return { href: viewHref(r), dateLabel: `${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")}`, label: r.label };
+        });
     } catch { /* 조회 실패해도 재구매 경로는 그대로 동작해야 한다 */ }
   }
 
@@ -116,10 +124,25 @@ export async function PremiumGate({
               <p className="text-xs text-[#6B6661] max-w-[250px] leading-relaxed">
                 리포트 한 편만 결제해서 보실 수 있어요. 결제 후에는 언제든 다시 열어볼 수 있습니다.
               </p>
-              {myReport && (
-                <Link href={myReport.href} className="rounded-xl border border-[#1F3D34] text-[#1F3D34] px-6 py-3 text-sm font-semibold">
-                  내 리포트 보기 ({myReport.dateLabel})
+              {myReports.length === 1 && (
+                <Link href={myReports[0].href} className="rounded-xl border border-[#1F3D34] text-[#1F3D34] px-6 py-3 text-sm font-semibold">
+                  내 리포트 보기 ({myReports[0].dateLabel})
                 </Link>
+              )}
+              {myReports.length > 1 && (
+                <div className="w-full max-w-[280px] flex flex-col gap-2">
+                  <p className="text-xs text-[#6B6661]">이미 만든 리포트 {myReports.length}건</p>
+                  {myReports.map((r, i) => (
+                    <Link
+                      key={i}
+                      href={r.href}
+                      className="flex items-center justify-between rounded-xl border border-[#1F3D34] text-[#1F3D34] px-4 py-2.5 text-sm font-semibold"
+                    >
+                      <span className="truncate">{r.label}</span>
+                      <span className="text-xs text-[#6B6661] flex-shrink-0 ml-2">{r.dateLabel}</span>
+                    </Link>
+                  ))}
+                </div>
               )}
               {oneTime ? (
                 <>

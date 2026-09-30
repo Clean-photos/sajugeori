@@ -14,12 +14,14 @@ export function SavedReportClient({
   petLabel,
   petName,
   reportId,
+  otherPets,
 }: {
   content: string;
   species: "dog" | "cat";
   petLabel: string;
   petName: string;
   reportId: string;
+  otherPets?: { href: string; label: string }[];
 }) {
   const router = useRouter();
 
@@ -33,5 +35,5 @@ export function SavedReportClient({
     router.push("/mypage");
   }
 
-  return <PetReportResultView report={content} species={species} petLabel={petLabel} petName={petName} onDelete={handleDelete} />;
+  return <PetReportResultView report={content} species={species} petLabel={petLabel} petName={petName} onDelete={handleDelete} otherPets={otherPets} />;
 }
