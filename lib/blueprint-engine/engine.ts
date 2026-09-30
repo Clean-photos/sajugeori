@@ -18,8 +18,18 @@ import {
 import type { Pillar, Pillars, SajuChart } from "@/lib/saju-engine/engine";
 import {
   trueSolarTime, preciseMonthBranch, preciseBaziYear, preciseDaysToAdjacentTerm,
-  KOREA_AVG_LONGITUDE,
+  KOREA_AVG_LONGITUDE, kstFieldsOf,
 } from "./astro";
+
+/**
+ * §(CoS 실물 확인, 2026-09-30 버그 수정 반영): 이 버전부터 진태양시 보정 후 시각을
+ * KST 기준으로 정확히 읽는다(이전 버전은 UTC 접근자를 써 시주가 9시간 밀리고,
+ * 자정 근접 출생은 일주까지 틀렸다). 이미 생성된 blueprint_reports는 저장된
+ * content를 그대로 보여줄 뿐 재계산하지 않으므로 이 변경의 영향을 받지 않는다
+ * — 이 값은 새로 생성되는 리포트에만 찍혀, 나중에 "이 리포트가 버그 수정 전/후
+ * 어느 쪽으로 계산됐는지"를 구분하는 근거로 쓴다.
+ */
+export const CHART_ENGINE_VERSION = "2026-09-30-kst-fix";
 
 function mod(n: number, m: number): number {
   return ((n % m) + m) % m;
@@ -50,6 +60,8 @@ export interface BlueprintChart extends SajuChart {
   longitude_used: number;
   /** engine.ts의 근사 대운 대신, 정밀 절기 기반으로 재계산한 대운 */
   precise_daewoon: PreciseDaewoon;
+  /** 이 명식이 어느 계산 로직 버전으로 만들어졌는지 — CHART_ENGINE_VERSION 참고 */
+  chart_engine_version: string;
 }
 
 function calcPreciseYearPillar(baziYear: number): Pillar {
@@ -89,8 +101,13 @@ export function buildPreciseChart(birthIso: string, gender: string, hasHour = tr
   const kstDate = new Date(birthIso);
   const corrected = trueSolarTime(kstDate, longitude);
 
-  const cy = corrected.getUTCFullYear(), cm = corrected.getUTCMonth() + 1, cd = corrected.getUTCDate();
-  const ch = corrected.getUTCHours();
+  // §(CoS 실물 확인, 2026-09-30): getUTCFullYear/getUTCHours 등으로 읽었더니
+  // KST 12:00 입력이 보정 후 시(時)가 9시간 밀려 시주가 틀렸다(KST 0~9시
+  // 출생은 날짜까지 넘어가 일주도 틀림). kstFieldsOf로 서버 타임존과 무관하게
+  // KST 달력 기준 값을 뽑는다.
+  const kf = kstFieldsOf(corrected);
+  const cy = kf.y, cm = kf.m, cd = kf.d;
+  const ch = kf.h;
 
   const baziYear = preciseBaziYear(corrected);
   const yPillar = calcPreciseYearPillar(baziYear);
@@ -130,6 +147,7 @@ export function buildPreciseChart(birthIso: string, gender: string, hasHour = tr
     birth_iso: birthIso,
     corrected_birth_iso: corrected.toISOString(),
     longitude_used: longitude,
+    chart_engine_version: CHART_ENGINE_VERSION,
     gender,
     has_hour: hasHour,
     pillars,

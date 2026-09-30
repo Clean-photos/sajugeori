@@ -55,6 +55,30 @@ export const KST_STANDARD_MERIDIAN = 135;
 export const KOREA_AVG_LONGITUDE = 126.98;
 
 /**
+ * 어떤 절대 시각(Date)이 KST 달력으로 몇 년·몇 월·몇 일·몇 시인지를 서버 타임존과
+ * 무관하게 뽑아낸다.
+ *
+ * §(CoS 실물 확인, 2026-09-30): buildPreciseChart가 진태양시 보정 후 값을
+ * getUTCHours()/getUTCDate() 등 UTC 접근자로 읽고 있었다 — 실측 재현: KST
+ * 12:00 입력이 보정 후 getHours()=11(맞음)인데 getUTCHours()=2(9시간 밀림,
+ * calcHourPillar에 그대로 들어가 시주가 통째로 틀림). KST 00~09시 출생은 이
+ * 9시간 밀림이 날짜 경계까지 넘겨 일주(일간)까지 바뀌었다. 서버 런타임
+ * 타임존에 기대는 getHours() 대신, Asia/Seoul을 명시해 항상 같은 결과가
+ * 나오게 한다(로컬 KST 환경이든 Vercel의 UTC 기본값이든 동일).
+ */
+export function kstFieldsOf(date: Date): { y: number; m: number; d: number; h: number; min: number; s: number } {
+  const fmt = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Seoul", hour12: false,
+    year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit",
+  });
+  const parts: Record<string, string> = {};
+  for (const p of fmt.formatToParts(date)) if (p.type !== "literal") parts[p.type] = p.value;
+  // hour12:false인데도 자정을 "24"로 주는 로케일 처리가 있어(Intl 명세상 정상 동작) 0으로 보정한다.
+  const hour24 = parts.hour === "24" ? 0 : Number(parts.hour);
+  return { y: Number(parts.year), m: Number(parts.month), d: Number(parts.day), h: hour24, min: Number(parts.minute), s: Number(parts.second) };
+}
+
+/**
  * 진태양시 보정을 적용한 Date를 돌려준다.
  * 보정 = (관측지 경도 - 135°) × 4분/도 + 균시차.
  * 출생지 입력을 받지 않으므로 전국 평균 경도(서울)로 고정 근사한다 — 극단
@@ -129,7 +153,9 @@ export function preciseLichun(calendarYear: number): Date {
 
 /** 출생 시각(진태양시 보정 완료) 기준 BaZi 연도(=연주 계산에 쓸 해)를 정한다. */
 export function preciseBaziYear(correctedDate: Date): number {
-  const y = correctedDate.getUTCFullYear();
+  // KST 기준 연도를 써야 한다 — getUTCFullYear()는 KST 0~9시 출생(1/1 포함)에서
+  // 전년도로 잘못 읽힐 수 있다(위 kstFieldsOf 문서 참고).
+  const y = kstFieldsOf(correctedDate).y;
   const lichunThisYear = preciseLichun(y);
   return correctedDate.getTime() >= lichunThisYear.getTime() ? y : y - 1;
 }
