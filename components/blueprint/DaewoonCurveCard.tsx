@@ -6,10 +6,12 @@ import type { AnchorFacts } from "@/lib/blueprint-engine/anchor";
 import { buildDaewoonCurve, type CurveLabel } from "@/lib/blueprint-engine/daewoon-curve";
 
 const W = 340;
-const H = 176;
+const H = 180;
 const X0 = 40;
 const X1 = 330;
-const Y_TOP = 10;
+// §2(CoS 실물 확인, 2026-09-30): Y_TOP=10일 때 "지금" 라벨(y=Y_TOP-1=9, 상단으로
+// 글자 높이만큼 더 올라감)이 뷰박스 위로 살짝 잘렸다(bbox y=-2) — 위 여백을 늘린다.
+const Y_TOP = 14;
 const Y_BOTTOM = 150;
 const V_LO = 25;
 const V_HI = 95;
@@ -50,6 +52,30 @@ export function DaewoonCurveCard({ chart, facts }: { chart: BlueprintChart; fact
   const firstAge = points[0].startAge;
   const lastAge = points[n - 1].startAge;
 
+  // §2(CoS 실물 확인, 2026-09-30): 주석이 최대 2개인데, 서로 가까운 구간을
+  // 가리키면 둘 다 "위" 판정이 나와 같은 자리에서 겹쳤다(정점 라벨 위에 교차
+  // 라벨이 그대로 포개짐). 각자의 자리를 먼저 계산해 두고, 가로로 겹치는데
+  // 세로도 같은 쪽이면 두 번째 것만 반대쪽으로 뒤집는다.
+  const annPositions = annotations.map((a) => {
+    const p = points[a.index];
+    const x = xOf(a.index);
+    const yHigh = Math.min(yOf(p.e), yOf(p.s));
+    const nb = points.slice(Math.max(0, a.index - 2), Math.min(n, a.index + 3));
+    const nbTop = Math.min(...nb.map((q) => Math.min(yOf(q.e), yOf(q.s))));
+    const nbBottom = Math.max(...nb.map((q) => Math.max(yOf(q.e), yOf(q.s))));
+    const above = nbTop > Y_TOP + 26;
+    const anchor: "start" | "middle" | "end" = x < X0 + 70 ? "start" : x > X1 - 70 ? "end" : "middle";
+    // 대략적인 글자폭 추정(한글 9.5px 기준) — 수치 라벨이 아니라 겹침 여부만 보면 되므로 근사면 충분.
+    const halfWidth = (a.text.length * 6.5) / 2;
+    const cx = anchor === "start" ? x + halfWidth : anchor === "end" ? x - halfWidth : x;
+    return { a, x, yHigh, nbTop, nbBottom, above, anchor, left: cx - halfWidth, right: cx + halfWidth };
+  });
+  if (annPositions.length === 2) {
+    const [p0, p1] = annPositions;
+    const overlapsX = p0.left < p1.right && p1.left < p0.right;
+    if (overlapsX && p0.above === p1.above) p1.above = !p0.above;
+  }
+
   return (
     <div className="print-card rounded-2xl border border-[#E5DFD4] bg-[#FBF8F2] p-4">
       <p className="text-[10.5px] font-semibold tracking-[0.14em] text-[#6B6661]">대운 이중 곡선</p>
@@ -79,19 +105,8 @@ export function DaewoonCurveCard({ chart, facts }: { chart: BlueprintChart; fact
           </g>
         )}
 
-        {annotations.map((a) => {
-          const p = points[a.index];
-          const x = xOf(a.index);
-          const yHigh = Math.min(yOf(p.e), yOf(p.s));
-          // §8(CoS 실물 확인, 2026-09-29): 주석 글자가 가로로 길게 퍼져 자기 점
-          // 기준으로만 위/아래를 정하면 옆 구간의 봉우리를 가로질렀다 — 좌우 두
-          // 구간씩 함께 보고 그 범위의 최고/최저를 기준으로 자리를 잡는다.
-          const nb = points.slice(Math.max(0, a.index - 2), Math.min(n, a.index + 3));
-          const nbTop = Math.min(...nb.map((q) => Math.min(yOf(q.e), yOf(q.s))));
-          const nbBottom = Math.max(...nb.map((q) => Math.max(yOf(q.e), yOf(q.s))));
-          const above = nbTop > Y_TOP + 26;
+        {annPositions.map(({ a, x, yHigh, nbTop, nbBottom, above, anchor }) => {
           const ty = above ? nbTop - 12 : nbBottom + 17;
-          const anchor = x < X0 + 70 ? "start" : x > X1 - 70 ? "end" : "middle";
           return (
             <g key={a.index}>
               <circle cx={x} cy={yHigh} r={3.2} fill="#FBF8F2" stroke="#8A5228" strokeWidth={1.4} />
