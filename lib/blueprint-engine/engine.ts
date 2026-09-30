@@ -18,7 +18,7 @@ import {
 import type { Pillar, Pillars, SajuChart } from "@/lib/saju-engine/engine";
 import {
   trueSolarTime, preciseMonthBranch, preciseBaziYear, preciseDaysToAdjacentTerm,
-  KOREA_AVG_LONGITUDE, kstFieldsOf,
+  KOREA_AVG_LONGITUDE, kstFieldsOf, parseKstWallClock,
 } from "./astro";
 
 /**
@@ -98,7 +98,12 @@ function calcPreciseDaewoon(
  * (진태양시 보정은 이 함수 안에서 적용하며, 호출부에서 미리 보정하면 안 된다).
  */
 export function buildPreciseChart(birthIso: string, gender: string, hasHour = true, longitude = KOREA_AVG_LONGITUDE): BlueprintChart {
-  const kstDate = new Date(birthIso);
+  // §0(CoS 실물 확인, 2026-09-30): new Date(birthIso)는 오프셋이 없으면 서버
+  // 런타임 타임존으로 해석된다 — 이 프로젝트 배포 환경엔 TZ 환경변수가 없어
+  // Vercel 기본값인 UTC로 해석된다. 아래 kstFieldsOf(Asia/Seoul 명시)와 짝을
+  // 맞추려면 파싱도 명시적으로 KST여야 한다(그렇지 않으면 서버 타임존에 따라
+  // 정반대 방향의 9시간 오차가 생긴다 — parseKstWallClock 문서 참고).
+  const kstDate = parseKstWallClock(birthIso);
   const corrected = trueSolarTime(kstDate, longitude);
 
   // §(CoS 실물 확인, 2026-09-30): getUTCFullYear/getUTCHours 등으로 읽었더니

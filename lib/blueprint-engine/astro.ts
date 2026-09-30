@@ -55,6 +55,27 @@ export const KST_STANDARD_MERIDIAN = 135;
 export const KOREA_AVG_LONGITUDE = 126.98;
 
 /**
+ * "YYYY-MM-DDTHH:mm:ss"(오프셋 없음) 문자열을 KST 벽시계 시각으로 확정해 Date로 만든다.
+ *
+ * §0(CoS 실물 확인, 2026-09-30 — kstFieldsOf 배포 직후 지적): `new Date(birthIso)`는
+ * 오프셋이 없으면 "서버 런타임 타임존의 지역시각"으로 해석된다. 이 앱의 프로덕션
+ * 환경(Vercel)엔 TZ 환경변수가 없어 Node 기본값인 UTC로 해석된다 — 그런데 기존
+ * 구엔진(lib/saju-engine/engine.ts)은 이 문자열을 파싱(new Date, 로컬 접근자)하고
+ * 다시 로컬 접근자(getHours 등)로 읽기만 해서, 파싱·읽기가 "같은 로컬 프레임"으로
+ * 대칭이라 서버가 어느 타임존이든 입력 문자열의 숫자가 그대로 복원됐다(우연한
+ * 안전성). 신엔진은 진태양시 보정을 절대 시각(getTime()) 산술로 하고 보정 후
+ * 값을 kstFieldsOf(Asia/Seoul 명시)로 읽는데, 파싱 단계가 여전히 모호한 로컬
+ * 해석이면 그 비대칭 때문에 UTC 서버에서 새로운 9시간 오차가 생긴다(로컬 KST
+ * 환경에서 검증한 게 그래서 안 잡혔다). 파싱 자체를 "+09:00"으로 명시해 대칭을
+ * 맞춘다 — 서버 타임존과 완전히 무관해진다.
+ */
+export function parseKstWallClock(birthIso: string): Date {
+  // 이미 오프셋(Z 또는 ±HH:mm)이 있으면 그대로 존중하고, 없을 때만 KST(+09:00)를 붙인다.
+  const hasOffset = /Z$|[+-]\d{2}:\d{2}$/.test(birthIso);
+  return new Date(hasOffset ? birthIso : `${birthIso}+09:00`);
+}
+
+/**
  * 어떤 절대 시각(Date)이 KST 달력으로 몇 년·몇 월·몇 일·몇 시인지를 서버 타임존과
  * 무관하게 뽑아낸다.
  *
