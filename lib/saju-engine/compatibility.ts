@@ -63,7 +63,7 @@ export function pairAnalysis(a: SajuChart, b: SajuChart, aName = "A", bName = "B
   }
   for (const {trio, element} of C.BRANCH_THREE_COMBINE) {
     if (new Set([az,bz]).size === 2 && trio.includes(az) && trio.includes(bz) && trio.includes(C.THREE_COMBINE_CENTER[element])) {
-      score += 2.0*W.branch; notes.push(`일지 반합(${C.BRANCH_KR[az]}${C.BRANCH_KR[bz]}/${C.ELEMENT_KR[element]}국) — 강한 정서 연결`); details.branch = `반합(${C.ELEMENT_KR[element]})`;
+      score += 2.0*W.branch; notes.push(`일지 반합(${C.BRANCH_KR[az]}${C.BRANCH_KR[bz]}/${element}(${C.ELEMENT_KR[element]})국) — 강한 정서 연결`); details.branch = `반합(${C.ELEMENT_KR[element]})`;
     }
   }
 
@@ -74,7 +74,7 @@ export function pairAnalysis(a: SajuChart, b: SajuChart, aName = "A", bName = "B
   const fills = [...aLack].filter(e => bSupply.has(e));
   if (fills.length) {
     score += fills.length * 1.0 * W.complement;
-    notes.push(`${aName}의 부족 오행(${[...aLack].map(e=>C.ELEMENT_KR[e]).join(",")})을 ${bName}이 채워줌(${fills.map(e=>C.ELEMENT_KR[e]).join(",")})`);
+    notes.push(`${aName}의 부족 오행(${[...aLack].map(e=>`${e}(${C.ELEMENT_KR[e]})`).join(",")})을 ${bName}이 채워줌(${fills.map(e=>`${e}(${C.ELEMENT_KR[e]})`).join(",")})`);
   }
   details.complement_fills = fills;
 
@@ -86,11 +86,11 @@ export function pairAnalysis(a: SajuChart, b: SajuChart, aName = "A", bName = "B
   const avoidHit = [...aAvoid].filter(e => bMainElems.has(e));
   if (yongHit.length) {
     score += yongHit.length * 1.5 * W.yongsin;
-    notes.push(`${bName}이 ${aName}의 용신 오행(${yongHit.map(e=>C.ELEMENT_KR[e]).join(",")})을 공급 — 운을 살려주는 상대`);
+    notes.push(`${bName}이 ${aName}의 용신 오행(${yongHit.map(e=>`${e}(${C.ELEMENT_KR[e]})`).join(",")})을 공급 — 운을 살려주는 상대`);
   }
   if (avoidHit.length) {
     score -= avoidHit.length * 1.0 * W.yongsin;
-    notes.push(`${bName}이 ${aName}의 과다 오행(${avoidHit.map(e=>C.ELEMENT_KR[e]).join(",")})을 더함 — 부담 가중 가능`);
+    notes.push(`${bName}이 ${aName}의 과다 오행(${avoidHit.map(e=>`${e}(${C.ELEMENT_KR[e]})`).join(",")})을 더함 — 부담 가중 가능`);
   }
   details.yongsin_hit = yongHit;
   details.avoid_hit = avoidHit;

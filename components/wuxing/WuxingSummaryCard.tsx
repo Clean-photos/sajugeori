@@ -88,9 +88,13 @@ export function WuxingSummaryCard({ data }: { data: WuxingReportData }) {
             <span className="w-[92px] flex-shrink-0 text-[12px] font-bold text-[#1F3D34]">피해야 할 기운</span>
             <ElementChips items={avoid} empty="특별히 피할 기운 없음" />
           </div>
-          {/* §3-2(CoS 재검증, CEO 결정 2026-09-26): 막대엔 "다소 많음"이 뜨는데 아래엔 "피할 기운 없음"이
-              나와 모순처럼 읽혔다 — 3개는 엔진 정책상 라벨만 붙고 처방 대상이 아니다(classify.ts). */}
-          {bars.some((b) => b.tier === "mildlyMany") && (
+          {/* §3-2(CoS 재검증, CEO 결정 2026-09-26 / 2026-09-30 재수정): 막대엔 "다소 많음"이
+              뜨는데 아래엔 "피할 기운 없음"이 나와 모순처럼 읽혔다 — 3개는 엔진 정책상
+              라벨만 붙고 처방 대상이 아니다(classify.ts). 단, "피해야 할 기운"에 이미
+              다른(4개 이상) 오행이 채워져 있으면 이 설명 줄이 "그 오행도 피할 기운이
+              아니다"처럼 잘못 읽혀 오히려 새 모순을 만들었다(CoS 실물 확인) — 피할
+              기운 칸이 정말 비어 있을 때만 붙인다. */}
+          {avoid.length === 0 && bars.some((b) => b.tier === "mildlyMany") && (
             <p className="text-[10.5px] leading-snug text-[#6B6661]">3개인 오행은 &lsquo;다소 많음&rsquo;으로만 표시하며, 피할 기운으로 보지 않습니다.</p>
           )}
         </div>
