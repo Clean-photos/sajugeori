@@ -190,7 +190,12 @@ export async function POST(req: NextRequest) {
             if (insertErr2) throw insertErr2;
             savedId = inserted?.id ?? null;
           } catch (e2) {
-            console.error("궁합 저장 2차 실패, 캐시 없이 리포트만 반환:", e2);
+            // §C(CoS 실물 확인, 2026-09-29): 여기서 그냥 포기하면 결제한 궁합 리포트가
+            // 어디에도 저장되지 않아 "받은 리포트" 목록에 영원히 안 뜬다(결제 내역엔
+            // "사용함"으로 남는데 리포트 목록엔 없는 것과 정확히 일치하는 증상) — 018
+            // 1회성 캐시로라도 남겨, 최소한 마이페이지에서 다시 찾을 수 있게 한다.
+            console.error("궁합 저장 2차 실패, 018 캐시로 폴백:", e2);
+            await writeAdhocCache(userId, PRODUCT_ID, personA, { content: report, score: normalizedScore }, variant);
           }
         }
       }

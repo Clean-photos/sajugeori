@@ -147,10 +147,20 @@ export default async function MypagePage() {
                   <li key={i}>
                     <a href={viewHref(r)} className="flex items-center justify-between py-1.5 active:opacity-60">
                       <span className="flex flex-col">
-                        <span className="text-sm text-[#1A1A18]">{r.label}</span>
+                        {/* 4차(CoS 정정, 2026-09-29): B는 실제 버그가 아니라 CoS의 연도 비교
+                            누락이었다 — 09-13·09-11 연운세 두 건은 서로 다른 연도라 실제로는
+                            각각 정상 열린다. 다만 목록에 연도 자체가 안 보여 같아 보였던 건
+                            진짜 문제라 여기서 보완한다. */}
+                        <span className="text-sm text-[#1A1A18]">{r.label}{r.year ? ` (${r.year}년)` : ""}</span>
                         {/* §3(CEO 결정 2026-09-02): 같은 상품을 본인·가족 여러 명 몫으로
                             받았을 때 라벨만으론 구분이 안 됐다 — 대상 사주를 함께 표시. */}
                         {r.target && <span className="text-[11px] text-[#6B6661]/80 mt-0.5">{r.target}</span>}
+                        {/* 4차 §5-A(CoS 실물 확인, 2026-09-29): "프리미엄 사주"는 리포트 ID가 아니라
+                            현재 등록된 사주를 불러오는 방식이라, 사주를 다시 등록하면 이 줄이 가리키는
+                            내용이 바뀐다 — 재설계 전까지 임시로 그 한계를 명시한다. */}
+                        {r.href === "/premium" && (
+                          <span className="text-[10px] text-[#9B968F] mt-0.5">현재 등록된 사주 기준으로 열립니다</span>
+                        )}
                       </span>
                       <span className="text-xs text-[#6B6661] whitespace-nowrap">
                         {r.created_at.slice(0, 10)} <span className="text-[#C8743A]">보기 →</span>
