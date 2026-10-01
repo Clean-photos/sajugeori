@@ -17,6 +17,27 @@ const THIS_YEAR = new Date().getFullYear();
 
 type Target = { birth_date: string; birth_time: string | null; gender: string };
 
+type SavedPet = { species: Species; pet_name: string; pet_year: number; pet_month: number; pet_day: number | null };
+
+/**
+ * [다중 사주 — 우선순위 확정, 2026-10-01] "이전에 등록한 아이" 칩 — 매번
+ * 종·이름·태어난 해를 처음부터 다시 입력하지 않도록, 전에 만든 리포트의
+ * 입력값을 다시 고를 수 있게 한다. saju_profiles를 쓰지 않는다(/api/pets
+ * 주석 참고 — 펫은 대운을 안 써서 gender가 필요 없다).
+ */
+function useSavedPets(): SavedPet[] {
+  const [pets, setPets] = useState<SavedPet[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/pets")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => { if (!cancelled && data?.pets) setPets(data.pets); })
+      .catch(() => { /* 실패해도 기존 입력 폼은 그대로 동작해야 한다 */ });
+    return () => { cancelled = true; };
+  }, []);
+  return pets;
+}
+
 /**
  * §8-3(CoS 실물 재검증, 2026-09-10): 이용권이 없으면 "결제하러 가기 →"로
  * /premium/buy에 갔다 오는데, 그 사이 이 컴포넌트가 언마운트됐다 다시
@@ -66,6 +87,16 @@ export function PetForm({ saved }: { saved: SavedSaju }) {
   useEffect(() => {
     saveDraft({ species, name, year, month, noMonth, day });
   }, [species, name, year, month, noMonth, day]);
+
+  const savedPets = useSavedPets();
+  function pickSavedPet(p: SavedPet) {
+    setSpecies(p.species);
+    setName(p.pet_name);
+    setYear(String(p.pet_year));
+    if (p.pet_month) { setMonth(String(p.pet_month)); setNoMonth(false); } else { setMonth(""); setNoMonth(true); }
+    setDay(p.pet_day ? String(p.pet_day) : "");
+    clearAttempt();
+  }
   const [report, setReport] = useState("");
   const [petLabel, setPetLabel] = useState("");
   const [error, setError] = useState<PremiumErrorInfo | null>(null);
@@ -183,6 +214,24 @@ export function PetForm({ saved }: { saved: SavedSaju }) {
   return (
     <>
     <div className="flex-1 px-5 pt-6 flex flex-col gap-5">
+      {savedPets.length > 0 && (
+        <div>
+          <p className="text-xs text-[#6B6661] mb-2">이전에 등록한 아이</p>
+          <div className="flex flex-wrap gap-1.5">
+            {savedPets.map((p, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => pickSavedPet(p)}
+                className="rounded-full border border-[#E5DFD4] bg-[#FBF8F2] text-[#1A1A18] px-3 py-1.5 text-xs font-medium active:scale-[0.97] transition-all"
+              >
+                {p.species === "cat" ? "🐈" : "🐕"} {p.pet_name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* 종 선택 */}
       <div>
         <label className="block text-xs font-medium text-[#6B6661] uppercase tracking-wider mb-2">어떤 아이인가요</label>
