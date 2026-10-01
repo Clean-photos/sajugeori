@@ -1,10 +1,49 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Spinner } from "@/components/ui/Spinner";
 import { toSolar, type CalendarKind } from "@/lib/calendar/convert";
 
 export type SavedSaju = { birth_date: string; birth_time: string | null; gender: string } | null;
+
+type OtherProfile = {
+  id: string;
+  birth_date: string;
+  birth_time: string | null;
+  gender: string;
+  is_primary: boolean;
+};
+
+/**
+ * [다중 사주 — 우선순위 확정, 2026-10-01] 7개 범위 3). "다른 분" 사주를 상품
+ * 폼마다 매번 처음부터 다시 입력하게 하던 것을, 전에 입력했던 분을 다시
+ * 고를 수 있게 한다. 이름을 받는 입력란이 없어(onboarding·대상 프로필 둘 다
+ * 이름 없이 생년월일시·성별만 받음) 생년월일·성별로만 구분해 보여준다.
+ */
+function useOtherProfiles(): OtherProfile[] {
+  const [profiles, setProfiles] = useState<OtherProfile[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/profiles")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (cancelled || !data?.profiles) return;
+        const seen = new Set<string>();
+        const others: OtherProfile[] = [];
+        for (const p of data.profiles as (OtherProfile & { kind: string })[]) {
+          if (p.kind !== "person" || p.is_primary) continue;
+          const key = `${p.birth_date}|${p.birth_time ?? ""}|${p.gender}`;
+          if (seen.has(key)) continue; // 이미 더 최근 row를 담았다(API가 최신순 정렬)
+          seen.add(key);
+          others.push(p);
+        }
+        setProfiles(others.slice(0, 8)); // 칩이 너무 길어지지 않게
+      })
+      .catch(() => { /* 실패해도 기존 입력 폼은 그대로 동작해야 한다 */ });
+    return () => { cancelled = true; };
+  }, []);
+  return profiles;
+}
 
 function maxBirthDate() {
   const d = new Date();
@@ -100,6 +139,17 @@ export function SajuInputForm({
     if (useOwn) setUseOwn(false);
   }
 
+  const otherProfiles = useOtherProfiles();
+  function pickOther(p: OtherProfile) {
+    setUseOwn(false);
+    setCalendar("solar");
+    setBirthDate(p.birth_date);
+    const t = p.birth_time ? p.birth_time.slice(0, 5) : "";
+    setBirthTime(t);
+    setNoTime(!t);
+    setGender(p.gender);
+  }
+
   return (
     <div className="px-4 py-6 flex flex-col gap-5">
       <div className="bg-[#FBF8F2] border border-[#E5DFD4] rounded-2xl p-5 flex flex-col gap-4">
@@ -170,6 +220,24 @@ export function SajuInputForm({
           >
             입력된 사주 사용 ({saved.birth_date} · {saved.gender === "M" ? "남성" : "여성"})
           </button>
+        )}
+
+        {otherProfiles.length > 0 && (
+          <div>
+            <p className="text-xs text-[#6B6661] mb-2">전에 입력했던 다른 분</p>
+            <div className="flex flex-wrap gap-1.5">
+              {otherProfiles.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => pickOther(p)}
+                  className="rounded-full border border-[#E5DFD4] bg-white text-[#1A1A18] px-3 py-1.5 text-xs font-medium active:scale-[0.97] transition-all"
+                >
+                  {p.birth_date} · {p.gender === "M" ? "남성" : "여성"}
+                </button>
+              ))}
+            </div>
+          </div>
         )}
 
         <div>
