@@ -33,6 +33,11 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${BASE_URL}/premium/destiny`, changeFrequency: "monthly", priority: 0.7, lastModified: now },
     { url: `${BASE_URL}/terms`, changeFrequency: "yearly", priority: 0.3, lastModified: now },
     { url: `${BASE_URL}/privacy`, changeFrequency: "yearly", priority: 0.3, lastModified: now },
+    // 환장의 케미(Multi-Zone, hwanjang-chemi 프로젝트가 /chemi/*로 rewrite됨).
+    // 서비스 소개·진입 화면만 포함 — /chemi/r/*(개인 결과, 12시간 뒤 소멸)는
+    // robots.ts에서 별도 disallow·noindex 처리되어 있어 여기 넣지 않는다.
+    { url: `${BASE_URL}/chemi`, changeFrequency: "weekly", priority: 0.6, lastModified: now },
+    { url: `${BASE_URL}/chemi/new`, changeFrequency: "monthly", priority: 0.6, lastModified: now },
   ];
 
   const articlePages: MetadataRoute.Sitemap = ARTICLES.map((a) => ({

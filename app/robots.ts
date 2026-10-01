@@ -22,6 +22,19 @@ export default function robots(): MetadataRoute.Robots {
           "/reset-password",
           "/forgot-password",
           "/chemi/r/",
+          // §(CoS 실물 확인, 2026-10-01): 각 프리미엄 상품의 UUID 상세 경로는
+          // 개인 리포트(생년월일시 기반)라 /chemi/r/*와 같은 이유로 막는다.
+          // 소유권 검증(user_id 매치)이 라우트에 걸려 있어 색인돼도 실제로
+          // 열리진 않지만, 검색결과에 로그인 게이트 페이지가 노출되는 것
+          // 자체도 막는 게 맞다. 각 상품 폼 페이지(예: /premium/pet) 자체는
+          // 이 패턴에 걸리지 않는다(접두사에 "/"가 있어 하위 경로만 막힘).
+          "/premium/pet/",
+          "/premium/yearly/",
+          "/premium/salpuri/",
+          "/premium/taekil/",
+          "/premium/compatibility/",
+          "/premium/ohang/",
+          "/premium/destiny/",
         ],
       },
     ],
