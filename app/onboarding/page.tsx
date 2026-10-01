@@ -6,8 +6,8 @@ import { OnboardingClient, type ExistingProfile } from "./OnboardingClient";
 export default async function OnboardingPage() {
   const session = await auth();
   let existingProfile: ExistingProfile = null;
-  // 재등록 경고 모달 재료 — "다시 등록"을 누르면 이 사용자가 지금까지 만든 리포트가
-  // 마이페이지 목록에서 전부(어느 과거 profile_id로 만들었든) 사라진다.
+  // "이미 등록된 사주" 화면에서 "지금까지 만든 리포트 N건은 계속 볼 수 있다"는
+  // 안내에 쓴다(재등록해도 지워지지 않는다 — ReregisterWarningModal 삭제 참고).
   let reports: MyReport[] = [];
 
   if (session?.user?.id) {

@@ -51,11 +51,17 @@ export async function loadOwnProfile(
   const cols = opts.withDisplay
     ? "id, label, birth_date, birth_time, gender, calendar, saju_json, birth_date_confirmed_at"
     : "id, birth_date, birth_time, gender, calendar";
+  // §[다중 사주 우선순위 확정, 2026-10-01, 마이그레이션 021]: label="본인" +
+  // "가장 최근 row" 조합 대신 is_primary 플래그로 고정한다 — 가족·펫을 새로
+  // 등록해도(INSERT일 뿐 기존 row는 안 지워짐) "본인" 식별이 그 새 row로
+  // 말없이 옮겨가던 문제(report-target.ts 상단 주석 참고)의 근본 수정.
+  // 021 백필이 기존 "최근 1건"과 동일한 row를 is_primary=true로 맞췄으므로
+  // 이 전환 자체로는 어떤 사용자의 "본인"도 바뀌지 않는다.
   const { data } = await supabaseAdmin
     .from("saju_profiles")
     .select(cols)
-    .eq("user_id", userId).eq("label", "본인")
-    .order("created_at", { ascending: false }).limit(1).maybeSingle();
+    .eq("user_id", userId).eq("kind", "person").eq("is_primary", true)
+    .maybeSingle();
   return (data as OwnProfile | null) ?? null;
 }
 
@@ -78,7 +84,7 @@ export async function saveAsOwnProfile(
   const { data, error } = await supabaseAdmin
     .from("saju_profiles")
     .insert({
-      user_id: userId, label: "본인",
+      user_id: userId, label: "본인", kind: "person", is_primary: true,
       birth_date: input.birthDate, birth_time: input.birthTime,
       calendar: input.calendar, gender: input.gender,
       saju_raw: engine.saju_raw, saju_json: engine.saju_json, schema_version: 1,

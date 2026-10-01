@@ -21,10 +21,11 @@ export async function GET(req: NextRequest) {
   }
   const userId = session.user.id;
 
+  // §[다중 사주 우선순위 확정, 2026-10-01, 마이그레이션 021]: is_primary 플래그로 고정.
   const { data: profile } = await supabaseAdmin
     .from("saju_profiles").select("id, birth_date, saju_json")
-    .eq("user_id", userId).eq("label", "본인")
-    .order("created_at", { ascending: false }).limit(1).single();
+    .eq("user_id", userId).eq("kind", "person").eq("is_primary", true)
+    .single();
 
   if (!profile?.saju_json) {
     return NextResponse.json({ error: "profile_required", redirect: "/onboarding" }, { status: 403 });
@@ -220,8 +221,8 @@ export async function DELETE() {
 
   const { data: profile } = await supabaseAdmin
     .from("saju_profiles").select("id")
-    .eq("user_id", userId).eq("label", "본인")
-    .order("created_at", { ascending: false }).limit(1).single();
+    .eq("user_id", userId).eq("kind", "person").eq("is_primary", true)
+    .single();
   if (!profile?.id) {
     return NextResponse.json({ error: "profile_required" }, { status: 403 });
   }

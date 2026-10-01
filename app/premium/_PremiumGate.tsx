@@ -30,12 +30,14 @@ async function checkGate(oneTime?: OneTimeOption): Promise<GateState> {
   const userId = session?.user?.id;
   if (!userId) return { ok: false, kind: "login", hasProfile: false, userId: null };
 
+  // §[다중 사주 우선순위 확정, 2026-10-01, 마이그레이션 021]: label="본인" +
+  // "최근 1건" 대신 is_primary 플래그로 고정(report-target.ts loadOwnProfile과 동일 이유).
   const [premium, profileRes] = await Promise.all([
     isPremiumUser(userId),
     supabaseAdmin
       .from("saju_profiles").select("id")
-      .eq("user_id", userId).eq("label", "본인")
-      .order("created_at", { ascending: false }).limit(1).single(),
+      .eq("user_id", userId).eq("kind", "person").eq("is_primary", true)
+      .single(),
   ]);
   const hasProfile = !!profileRes.data?.id;
 

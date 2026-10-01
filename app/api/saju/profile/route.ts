@@ -20,10 +20,13 @@ export async function POST() {
   }
   const userId = session.user.id;
 
+  // §[다중 사주 우선순위 확정, 2026-10-01, 마이그레이션 021]: label="본인"은
+  // 재등록으로 내려간 과거 row에도 그대로 남아 있다(is_primary만 바뀜) —
+  // 지금의 본인 1건만 정확히 짚으려면 is_primary로 걸어야 한다.
   const { error } = await supabaseAdmin
     .from("saju_profiles")
     .update({ birth_date_confirmed_at: new Date().toISOString() })
-    .eq("user_id", userId).eq("label", "본인");
+    .eq("user_id", userId).eq("kind", "person").eq("is_primary", true);
 
   if (error) {
     console.error("birth_date_confirmed_at 갱신 실패:", error);

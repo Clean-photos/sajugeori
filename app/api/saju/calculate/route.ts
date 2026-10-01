@@ -25,9 +25,22 @@ export async function POST(req: NextRequest) {
   if (persist) {
     const session = await auth();
     if (session?.user?.id) {
+      // §[다중 사주 우선순위 확정, 2026-10-01, 마이그레이션 021]: 온보딩은
+      // "본인" 하나만 다루는 화면이다 — 다시 등록하면 새 row가 본인 자리를
+      // 이어받는다(기존 row는 지우지 않고 is_primary만 false로 내림, 그
+      // row가 만든 과거 리포트는 saju_profile_id로 그대로 열람 가능).
+      // "본인"은 유저당 kind='person' + is_primary=true 1건으로 유니크
+      // 인덱스가 강제하므로, 새 row를 넣기 전에 기존 본인을 먼저 내려야 한다.
+      await supabaseAdmin
+        .from("saju_profiles")
+        .update({ is_primary: false })
+        .eq("user_id", session.user.id).eq("kind", "person").eq("is_primary", true);
+
       const { error } = await supabaseAdmin.from("saju_profiles").insert({
         user_id: session.user.id,
         label: label ?? "본인",
+        kind: "person",
+        is_primary: true,
         birth_date,
         birth_time: birth_time ?? null,
         calendar,
