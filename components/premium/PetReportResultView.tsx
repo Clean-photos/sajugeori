@@ -57,9 +57,13 @@ export function PetReportResultView({
         <div className="no-print flex flex-col gap-2 items-center">
           <p className="text-xs text-[#6B6661]">다른 아이 보기</p>
           <div className="flex flex-wrap justify-center gap-1.5">
-            {otherPets.map((p) => (
+            {otherPets.map((p, i) => (
               <Link
-                key={p.href}
+                // §(2026-10-02 실물 확인): 018(가족·지인 대상) 출신 펫 리포트는
+                // 전용 열람 라우트가 없어 href가 전부 "/premium/pet" 정적 경로로
+                // 겹친다 — href만으로는 key가 유니크하지 않다(React 중복 키 경고
+                // 실측). label도 같은 경우가 있어 index까지 함께 섞는다.
+                key={`${p.href}-${p.label}-${i}`}
                 href={p.href}
                 className="rounded-full border border-[#E5DFD4] text-[#1F3D34] px-3 py-1.5 text-xs font-medium"
               >

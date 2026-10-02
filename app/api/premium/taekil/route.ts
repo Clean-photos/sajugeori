@@ -85,7 +85,6 @@ export async function POST(req: NextRequest) {
   // 있으면 캐시를 건너뛰고 새로 생성한다 — 안 그러면 같은 목적·기간으로는 새 이용권을
   // 영영 못 쓴다(유일한 우회가 "결과 삭제하기"뿐이었다). 구독자는 대상이 아니다.
   const variant = [purpose, from, to].join("|");
-  const cacheKey = { saju_profile_id: ownProfile?.id ?? "", purpose, range_from: from, range_to: to };
   const skipCacheForPass = await hasUnusedPassForRegenerate(userId, PRODUCT_ID);
   if (!skipCacheForPass) {
     if (isAdhoc) {
@@ -97,8 +96,9 @@ export async function POST(req: NextRequest) {
     } else if (ownProfile?.id) {
       try {
         const { data: cached } = await supabaseAdmin
-          .from("premium_taekil_reports").select("id, content, best")
-          .match(cacheKey).or(notExpiredFilter()).limit(1).maybeSingle();
+          .from("reports").select("id, content")
+          .eq("profile_id", ownProfile.id).eq("product_id", PRODUCT_ID).eq("variant", variant)
+          .or(notExpiredFilter()).limit(1).maybeSingle();
         if (cached?.content) {
           await discardAttempt(started.attemptId);
           // §1(CoS 결정 2026-09-08): id를 함께 돌려줘야 마이페이지 "보기 →"가
@@ -158,10 +158,13 @@ ${avoidLines}`.trim();
         try {
           // §1(CoS 결정 2026-09-08): 생성된 행의 id를 돌려줘야 "보기 →"가
           // /premium/taekil/{id}로 연결할 수 있다.
-          const { data: inserted } = await supabaseAdmin.from("premium_taekil_reports").insert({
-            ...cacheKey, saju_profile_id: profileId, user_id: userId,
-            content: report, best: bestForClient, expires_at: reportExpiresAtIso(),
-          }).select("id").single();
+          const { data: inserted } = await supabaseAdmin.from("reports").upsert(
+            {
+              profile_id: profileId, product_id: PRODUCT_ID, variant, user_id: userId,
+              content: report, expires_at: reportExpiresAtIso(), created_at: new Date().toISOString(),
+            },
+            { onConflict: "profile_id,product_id,variant" }
+          ).select("id").single();
           savedId = inserted?.id ?? null;
         } catch { /* noop */ }
       }
@@ -207,6 +210,6 @@ export async function DELETE(req: NextRequest) {
   if (typeof body.id !== "string" || !body.id) {
     return NextResponse.json({ error: "id is required" }, { status: 400 });
   }
-  await supabaseAdmin.from("premium_taekil_reports").delete().eq("id", body.id).eq("user_id", userId);
+  await supabaseAdmin.from("reports").delete().eq("id", body.id).eq("user_id", userId).eq("product_id", PRODUCT_ID);
   return NextResponse.json({ ok: true });
 }

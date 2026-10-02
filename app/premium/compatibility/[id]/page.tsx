@@ -14,16 +14,16 @@ export const metadata: Metadata = {
 
 /**
  * §1(CoS 결정 2026-09-08, 오행과 동일 원인·동일 수정) — 궁합 재열람.
- * premium_compatibility_reports는 프로필당 여러 행(상대·관계유형 조합별)이라
- * 이 테이블 자체의 PK(id)로 식별한다. 소유자 본인인지만 확인하고 이용권은
- * 검사하지 않는다.
+ * 프로필당 여러 행(상대·관계유형 조합별)이라 이 리포트 자체의 PK(id)로
+ * 식별한다. 소유자 본인인지만 확인하고 이용권은 검사하지 않는다.
  *
  * §7-3(CoS 실물 재검증, 2026-09-10): 두 사람의 명식표를 열람 시 다시 계산한다
- * (저장 안 함 — §0-2①/②와 같은 이유, chart만 있으면 재계산 비용이 0). A의
- * 태어난 시각은 이 테이블에 없고 saju_profiles에만 있어 별도로 읽는다.
- * partner_birth_time 컬럼은 마이그레이션 020 적용 전이면 아직 없을 수 있어
- * select 자체가 실패할 수 있다 — 실패하면 명식표 없이 본문만 보여준다
- * (페이지 전체를 깨뜨리지 않는다).
+ * (저장 안 함 — §0-2①/②와 같은 이유, chart만 있으면 재계산 비용이 0).
+ *
+ * [리포트 7개 테이블 통합, 2026-10-02] 상대 정보(생년월일시·성별·관계유형)는
+ * 별도 컬럼이 아니라 variant에 "생년월일|시각|성별|관계유형"으로 들어 있다
+ * (app/api/premium/compatibility/route.ts가 쓰는 것과 같은 키) — 파싱해서 쓴다.
+ * A(본인)의 생년월일시는 profile_id로 saju_profiles에서 직접 읽는다.
  */
 export default async function SavedCompatReportPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -33,17 +33,15 @@ export default async function SavedCompatReportPage({ params }: { params: Promis
   }
   const userId = session.user.id;
 
-  // ⚠️ partner_birth_time(마이그레이션 020)은 컬럼이 아직 없을 수 있다 — 그
-  // 경우 select 자체가 통째로 실패해 리포트 본문까지 못 읽게 되면 안 되므로,
-  // 필수 컬럼과 분리해 별도로(실패 허용) 조회한다.
   const { data: row } = await supabaseAdmin
-    .from("premium_compatibility_reports")
-    .select("content, score, saju_profile_id, person_a_birth, person_a_gender, partner_birth, partner_gender, context")
-    .eq("id", id)
-    .eq("user_id", userId)
+    .from("reports")
+    .select("content, profile_id, variant")
+    .eq("id", id).eq("user_id", userId).eq("product_id", "compatibility_one")
     .maybeSingle();
 
-  if (!row?.content) {
+  const content = row?.content as { text: string; score: number } | undefined;
+
+  if (!content?.text) {
     return (
       <div className="min-h-screen bg-[#F6F1E7] flex flex-col">
         <div className="flex-1 flex flex-col items-center justify-center gap-3 px-6 text-center">
@@ -60,24 +58,16 @@ export default async function SavedCompatReportPage({ params }: { params: Promis
 
   let pillars: { a: CompatPillarSummary; b: CompatPillarSummary } | null = null;
   try {
-    let aBirthTime: string | null = null;
-    if (row.saju_profile_id) {
-      const { data: profile } = await supabaseAdmin
-        .from("saju_profiles").select("birth_time").eq("id", row.saju_profile_id).maybeSingle();
-      aBirthTime = profile?.birth_time ?? null;
-    }
-    // partner_birth_time은 컬럼 자체가 없을 수 있어(마이그레이션 020 미적용)
-    // 실패를 허용하는 별도 조회로 분리한다 — 실패하면 "시각 모름"으로 취급.
-    let partnerBirthTime: string | null = null;
-    try {
-      const { data: t } = await supabaseAdmin
-        .from("premium_compatibility_reports").select("partner_birth_time").eq("id", id).maybeSingle();
-      partnerBirthTime = (t as { partner_birth_time?: string } | null)?.partner_birth_time || null;
-    } catch { /* 컬럼 없음 — 시각 모름으로 취급 */ }
+    const { data: profile } = await supabaseAdmin
+      .from("saju_profiles").select("birth_date, birth_time, gender")
+      .eq("id", row!.profile_id).maybeSingle();
+
+    const [partnerBirth, partnerBirthTimeRaw, partnerGender] = (row!.variant ?? "").split("|");
+    const partnerBirthTime = partnerBirthTimeRaw || null;
 
     const tOf = (t: string | null) => (t ? (t.length === 5 ? `${t}:00` : t) : "00:00:00");
-    const meChart = buildChart(`${row.person_a_birth}T${tOf(aBirthTime)}`, row.person_a_gender, !!aBirthTime);
-    const otherChart = buildChart(`${row.partner_birth}T${tOf(partnerBirthTime)}`, row.partner_gender, !!partnerBirthTime);
+    const meChart = buildChart(`${profile!.birth_date}T${tOf(profile!.birth_time)}`, profile!.gender as "M" | "F", !!profile!.birth_time);
+    const otherChart = buildChart(`${partnerBirth}T${tOf(partnerBirthTime)}`, partnerGender as "M" | "F", !!partnerBirthTime);
     pillars = { a: buildCompatPillarSummary(meChart, "나"), b: buildCompatPillarSummary(otherChart, "상대") };
   } catch (e) {
     console.error("궁합 저장본 명식표 재계산 실패, 표 없이 렌더:", e);
@@ -95,7 +85,7 @@ export default async function SavedCompatReportPage({ params }: { params: Promis
         <h1 className="relative font-serif text-[28px] font-bold text-white leading-tight">프리미엄 궁합</h1>
       </div>
 
-      <SavedReportClient content={row.content} score={row.score ?? null} reportId={id} pillars={pillars} />
+      <SavedReportClient content={content.text} score={content.score ?? null} reportId={id} pillars={pillars} />
 
       <BottomTabBar hasProfile />
     </div>

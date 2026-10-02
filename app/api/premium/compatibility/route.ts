@@ -81,11 +81,6 @@ export async function POST(req: NextRequest) {
   // §7-1: 상대방 시각이 캐시 키에도 들어가야 "시각을 넣은 재조회"가 "시각
   // 모름" 캐시를 잘못 재사용하지 않는다.
   const variant = [partnerBirth, partnerBirthTime, partnerGender, context].join("|");
-  const cacheKey = {
-    saju_profile_id: ownProfile?.id ?? "",
-    person_a_birth: personA.birthDate, person_a_gender: personA.gender,
-    partner_birth: partnerBirth, partner_birth_time: partnerBirthTime, partner_gender: partnerGender, context,
-  };
 
   // §7-3(CoS 실물 재검증, 2026-09-10): 두 사람의 명식표를 응답에 함께 실어
   // 화면이 바로 그릴 수 있게 한다 — 캐시 히트든 새 생성이든 항상 같은 함수로
@@ -114,13 +109,15 @@ export async function POST(req: NextRequest) {
     } else if (ownProfile?.id) {
       try {
         const { data: cached } = await supabaseAdmin
-          .from("premium_compatibility_reports").select("id, content, score")
-          .match(cacheKey).or(notExpiredFilter()).limit(1).maybeSingle();
-        if (cached?.content) {
+          .from("reports").select("id, content")
+          .eq("profile_id", ownProfile.id).eq("product_id", PRODUCT_ID).eq("variant", variant)
+          .or(notExpiredFilter()).limit(1).maybeSingle();
+        const cachedContent = cached?.content as { text: string; score: number } | undefined;
+        if (cachedContent?.text) {
           await discardAttempt(started.attemptId);
           // §1(CoS 결정 2026-09-08): id를 함께 돌려줘야 마이페이지 "보기 →"가
           // /premium/compatibility/{id}(이용권 검사 없는 열람 라우트)로 연결할 수 있다.
-          return NextResponse.json({ report: cached.content, score: cached.score, context, cached: true, id: cached.id, pillars });
+          return NextResponse.json({ report: cachedContent.text, score: cachedContent.score, context, cached: true, id: cached!.id, pillars });
         }
       } catch { /* 테이블 없음 또는 미저장 → 생성 진행 */ }
     }
@@ -163,41 +160,26 @@ export async function POST(req: NextRequest) {
       // 등록된 사주가 없던 사람이면 이 입력이 본인 프로필로 저장된다(016 규칙).
       const profileId = await ensureOwnProfileId(userId, personA, ownProfile);
       if (profileId) {
-        const row = {
-          ...cacheKey, saju_profile_id: profileId, user_id: userId,
-          content: report, score: normalizedScore, expires_at: reportExpiresAtIso(),
-        };
         try {
           // §1(CoS 결정 2026-09-08): 생성된 행의 id를 돌려줘야 "보기 →"가
           // /premium/compatibility/{id}로 연결할 수 있다.
-          const { data: inserted, error: insertErr } = await supabaseAdmin.from("premium_compatibility_reports").insert(row).select("id").single();
-          // supabase-js는 실패해도 예외를 던지지 않고 { error }로 돌려준다 — 그대로 두면 아래 catch 폴백이
-          // 한 번도 실행되지 않고 저장 유실이 조용히 지나간다. 던져서 폴백을 실제로 태운다.
+          const { data: inserted, error: insertErr } = await supabaseAdmin.from("reports").upsert(
+            {
+              profile_id: profileId, product_id: PRODUCT_ID, variant, user_id: userId,
+              content: { text: report, score: normalizedScore }, expires_at: reportExpiresAtIso(),
+              created_at: new Date().toISOString(),
+            },
+            { onConflict: "profile_id,product_id,variant" }
+          ).select("id").single();
           if (insertErr) throw insertErr;
           savedId = inserted?.id ?? null;
         } catch (e) {
-          // §7-1 재검증(2026-09-13 실물 확인): 마이그레이션 020(partner_birth_time
-          // 컬럼 추가)이 아직 미적용 상태라 이 insert가 그 컬럼 때문에 통째로
-          // 실패했다 — 리포트는 화면에 정상 표시됐지만 DB엔 저장되지 않아,
-          // 실제 990원 결제 고객이 탭을 닫으면 다시는 못 보는 사고로 이어질 수
-          // 있다(실측: 코드 배포 후 첫 궁합 생성이 그대로 유실됨). 마이그레이션
-          // 적용 전까지는 그 컬럼 없이라도 저장해 "리포트 자체가 사라지는"
-          // 최악은 막는다 — 시각 기반 캐시 재사용 정밀도만 낮아진다.
-          console.error("궁합 저장 1차 실패(partner_birth_time 컬럼 미적용 추정), 그 필드 빼고 재시도:", e);
-          try {
-            const { partner_birth_time: _drop, ...rowWithoutTime } = row;
-            void _drop;
-            const { data: inserted, error: insertErr2 } = await supabaseAdmin.from("premium_compatibility_reports").insert(rowWithoutTime).select("id").single();
-            if (insertErr2) throw insertErr2;
-            savedId = inserted?.id ?? null;
-          } catch (e2) {
-            // §C(CoS 실물 확인, 2026-09-29): 여기서 그냥 포기하면 결제한 궁합 리포트가
-            // 어디에도 저장되지 않아 "받은 리포트" 목록에 영원히 안 뜬다(결제 내역엔
-            // "사용함"으로 남는데 리포트 목록엔 없는 것과 정확히 일치하는 증상) — 018
-            // 1회성 캐시로라도 남겨, 최소한 마이페이지에서 다시 찾을 수 있게 한다.
-            console.error("궁합 저장 2차 실패, 018 캐시로 폴백:", e2);
-            await writeAdhocCache(userId, PRODUCT_ID, personA, { content: report, score: normalizedScore }, variant);
-          }
+          // §C(CoS 실물 확인, 2026-09-29): 여기서 그냥 포기하면 결제한 궁합 리포트가
+          // 어디에도 저장되지 않아 "받은 리포트" 목록에 영원히 안 뜬다(결제 내역엔
+          // "사용함"으로 남는데 리포트 목록엔 없는 것과 정확히 일치하는 증상) — 018
+          // 1회성 캐시로라도 남겨, 최소한 마이페이지에서 다시 찾을 수 있게 한다.
+          console.error("궁합 저장 실패, 018 캐시로 폴백:", e);
+          await writeAdhocCache(userId, PRODUCT_ID, personA, { content: report, score: normalizedScore }, variant);
         }
       }
     }
@@ -228,7 +210,7 @@ export async function DELETE(req: NextRequest) {
   // 정보로 되짚어 찾는 아래 기존 방식과 달리 본인 사주 재등록으로 프로필이
   // 바뀌어도 엉뚱한 행을 건드릴 여지가 없다(pet.ts와 동일한 이유).
   if (typeof body.id === "string" && body.id) {
-    await supabaseAdmin.from("premium_compatibility_reports").delete().eq("id", body.id).eq("user_id", userId);
+    await supabaseAdmin.from("reports").delete().eq("id", body.id).eq("user_id", userId).eq("product_id", PRODUCT_ID);
     return NextResponse.json({ ok: true });
   }
 
@@ -258,11 +240,9 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: "profile_required" }, { status: 403 });
   }
 
-  await supabaseAdmin.from("premium_compatibility_reports").delete()
-    .eq("saju_profile_id", ownProfile.id).eq("user_id", userId)
-    .eq("person_a_birth", ownProfile.birth_date).eq("person_a_gender", ownProfile.gender)
-    .eq("partner_birth", partnerBirth).eq("partner_birth_time", partnerBirthTime)
-    .eq("partner_gender", partnerGender).eq("context", context);
+  await supabaseAdmin.from("reports").delete()
+    .eq("profile_id", ownProfile.id).eq("product_id", PRODUCT_ID).eq("user_id", userId)
+    .eq("variant", [partnerBirth, partnerBirthTime, partnerGender, context].join("|"));
 
   return NextResponse.json({ ok: true });
 }

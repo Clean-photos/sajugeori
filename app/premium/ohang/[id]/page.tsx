@@ -33,20 +33,20 @@ export default async function SavedWuxingReportPage({ params }: { params: Promis
   }
   const userId = session.user.id;
 
-  const [{ data: row }, { data: profile }] = await Promise.all([
-    supabaseAdmin
-      .from("premium_wuxing_reports")
-      .select("content")
-      .eq("saju_profile_id", id)
-      .eq("user_id", userId)
-      .maybeSingle(),
-    supabaseAdmin
-      .from("saju_profiles")
-      .select("birth_date, birth_time, gender")
-      .eq("id", id)
-      .eq("user_id", userId)
-      .maybeSingle(),
-  ]);
+  const { data: row } = await supabaseAdmin
+    .from("reports")
+    .select("content, profile_id")
+    .eq("id", id).eq("user_id", userId).eq("product_id", "wuxing_one")
+    .maybeSingle();
+
+  const { data: profile } = row
+    ? await supabaseAdmin
+        .from("saju_profiles")
+        .select("birth_date, birth_time, gender")
+        .eq("id", row.profile_id)
+        .eq("user_id", userId)
+        .maybeSingle()
+    : { data: null };
 
   // §0-2①(CoS 실물 재검증, 2026-09-10): 저장본을 그대로 렌더하면 결정형 계층
   // (용신 카드·처방 항목·조후 충돌 필터 등)이 **생성 시점 코드에 그대로 얼어붙어**,
@@ -75,9 +75,9 @@ export default async function SavedWuxingReportPage({ params }: { params: Promis
         report = { ...report, narratives };
         const savedContent = row!.content as WuxingReportData;
         await supabaseAdmin
-          .from("premium_wuxing_reports")
+          .from("reports")
           .update({ content: { ...savedContent, narratives } })
-          .eq("saju_profile_id", id)
+          .eq("id", id)
           .eq("user_id", userId);
       }
     } catch (e) {

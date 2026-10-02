@@ -71,14 +71,6 @@ export async function POST(req: NextRequest) {
   // 같은 아이·같은 조건이면 재생성하지 않는다. 캐시 키의 pet_day는 0이 '모름'.
   // 집사 사주가 다르면 같은 아이라도 다른 리포트이므로 variant에 함께 넣는다.
   const variant = [species, petName, petYear, petMonth, petDay ?? 0].join("|");
-  const cacheKey = {
-    saju_profile_id: ownProfile?.id ?? "",
-    species,
-    pet_name: petName,
-    pet_year: petYear,
-    pet_month: petMonth,
-    pet_day: petDay ?? 0,
-  };
   // 2026-09-22(CEO 지시, 프로모션 이용권 배포): 지금 쓸 수 있는 미사용 이용권이 있으면
   // 캐시를 건너뛰고 새로 생성한다 — 안 그러면 같은 아이·같은 조건으로는 새 이용권을
   // 영영 못 쓴다(유일한 우회가 "결과 삭제하기"뿐이었다). 구독자는 대상이 아니다.
@@ -93,8 +85,9 @@ export async function POST(req: NextRequest) {
     } else if (ownProfile?.id) {
       try {
         const { data: cached } = await supabaseAdmin
-          .from("premium_pet_reports").select("content")
-          .match(cacheKey).or(notExpiredFilter()).limit(1).maybeSingle();
+          .from("reports").select("content")
+          .eq("profile_id", ownProfile.id).eq("product_id", PRODUCT_ID).eq("variant", variant)
+          .or(notExpiredFilter()).limit(1).maybeSingle();
         if (cached?.content) {
           await discardAttempt(started.attemptId);
           return NextResponse.json({ report: cached.content, pet: facts.pet, petName, cached: true });
@@ -124,9 +117,13 @@ export async function POST(req: NextRequest) {
         try {
           // QA(2026-09-05) D-2: upsert 충돌 시 created_at DEFAULT가 다시 안 타
           // 재생성해도 생성일이 그대로였다 — 명시적으로 갱신한다.
-          await supabaseAdmin.from("premium_pet_reports").upsert(
-            { ...cacheKey, saju_profile_id: profileId, user_id: userId, content: report, expires_at: reportExpiresAtIso(), created_at: new Date().toISOString() },
-            { onConflict: "saju_profile_id,species,pet_name,pet_year,pet_month,pet_day" }
+          await supabaseAdmin.from("reports").upsert(
+            {
+              profile_id: profileId, product_id: PRODUCT_ID, variant, user_id: userId,
+              content: report, extra: { species, pet_name: petName, pet_year: petYear, pet_month: petMonth, pet_day: petDay },
+              expires_at: reportExpiresAtIso(), created_at: new Date().toISOString(),
+            },
+            { onConflict: "profile_id,product_id,variant" }
           );
         } catch { /* noop */ }
       }
@@ -160,7 +157,7 @@ export async function DELETE(req: NextRequest) {
   // 실제로 속한(과거) 프로필이 달라질 수 있어 엉뚱한 행을 건드릴 여지가 있다.
   // id가 오면 그 모호함 없이 바로, 소유자만 확인하고 지운다.
   if (typeof body.id === "string" && body.id) {
-    await supabaseAdmin.from("premium_pet_reports").delete().eq("id", body.id).eq("user_id", userId);
+    await supabaseAdmin.from("reports").delete().eq("id", body.id).eq("user_id", userId).eq("product_id", PRODUCT_ID);
     return NextResponse.json({ ok: true });
   }
 
@@ -192,10 +189,9 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: "profile_required" }, { status: 403 });
   }
 
-  await supabaseAdmin.from("premium_pet_reports").delete()
-    .eq("saju_profile_id", ownProfile.id).eq("user_id", userId)
-    .eq("species", species).eq("pet_name", petName)
-    .eq("pet_year", petYear).eq("pet_month", petMonth).eq("pet_day", petDay ?? 0);
+  await supabaseAdmin.from("reports").delete()
+    .eq("profile_id", ownProfile.id).eq("product_id", PRODUCT_ID).eq("user_id", userId)
+    .eq("variant", [species, petName, petYear, petMonth, petDay ?? 0].join("|"));
 
   return NextResponse.json({ ok: true });
 }

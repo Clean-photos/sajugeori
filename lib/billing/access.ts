@@ -110,16 +110,16 @@ export async function checkDestinyAccess(userId: string): Promise<{ allowed: boo
 }
 
 /**
- * 운명 설계도 "업그레이드가(6,900원)" 자격 여부. premium_reports에 이 사용자의
- * 프리미엄 사주 리포트가 남아 있으면 유효 — 별도 만료 타이머 없이 리포트
- * 수명(1년)에 자연히 묶인다. 리포트가 배치로 삭제되면 이 자격도 함께 사라진다.
+ * 운명 설계도 "업그레이드가(6,900원)" 자격 여부. 이 사용자의 프리미엄 사주
+ * 리포트(saju_one)가 reports에 남아 있으면 유효 — 별도 만료 타이머 없이
+ * 리포트 수명(1년)에 자연히 묶인다. 리포트가 배치로 삭제되면 이 자격도 함께 사라진다.
  */
 export async function hasSajuReport(userId: string): Promise<boolean> {
   try {
     const { count } = await supabaseAdmin
-      .from("premium_reports")
-      .select("saju_profile_id", { count: "exact", head: true })
-      .eq("user_id", userId);
+      .from("reports")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId).eq("product_id", "saju_one");
     return (count ?? 0) > 0;
   } catch {
     return false;

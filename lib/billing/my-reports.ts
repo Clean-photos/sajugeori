@@ -3,45 +3,28 @@ import { supabaseAdmin } from "@/lib/db/client";
 /**
  * 마이페이지에 보여줄 "내가 만들어 둔 리포트" 목록.
  *
- * 리포트가 상품별로 다른 테이블에 나뉘어 저장돼 있어서, 마이페이지에서는 어떤 걸
- * 봤는지 전혀 확인할 수 없었다(궁합을 봤는데 마이페이지가 비어 보이는 문제).
- * 테이블별로 훑어서 최근 순으로 합친다.
+ * [리포트 7개 테이블 통합, 2026-10-02] 예전에는 상품별로 테이블이 7개로
+ * 나뉘어 있어(premium_reports/salpuri/taekil/yearly/wuxing/compatibility/pet)
+ * 이 함수가 그 7개를 각자 다른 컬럼 규칙으로 하나씩 조회해 합쳤다 — 새 상품을
+ * 추가할 때마다 여기도 빠짐없이 챙겨야 했고, 과거 실제로 "펫·가족 리포트가
+ * 마이페이지에 안 보임" 같은 버그가 이 구조 때문에 반복됐다. 이제 단일
+ * `reports` 테이블(product_id로 구분, profile_id 공통)이라 한 번의 쿼리로 끝난다.
  *
- * 테이블이 없거나 권한이 없으면 그 항목만 건너뛴다 — 마이페이지 전체가 깨지지 않게.
- *
- * §3(CEO 결정 2026-09-02): 018(premium_adhoc_reports, 가족·지인 대상 1회성 캐시)이
- * 도입된 뒤로 018 라우트를 탄 가족 리포트는 label이 항상 같아서("프리미엄 연운세" 등)
- * 여러 건이면 누구 걸 봤는지 구분이 안 됐다. 그리고 이 함수는 애초에 018 테이블을
- * 조회 대상에 넣지 않아서, 가족 리포트는 마이페이지에 아예 안 보이고 있었다(점검 중
- * 발견 — report-target.ts가 018을 쓰는 5개 라우트: 연운세·살풀이·오행·궁합·펫).
- * 이번에 그 누락을 메우고, 모든 리포트에 대상 사주(생년월일·성별)를 함께 붙인다.
+ * 통합 대상이 아닌 것들은 여전히 따로 조회한다:
+ *   - blueprint_reports(운명 설계도) — 폴링 기반 재개형 생성이라 데이터 모양이
+ *     근본적으로 다름(통합 안 하기로 결정, 022 마이그레이션 주석 참고).
+ *   - premium_saju_adhoc_reports(016)·premium_adhoc_reports(018) — "본인이
+ *     아닌 대상"을 위한 1회성 캐시로, 애초에 전 상품 공통 구조라 통합 필요가 없음.
  */
-/**
- * idColumn: 이 테이블에서 "보기 →" 열람 라우트가 식별자로 쓸 컬럼.
- *   - "saju_profile_id" — 프로필당 1행(PK 자체가 saju_profile_id). 살풀이·오행·
- *     연운세(+year)·프리미엄 사주가 여기 해당.
- *   - "id" — 프로필당 여러 행 가능(자체 PK 보유). 택일·펫이 여기 해당(같은
- *     프로필로도 목적·기간, 아이가 다르면 별도 행이라 saju_profile_id만으로는
- *     어느 행인지 특정할 수 없다).
- * hasYear: 연운세 전용 — year도 함께 select해 링크에 쿼리로 붙인다(개인정보
- * 아니므로 쿼리 노출 무방 — §1이 없앤 것은 생년월일·시각·성별이었다).
- */
-type ProfileJoinSource = { table: string; label: string; href: string; idColumn: "saju_profile_id" | "id"; hasYear?: boolean };
-
-const PROFILE_JOIN_SOURCES: ProfileJoinSource[] = [
-  { table: "premium_reports", label: "프리미엄 사주", href: "/premium", idColumn: "saju_profile_id" },
-  { table: "premium_salpuri_reports", label: "프리미엄 살풀이", href: "/premium/salpuri", idColumn: "saju_profile_id" },
-  { table: "premium_taekil_reports", label: "프리미엄 택일", href: "/premium/taekil", idColumn: "id" },
-  { table: "premium_yearly_reports", label: "프리미엄 연운세", href: "/premium/yearly", idColumn: "saju_profile_id", hasYear: true },
-  // 반려동물(premium_pet_reports)은 아래에서 별도로 조회한다(pet_name을 label에
-  // 붙여야 해서 — §6-6 CoS 실물 확인, 2026-09-16 참고).
-  { table: "premium_wuxing_reports", label: "오행 보완 리포트", href: "/premium/ohang", idColumn: "saju_profile_id" },
-  // §2-11순위(CoS 실물 재검증, 2026-09-11): "운명 설계도는 리포트 ID가 없어
-  // 같은 상품을 두 번 이상 생성하면(본인 외 다른 대상) 이전 결과에 도달할
-  // 경로가 사라진다" — /premium/destiny/[id] 전용 라우트를 신설해 다른
-  // 6개 상품과 같은 패턴으로 맞춘다(viewHref가 이 href를 감지해 id를 붙인다).
-  { table: "blueprint_reports", label: "운명 설계도", href: "/premium/destiny", idColumn: "saju_profile_id" },
-];
+const PRODUCT_META: Record<string, { label: string; href: string }> = {
+  saju_one: { label: "프리미엄 사주", href: "/premium" },
+  salpuri_one: { label: "프리미엄 살풀이", href: "/premium/salpuri" },
+  taekil_one: { label: "프리미엄 택일", href: "/premium/taekil" },
+  yearly_one: { label: "프리미엄 연운세", href: "/premium/yearly" },
+  wuxing_one: { label: "오행 보완 리포트", href: "/premium/ohang" },
+  compatibility_one: { label: "프리미엄 궁합", href: "/premium/compatibility" },
+  pet_one: { label: "반려동물 궁합", href: "/premium/pet" },
+};
 
 // 018(premium_adhoc_reports)의 product_id → 표시 라벨/링크. report-target.ts가
 // 이 값들을 PRODUCT_ID로 쓰는 라우트들과 정확히 맞춰야 한다(각 route.ts 참고).
@@ -60,18 +43,9 @@ export type MyReport = {
   /** 이 리포트를 만든 대상 사주 표시 문구(예: "1978-03-01(양력) 여성"). 알 수 없으면 null. */
   target: string | null;
   /**
-   * §1(CoS 결정 2026-09-08, 재설계): 이 리포트를 저장한 saju_profile_id.
-   * viewHref()가 이 값으로 "/premium/{product}/{id}" 형태의 영구 링크를 만든다.
-   *
-   * ⚠️ 예전엔 birth_date 등 원본 대상 값을 쿼리로 실어 보내 그 페이지가 자동
-   * 제출하게 했다(autostart) — 그런데 그건 "다시 보기"가 아니라 "같은 조건으로
-   * 다시 만들기" 요청이라, 1회권을 이미 소진한 사용자는 결제 게이트에 막혀
-   * 재열람이 안 됐다(실측: 990원 결제 → 정상 생성 → 재진입 시 페이월 재노출).
-   * 부수적으로 생년월일·성별이 URL에 평문으로 남는 문제도 있었다. saju_profile_id
-   * 기반 열람 라우트(이용권 검사 없음)로 교체해 두 문제를 함께 없앤다.
-   *
-   * idColumn이 "id"인 소스(택일·펫)에서는 그 테이블 자체의 PK가 들어간다 —
-   * 프로필당 여러 행일 수 있어 saju_profile_id만으로는 특정 행을 가리킬 수 없다.
+   * reports.id(통합 전엔 saju_profile_id 또는 테이블 자체 PK가 섞여 있었다 —
+   * 모든 상품이 자기 PK를 갖게 되면서 이 구분이 사라졌다). viewHref()가 이
+   * 값으로 "/premium/{product}/{id}" 형태의 영구 링크를 만든다.
    */
   id: string | null;
   /** 연운세 전용 — 어느 연도의 리포트인지. 다른 상품에서는 항상 null. */
@@ -89,16 +63,10 @@ export type MyReport = {
 /**
  * §1(CoS 결정 2026-09-08): "보기 →"가 저장된 결과를 열지 못하고 재생성을
  * 요청해 1회권 소진자를 결제 게이트로 되돌리던 문제 — id 기반 영구 링크로
- * 교체한다. 오행만 전용 열람 라우트(app/premium/ohang/[id])가 있고, 나머지
- * 상품은 아직 없어(구조가 제각각이라 검증이 더 필요) 기존 정적 href를 쓴다 —
- * 같은 문제가 있는 것은 확인했으나 이번 회차 범위 밖(다음 회차로 이월).
+ * 교체한다.
  *
  * 홈·마이페이지 둘 다 리포트 목록을 보여주므로(QA 2026-09-05: "홈·마이페이지
  * 양쪽 동일" 지적) 한 곳에만 두면 나중에 한쪽만 고치는 사고가 난다 — 공용으로 뺀다.
- *
- * §1 확장(2026-09-08): 오행에서 검증된 패턴(id 기반 열람, 이용권 검사 없음)을
- * 같은 게이트를 쓰는 살풀이·택일·연운세·펫·궁합에도 적용했다. 운명 설계도는
- * 이 문제가 원래 없어(PROFILE_JOIN_SOURCES 주석 참고) 정적 href 그대로다.
  */
 export function viewHref(r: { href: string; id: MyReport["id"]; year?: MyReport["year"]; adhocId?: MyReport["adhocId"] }): string {
   // §0-2⑥: 018(본인과 다른 대상) 출신 오행 리포트 — 전용 소급 라우트로.
@@ -133,8 +101,6 @@ function formatTarget(birthDate: string, gender: string, calendar?: string | nul
 export async function listUserReports(userId: string): Promise<MyReport[]> {
   const out: MyReport[] = [];
 
-  // saju_profile_id로 저장된 리포트들 — 같은 사용자가 과거에 여러 번 재등록했다면
-  // 서로 다른 profile row를 가리킬 수 있다(재등록은 INSERT라 옛 row가 남는다).
   // 대상 사주 표시(target)는 각 소스 조회가 끝난 뒤 profile id를 모아 한 번에 읽는다 —
   // 예전엔 행마다 순서대로 await해 왕복이 리포트 수만큼 늘었다(2026-09-19 마이페이지 4.6초 후속).
   type ProfileRow = { id: string; birth_date: string; birth_time: string | null; gender: string; calendar: string };
@@ -143,90 +109,55 @@ export async function listUserReports(userId: string): Promise<MyReport[]> {
     if (typeof profileId === "string" && profileId) profileIdOf.set(r, profileId);
   };
 
-  // 2026-09-17(CoS 실물 확인: 삭제 후 마이페이지 리다이렉트가 7~10초 걸림):
-  // 아래 5개 조회 블록(공용 소스 루프 + 궁합·펫·016·018)이 전부 서로 무관한
-  // 독립 쿼리인데도 하나씩 순서대로 await되고 있었다 — 리다이렉트가 느린 게
-  // 아니라 이 함수 자체가 "쿼리 8개를 차례로 기다리는" 구조였다(마이페이지가
-  // 서버 컴포넌트라 이 함수가 다 끝나야 페이지를 보낼 수 있다). 서로 데이터
-  // 의존이 없으므로 전부 하나의 Promise.all로 동시에 실행한다.
+  // 서로 무관한 독립 쿼리라 하나의 Promise.all로 동시에 실행한다(2026-09-17 후속).
   await Promise.all([
-    Promise.all(
-      PROFILE_JOIN_SOURCES.map(async (s) => {
-        try {
-          const cols = ["created_at", "saju_profile_id"];
-          if (s.idColumn === "id") cols.push("id");
-          if (s.hasYear) cols.push("year");
-          const { data, error } = await supabaseAdmin
-            .from(s.table)
-            .select(cols.join(", "))
-            .eq("user_id", userId)
-            .order("created_at", { ascending: false })
-            .limit(20);
-          if (error || !data) return;
-          for (const row of data as unknown as Record<string, unknown>[]) {
-            if (!row?.created_at) continue;
-            const r: MyReport = {
-              label: s.label, href: s.href, created_at: row.created_at as string,
-              target: null,
-              id: (s.idColumn === "id" ? (row.id as string | null) : (row.saju_profile_id as string | null)) ?? null,
-              year: s.hasYear ? ((row.year as number | null) ?? null) : null,
-              adhocId: null,
-            };
-            remember(r, row.saju_profile_id);
-            out.push(r);
-          }
-        } catch {
-          /* 테이블 없음·권한 없음 → 이 항목만 건너뛴다 */
-        }
-      })
-    ),
-
-    // 궁합(011)은 person_a_birth/gender를 이미 직접 들고 있어 join이 필요 없다.
-    // §1(CoS 결정 2026-09-08): 프로필당 여러 행(상대·관계유형 조합별)이라 이
-    // 테이블 자체의 PK(id)를 열람 라우트 식별자로 쓴다(택일·펫과 동일 이유).
+    // 통합 reports 테이블 — 7개 상품 전부 한 번에.
     (async () => {
       try {
         const { data } = await supabaseAdmin
-          .from("premium_compatibility_reports")
-          .select("id, created_at, person_a_birth, person_a_gender")
+          .from("reports")
+          .select("id, created_at, product_id, profile_id, extra")
           .eq("user_id", userId)
           .order("created_at", { ascending: false })
-          .limit(20);
+          .limit(100);
         for (const row of data ?? []) {
           if (!row?.created_at) continue;
-          out.push({
-            label: "프리미엄 궁합", href: "/premium/compatibility", created_at: row.created_at,
-            target: row.person_a_birth ? formatTarget(row.person_a_birth, row.person_a_gender) : null,
-            id: row.id ?? null,
-            year: null,
-            adhocId: null,
-          });
+          const meta = PRODUCT_META[row.product_id as string];
+          if (!meta) continue; // 모르는 product_id는 목록을 깨뜨리느니 건너뛴다
+          const extra = (row.extra ?? {}) as Record<string, unknown>;
+          let label = meta.label;
+          let year: number | null = null;
+          if (row.product_id === "pet_one") {
+            const petName = extra.pet_name as string | undefined;
+            const speciesKr = extra.species === "cat" ? "고양이" : "강아지";
+            label = petName ? `반려동물 궁합 · ${petName}(${speciesKr})` : "반려동물 궁합";
+          } else if (row.product_id === "yearly_one") {
+            year = (extra.year as number | undefined) ?? null;
+          }
+          const r: MyReport = {
+            label, href: meta.href, created_at: row.created_at as string,
+            target: null, id: row.id as string, year, adhocId: null,
+          };
+          remember(r, row.profile_id);
+          out.push(r);
         }
-      } catch { /* noop */ }
+      } catch { /* 테이블 없음·권한 없음 → 건너뛴다 */ }
     })(),
 
-    // 반려동물(premium_pet_reports) — §6-6(CoS 실물 확인, 2026-09-16): 목록에
-    // 집사 생년월일만 나와 반려동물을 여러 마리 등록하면 구분이 안 됐다.
-    // pet_name을 label에 붙여 한눈에 구분되게 한다(idColumn="id"라 프로필당
-    // 여러 행이 나올 수 있는 것과 같은 이유 — 아이마다 별도 행).
+    // 운명 설계도(blueprint_reports) — 통합 대상이 아니다(022 마이그레이션 주석 참고).
     (async () => {
       try {
         const { data } = await supabaseAdmin
-          .from("premium_pet_reports")
-          .select("id, created_at, saju_profile_id, pet_name, species")
+          .from("blueprint_reports")
+          .select("created_at, saju_profile_id")
           .eq("user_id", userId)
           .order("created_at", { ascending: false })
           .limit(20);
         for (const row of data ?? []) {
           if (!row?.created_at) continue;
-          const speciesKr = row.species === "cat" ? "고양이" : "강아지";
           const r: MyReport = {
-            label: row.pet_name ? `반려동물 궁합 · ${row.pet_name}(${speciesKr})` : "반려동물 궁합",
-            href: "/premium/pet", created_at: row.created_at,
-            target: null,
-            id: row.id ?? null,
-            year: null,
-            adhocId: null,
+            label: "운명 설계도", href: "/premium/destiny", created_at: row.created_at,
+            target: null, id: (row.saju_profile_id as string | null) ?? null, year: null, adhocId: null,
           };
           remember(r, row.saju_profile_id);
           out.push(r);
@@ -256,8 +187,7 @@ export async function listUserReports(userId: string): Promise<MyReport[]> {
       } catch { /* noop */ }
     })(),
 
-    // 018 — 전 상품 공통 "가족·지인 대상" 1회성 캐시. 지금까지 이 함수가 조회하지
-    // 않아 마이페이지에서 통째로 안 보였다(위 주석 참고, §3 점검 중 발견).
+    // 018 — 전 상품 공통 "가족·지인 대상" 1회성 캐시.
     (async () => {
       try {
         const { data } = await supabaseAdmin

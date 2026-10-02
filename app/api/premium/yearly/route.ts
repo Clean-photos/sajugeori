@@ -83,8 +83,9 @@ export async function POST(req: NextRequest) {
     } else if (ownProfile?.id) {
       try {
         const { data: cached } = await supabaseAdmin
-          .from("premium_yearly_reports").select("content")
-          .eq("saju_profile_id", ownProfile.id).eq("year", year).or(notExpiredFilter()).limit(1).maybeSingle();
+          .from("reports").select("content")
+          .eq("profile_id", ownProfile.id).eq("product_id", PRODUCT_ID).eq("variant", variant)
+          .or(notExpiredFilter()).limit(1).maybeSingle();
         if (cached?.content) {
           return NextResponse.json({ report: cached.content, year, card, cached: true });
         }
@@ -126,9 +127,9 @@ export async function POST(req: NextRequest) {
         try {
           // QA(2026-09-05) D-2: upsert 충돌 시 created_at DEFAULT가 다시 안 타
           // 재생성해도 생성일이 그대로였다 — 명시적으로 갱신한다.
-          await supabaseAdmin.from("premium_yearly_reports").upsert(
-            { saju_profile_id: profileId, user_id: userId, year, content: report, expires_at: reportExpiresAtIso(), created_at: new Date().toISOString() },
-            { onConflict: "saju_profile_id,year" }
+          await supabaseAdmin.from("reports").upsert(
+            { profile_id: profileId, product_id: PRODUCT_ID, variant, user_id: userId, content: report, expires_at: reportExpiresAtIso(), created_at: new Date().toISOString() },
+            { onConflict: "profile_id,product_id,variant" }
           );
         } catch { /* noop */ }
       }
@@ -174,8 +175,8 @@ export async function DELETE(req: NextRequest) {
   if (!ownProfile?.id) {
     return NextResponse.json({ error: "profile_required" }, { status: 403 });
   }
-  await supabaseAdmin.from("premium_yearly_reports").delete()
-    .eq("saju_profile_id", ownProfile.id).eq("user_id", userId).eq("year", year);
+  await supabaseAdmin.from("reports").delete()
+    .eq("profile_id", ownProfile.id).eq("product_id", PRODUCT_ID).eq("user_id", userId).eq("variant", String(year));
 
   return NextResponse.json({ ok: true });
 }

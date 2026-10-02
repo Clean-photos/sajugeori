@@ -21,8 +21,12 @@ const PURPOSE_LABEL: Record<string, string> = {
 
 /**
  * §1(CoS 결정 2026-09-08, 오행과 동일 원인·동일 수정) — 택일 재열람.
- * premium_taekil_reports는 프로필당 여러 행(목적·기간 조합별)이라 이 테이블
- * 자체의 PK(id)로 식별한다. 소유자 본인인지만 확인하고 이용권은 검사하지 않는다.
+ * 프로필당 여러 행(목적·기간 조합별)이라 이 리포트 자체의 PK(id)로 식별한다.
+ * 소유자 본인인지만 확인하고 이용권은 검사하지 않는다.
+ *
+ * [리포트 7개 테이블 통합, 2026-10-02] purpose/range_from/range_to는 reports.extra에
+ * 들어 있다. best(추천일 목록)는 저장해 둔 값을 그대로 보여주지 않고 — 카드와
+ * 똑같이 — 같은 chart로 다시 계산한다(결정적, 재계산 비용 0).
  */
 export default async function SavedTaekilReportPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -33,11 +37,12 @@ export default async function SavedTaekilReportPage({ params }: { params: Promis
   const userId = session.user.id;
 
   const { data: row } = await supabaseAdmin
-    .from("premium_taekil_reports")
-    .select("content, best, saju_profile_id, purpose, range_from, range_to")
-    .eq("id", id)
-    .eq("user_id", userId)
+    .from("reports")
+    .select("content, profile_id, extra")
+    .eq("id", id).eq("user_id", userId).eq("product_id", "taekil_one")
     .maybeSingle();
+
+  const extra = (row?.extra ?? {}) as { purpose?: string; range_from?: string; range_to?: string };
 
   if (!row?.content) {
     return (
@@ -54,15 +59,16 @@ export default async function SavedTaekilReportPage({ params }: { params: Promis
     );
   }
 
-  // 결과 최상단 요약 카드용 — 저장된 content/best는 그대로 쓰고, 카드에 필요한 1위 근거 문구(notes)는
-  // 저장하지 않으므로 같은 chart로 다시 계산한다(결정적, 재계산 비용 0 — 오행·살풀이와 동일 원칙).
+  // 결과 최상단 요약 카드·추천일 목록(best) 둘 다 저장하지 않고 같은 chart로
+  // 다시 계산한다(결정적, 재계산 비용 0 — 오행·살풀이와 동일 원칙).
   let card: TaekilCardData | null = null;
-  if (row.saju_profile_id && row.purpose && row.range_from && row.range_to) {
+  let bestForClient: { date: string; weekday: string; ganji: string }[] = [];
+  if (row.profile_id && extra.purpose && extra.range_from && extra.range_to) {
     try {
       const { data: profile } = await supabaseAdmin
         .from("saju_profiles")
         .select("birth_date, birth_time, gender")
-        .eq("id", row.saju_profile_id)
+        .eq("id", row.profile_id)
         .maybeSingle();
       if (profile) {
         const gender = profile.gender as "M" | "F";
@@ -71,9 +77,10 @@ export default async function SavedTaekilReportPage({ params }: { params: Promis
           gender,
           !!profile.birth_time
         );
-        const purpose = row.purpose as TaekilPurpose;
-        const ranked = rankDates(chart, row.range_from, row.range_to, purpose);
+        const purpose = extra.purpose as TaekilPurpose;
+        const ranked = rankDates(chart, extra.range_from, extra.range_to, purpose);
         card = buildTaekilCard(ranked, PURPOSE_LABEL[purpose] ?? purpose);
+        bestForClient = ranked.best.map((d) => ({ date: d.date, weekday: d.weekday, ganji: d.ganji }));
       }
     } catch (e) {
       console.error("택일 카드 데이터 실패(카드만 생략):", e);
@@ -92,7 +99,7 @@ export default async function SavedTaekilReportPage({ params }: { params: Promis
         <h1 className="relative font-serif text-[28px] font-bold text-white leading-tight">프리미엄 택일</h1>
       </div>
 
-      <SavedReportClient content={row.content} best={row.best ?? []} card={card} reportId={id} />
+      <SavedReportClient content={row.content} best={bestForClient} card={card} reportId={id} />
 
       <BottomTabBar hasProfile />
     </div>

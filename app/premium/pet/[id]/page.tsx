@@ -16,9 +16,11 @@ export const metadata: Metadata = {
 
 /**
  * §1(CoS 결정 2026-09-08, 오행과 동일 원인·동일 수정) — 반려동물 궁합 재열람.
- * premium_pet_reports는 프로필당 여러 행(아이별)이라 saju_profile_id가 아니라
- * 이 테이블 자체의 PK(id)로 식별한다. 소유자 본인인지만 확인하고 이용권은
- * 검사하지 않는다.
+ * 프로필당 여러 행(아이별)이라 이 리포트 자체의 PK(id)로 식별한다. 소유자
+ * 본인인지만 확인하고 이용권은 검사하지 않는다.
+ *
+ * [리포트 7개 테이블 통합, 2026-10-02] species/pet_name/pet_year/month/day는
+ * reports.extra에 들어 있다(app/api/premium/pet/route.ts가 쓰는 것과 같은 키).
  */
 export default async function SavedPetReportPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -29,11 +31,14 @@ export default async function SavedPetReportPage({ params }: { params: Promise<{
   const userId = session.user.id;
 
   const { data: row } = await supabaseAdmin
-    .from("premium_pet_reports")
-    .select("content, species, pet_name, pet_year, pet_month, pet_day, saju_profile_id")
-    .eq("id", id)
-    .eq("user_id", userId)
+    .from("reports")
+    .select("content, profile_id, extra")
+    .eq("id", id).eq("user_id", userId).eq("product_id", "pet_one")
     .maybeSingle();
+
+  const extra = (row?.extra ?? {}) as {
+    species?: string; pet_name?: string; pet_year?: number; pet_month?: number; pet_day?: number | null;
+  };
 
   if (!row?.content) {
     return (
@@ -55,12 +60,13 @@ export default async function SavedPetReportPage({ params }: { params: Promise<{
   const { data: profile } = await supabaseAdmin
     .from("saju_profiles")
     .select("birth_date, birth_time, gender")
-    .eq("id", row.saju_profile_id)
+    .eq("id", row.profile_id)
     .eq("user_id", userId)
     .maybeSingle();
 
-  const species = (row.species === "cat" ? "cat" : "dog") as PetSpecies;
-  let petLabel = `${row.pet_name} · ${species === "cat" ? "고양이" : "강아지"}`;
+  const petName = extra.pet_name ?? "아이";
+  const species = (extra.species === "cat" ? "cat" : "dog") as PetSpecies;
+  let petLabel = `${petName} · ${species === "cat" ? "고양이" : "강아지"}`;
   if (profile) {
     try {
       const owner = buildChart(
@@ -69,9 +75,9 @@ export default async function SavedPetReportPage({ params }: { params: Promise<{
         !!profile.birth_time
       );
       const facts = petCompatibility(owner, {
-        species, petYear: row.pet_year, petMonth: row.pet_month, petDay: row.pet_day || null, petName: row.pet_name,
+        species, petYear: extra.pet_year!, petMonth: extra.pet_month!, petDay: extra.pet_day || null, petName,
       });
-      petLabel = `${row.pet_name} · ${facts.pet.zodiac}띠 · ${facts.pet.element}(${species === "cat" ? "고양이" : "강아지"})`;
+      petLabel = `${petName} · ${facts.pet.zodiac}띠 · ${facts.pet.element}(${species === "cat" ? "고양이" : "강아지"})`;
     } catch { /* 라벨만 단순 폴백 — 본문 열람에는 영향 없음 */ }
   }
 
@@ -95,7 +101,7 @@ export default async function SavedPetReportPage({ params }: { params: Promise<{
         <h1 className="relative font-serif text-[28px] font-bold text-white leading-tight">반려동물 궁합</h1>
       </div>
 
-      <SavedReportClient content={row.content} species={species} petLabel={petLabel} petName={row.pet_name} reportId={id} otherPets={otherPets} />
+      <SavedReportClient content={row.content} species={species} petLabel={petLabel} petName={petName} reportId={id} otherPets={otherPets} />
 
       <BottomTabBar hasProfile />
     </div>

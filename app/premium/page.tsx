@@ -43,8 +43,8 @@ export default async function PremiumPage() {
     if (p?.id) {
       try {
         const { count } = await supabaseAdmin
-          .from("premium_reports").select("saju_profile_id", { count: "exact", head: true })
-          .eq("saju_profile_id", p.id);
+          .from("reports").select("id", { count: "exact", head: true })
+          .eq("profile_id", p.id).eq("product_id", "saju_one");
         hasReport = (count ?? 0) > 0;
       } catch { /* 테이블 없음 → 미보유로 간주 */ }
       try {

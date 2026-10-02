@@ -15,9 +15,11 @@ export const metadata: Metadata = {
 
 /**
  * §1(CoS 결정 2026-09-08, 오행과 동일 원인·동일 수정) — 연운세 재열람.
- * premium_yearly_reports는 PK가 (saju_profile_id, year) 복합키라(자체 id 컬럼
- * 없음), 프로필 id는 경로로, 연도는 쿼리로 받는다 — 연도는 개인정보가 아니라
- * URL에 남아도 무방하다(원래 문제였던 생년월일·시각·성별과는 다르다).
+ *
+ * [리포트 7개 테이블 통합, 2026-10-02] id는 이제 reports.id(이 리포트 행
+ * 자체의 PK)라 그것만으로 유일하게 식별된다 — year는 더 이상 조회 키가
+ * 아니라 "어느 해를 보여줄지"를 화면에 전달하는 표시용 값이다(개인정보가
+ * 아니라 URL에 남아도 무방 — 원래 문제였던 생년월일·시각·성별과는 다르다).
  */
 export default async function SavedYearlyReportPage({
   params,
@@ -37,11 +39,9 @@ export default async function SavedYearlyReportPage({
   const userId = session.user.id;
 
   const { data: row } = await supabaseAdmin
-    .from("premium_yearly_reports")
-    .select("content")
-    .eq("saju_profile_id", id)
-    .eq("user_id", userId)
-    .eq("year", year)
+    .from("reports")
+    .select("content, profile_id")
+    .eq("id", id).eq("user_id", userId).eq("product_id", "yearly_one")
     .maybeSingle();
 
   if (!row?.content) {
@@ -62,7 +62,7 @@ export default async function SavedYearlyReportPage({
   const { data: profile } = await supabaseAdmin
     .from("saju_profiles")
     .select("birth_date, birth_time, gender")
-    .eq("id", id)
+    .eq("id", row.profile_id)
     .eq("user_id", userId)
     .maybeSingle();
 

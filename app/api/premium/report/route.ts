@@ -48,8 +48,9 @@ export async function GET(req: NextRequest) {
   if (!regenerate && !skipCacheForPass) {
     try {
       const { data: cached } = await supabaseAdmin
-        .from("premium_reports").select("content")
-        .eq("saju_profile_id", profile.id).or(notExpiredFilter()).limit(1).single();
+        .from("reports").select("content")
+        .eq("profile_id", profile.id).eq("product_id", PRODUCT_ID).eq("variant", "")
+        .or(notExpiredFilter()).limit(1).single();
       if (cached?.content) {
         return NextResponse.json({ report: cached.content, day_master: dayMaster, strength, cached: true });
       }
@@ -81,9 +82,9 @@ export async function GET(req: NextRequest) {
   try {
     // QA(2026-09-05) D-2: upsert 충돌 시 created_at DEFAULT가 다시 안 타 재생성해도
     // 생성일이 그대로였다 — 명시적으로 갱신한다.
-    await supabaseAdmin.from("premium_reports").upsert(
-      { saju_profile_id: profile.id, user_id: userId, content: report, expires_at: reportExpiresAtIso(), created_at: new Date().toISOString() },
-      { onConflict: "saju_profile_id" }
+    await supabaseAdmin.from("reports").upsert(
+      { profile_id: profile.id, product_id: PRODUCT_ID, variant: "", user_id: userId, content: report, expires_at: reportExpiresAtIso(), created_at: new Date().toISOString() },
+      { onConflict: "profile_id,product_id,variant" }
     );
   } catch { /* noop */ }
 
@@ -150,12 +151,13 @@ export async function POST(req: NextRequest) {
     } catch { /* 테이블 없음 → 생성으로 진행 */ }
   }
 
-  // 본인 대상이면 기존 premium_reports 캐시를 먼저 본다(재열람 무료).
+  // 본인 대상이면 기존 reports 캐시를 먼저 본다(재열람 무료).
   if (!skipCacheForPass && !isAdhoc && ownProfile?.id) {
     try {
       const { data: cached } = await supabaseAdmin
-        .from("premium_reports").select("content")
-        .eq("saju_profile_id", ownProfile.id).or(notExpiredFilter()).limit(1).maybeSingle();
+        .from("reports").select("content")
+        .eq("profile_id", ownProfile.id).eq("product_id", PRODUCT_ID).eq("variant", "")
+        .or(notExpiredFilter()).limit(1).maybeSingle();
       if (cached?.content) {
         return NextResponse.json({ report: cached.content, day_master: dayMaster, strength, cached: true });
       }
@@ -201,9 +203,9 @@ export async function POST(req: NextRequest) {
 
   if (created?.id) {
     try {
-      await supabaseAdmin.from("premium_reports").upsert(
-        { saju_profile_id: created.id, user_id: userId, content: report, expires_at: reportExpiresAtIso(), created_at: new Date().toISOString() },
-        { onConflict: "saju_profile_id" }
+      await supabaseAdmin.from("reports").upsert(
+        { profile_id: created.id, product_id: PRODUCT_ID, variant: "", user_id: userId, content: report, expires_at: reportExpiresAtIso(), created_at: new Date().toISOString() },
+        { onConflict: "profile_id,product_id,variant" }
       );
     } catch { /* noop */ }
   }
@@ -227,8 +229,8 @@ export async function DELETE() {
     return NextResponse.json({ error: "profile_required" }, { status: 403 });
   }
 
-  await supabaseAdmin.from("premium_reports").delete()
-    .eq("saju_profile_id", profile.id).eq("user_id", userId);
+  await supabaseAdmin.from("reports").delete()
+    .eq("profile_id", profile.id).eq("product_id", PRODUCT_ID).eq("user_id", userId);
 
   return NextResponse.json({ ok: true });
 }

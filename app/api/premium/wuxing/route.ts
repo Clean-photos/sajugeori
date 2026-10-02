@@ -123,8 +123,9 @@ export async function POST(req: NextRequest) {
     } else if (ownProfile?.id) {
       try {
         const { data: cached } = await supabaseAdmin
-          .from("premium_wuxing_reports").select("content")
-          .eq("saju_profile_id", ownProfile.id).or(notExpiredFilter()).limit(1).maybeSingle();
+          .from("reports").select("content")
+          .eq("profile_id", ownProfile.id).eq("product_id", PRODUCT_ID).eq("variant", "")
+          .or(notExpiredFilter()).limit(1).maybeSingle();
         if (cached?.content) return NextResponse.json({ report: cached.content, cached: true, profileId: ownProfile.id });
       } catch { /* 테이블 없음(마이그레이션 미적용) → 생성으로 진행 */ }
     }
@@ -181,9 +182,9 @@ export async function POST(req: NextRequest) {
     try {
       // QA(2026-09-05) D-2: upsert 충돌 시 created_at DEFAULT가 다시 안 타
       // 재생성해도 생성일이 그대로였다 — 명시적으로 갱신한다.
-      await supabaseAdmin.from("premium_wuxing_reports").upsert(
-        { saju_profile_id: profileId, user_id: userId, content: report, expires_at: reportExpiresAtIso(), created_at: new Date().toISOString() },
-        { onConflict: "saju_profile_id" }
+      await supabaseAdmin.from("reports").upsert(
+        { profile_id: profileId, product_id: PRODUCT_ID, variant: "", user_id: userId, content: report, expires_at: reportExpiresAtIso(), created_at: new Date().toISOString() },
+        { onConflict: "profile_id,product_id,variant" }
       );
     } catch { /* noop */ }
   }
@@ -215,8 +216,8 @@ export async function DELETE(req: NextRequest) {
   // 대상이 안 왔으면(구버전 클라이언트 등) 예전처럼 본인 리포트를 지운다.
   if (!parsed.ok) {
     if (!ownProfile?.id) return NextResponse.json({ error: "profile_required" }, { status: 403 });
-    await supabaseAdmin.from("premium_wuxing_reports").delete()
-      .eq("saju_profile_id", ownProfile.id).eq("user_id", userId);
+    await supabaseAdmin.from("reports").delete()
+      .eq("profile_id", ownProfile.id).eq("product_id", PRODUCT_ID).eq("user_id", userId);
     return NextResponse.json({ ok: true });
   }
 
@@ -230,7 +231,7 @@ export async function DELETE(req: NextRequest) {
   }
 
   if (!ownProfile?.id) return NextResponse.json({ error: "profile_required" }, { status: 403 });
-  await supabaseAdmin.from("premium_wuxing_reports").delete()
-    .eq("saju_profile_id", ownProfile.id).eq("user_id", userId);
+  await supabaseAdmin.from("reports").delete()
+    .eq("profile_id", ownProfile.id).eq("product_id", PRODUCT_ID).eq("user_id", userId);
   return NextResponse.json({ ok: true });
 }

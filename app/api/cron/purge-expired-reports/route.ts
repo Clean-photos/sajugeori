@@ -10,6 +10,10 @@ import { supabaseAdmin } from "@/lib/db/client";
 export const maxDuration = 60;
 
 const TABLES = [
+  // [리포트 7개 테이블 통합, 2026-10-02] 새로 생기는 리포트는 전부 reports로
+  // 들어간다 — 아래 7개 개별 테이블은 통합 전 생성분이 만료될 때까지만 남겨
+  // 둔다(둘 다 purge해도 서로 독립 데이터라 안전, 022 마이그레이션 주석 참고).
+  "reports",
   "premium_reports",
   "premium_yearly_reports",
   "premium_salpuri_reports",

@@ -15,10 +15,14 @@ export const metadata: Metadata = {
 };
 
 /**
- * §1(CoS 결정 2026-09-08, 오행과 동일 원인·동일 수정): 살풀이도 캐시 테이블 PK가
- * saju_profile_id 1:1이라 오행과 완전히 같은 구조다. "보기 →"가 재생성을
+ * §1(CoS 결정 2026-09-08, 오행과 동일 원인·동일 수정): "보기 →"가 재생성을
  * 요청해 1회권 소진자를 결제 게이트로 되돌리는 문제를 id 기반 열람으로 없앤다
  * — 소유자 본인인지만 확인하고 이용권은 검사하지 않는다.
+ *
+ * [리포트 7개 테이블 통합, 2026-10-02] id는 이제 saju_profiles.id가 아니라
+ * reports.id다 — 먼저 reports에서 이 리포트를 찾고, 그 행이 가리키는
+ * profile_id로 saju_profiles를 조회한다(두 단계 — profile_id를 알아야
+ * 두 번째 쿼리를 만들 수 있어 병렬화 불가).
  */
 export default async function SavedSalpuriReportPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -28,20 +32,20 @@ export default async function SavedSalpuriReportPage({ params }: { params: Promi
   }
   const userId = session.user.id;
 
-  const [{ data: row }, { data: profile }] = await Promise.all([
-    supabaseAdmin
-      .from("premium_salpuri_reports")
-      .select("content")
-      .eq("saju_profile_id", id)
-      .eq("user_id", userId)
-      .maybeSingle(),
-    supabaseAdmin
-      .from("saju_profiles")
-      .select("birth_date, birth_time, gender")
-      .eq("id", id)
-      .eq("user_id", userId)
-      .maybeSingle(),
-  ]);
+  const { data: row } = await supabaseAdmin
+    .from("reports")
+    .select("content, profile_id")
+    .eq("id", id).eq("user_id", userId).eq("product_id", "salpuri_one")
+    .maybeSingle();
+
+  const { data: profile } = row
+    ? await supabaseAdmin
+        .from("saju_profiles")
+        .select("birth_date, birth_time, gender")
+        .eq("id", row.profile_id)
+        .eq("user_id", userId)
+        .maybeSingle()
+    : { data: null };
 
   if (!row?.content || !profile) {
     return (
