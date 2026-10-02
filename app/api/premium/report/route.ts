@@ -214,12 +214,21 @@ export async function POST(req: NextRequest) {
 }
 
 // DELETE /api/premium/report — 로그인 필수. 사용자가 자기 프리미엄 사주 결과를 직접 삭제.
-export async function DELETE() {
+export async function DELETE(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: "login_required" }, { status: 401 });
   }
   const userId = session.user.id;
+
+  // 9차 B: /premium/report/[id](저장본 재열람)는 이 행의 정확한 PK를 안다 — "지금의
+  // 본인 프로필"로 되짚지 않는다(다른 사주를 등록했더라도 엉뚱한 행을 건드리지 않는다).
+  const body = await req.json().catch(() => ({}));
+  if (typeof body.id === "string" && body.id) {
+    await supabaseAdmin.from("reports").delete()
+      .eq("id", body.id).eq("user_id", userId).eq("product_id", PRODUCT_ID);
+    return NextResponse.json({ ok: true });
+  }
 
   const { data: profile } = await supabaseAdmin
     .from("saju_profiles").select("id")

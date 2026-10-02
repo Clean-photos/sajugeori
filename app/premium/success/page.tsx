@@ -47,6 +47,8 @@ function SuccessInner() {
   const [state, setState] = useState<"confirming" | "done" | "error">("confirming");
   const [message, setMessage] = useState("");
   const [charged, setCharged] = useState(false);
+  // 서버에 확인하지 못한 경로(필수 파라미터 누락) — 결제 여부를 모른다.
+  const [unverified, setUnverified] = useState(false);
   const [failedOrderId, setFailedOrderId] = useState("");
   const outcome = outcomeFor(params.get("planId"));
 
@@ -58,7 +60,10 @@ function SuccessInner() {
 
     if (!paymentKey || !orderId || !amount || !planId) {
       setState("error");
-      setMessage("결제가 완료되지 않았습니다. 금액은 청구되지 않았습니다.");
+      setUnverified(true);
+      // 9차 H(CoS): 서버에 확인하지 않았으니 "청구되지 않았다"고 단정하지 않는다 —
+      // charged가 "unknown"인 경로(아래 이벤트)와 문구를 맞춘다.
+      setMessage("결제 상태를 확인하지 못했어요. 문의하기로 알려 주시면 확인해 드립니다.");
       // §7(CoS 실물 확인, 2026-09-29): 필수 파라미터가 없으면 API 호출도, 이벤트도
       // 없이 바로 실패 화면만 떴다 — 퍼널에서 안 보이면서 "청구되지 않음"을
       // 서버 확인 없이 단정하고 있었다. charged는 확인 자체를 안 했으니 "unknown".
@@ -151,7 +156,7 @@ function SuccessInner() {
         <>
           <div className="text-5xl">⚠️</div>
           <h1 className="font-serif text-lg font-bold text-[#C0392B]">
-            {charged ? "결제 확인 중 문제가 발생했어요" : "결제가 완료되지 않았어요"}
+            {charged ? "결제 확인 중 문제가 발생했어요" : unverified ? "결제 상태를 확인하지 못했어요" : "결제가 완료되지 않았어요"}
           </h1>
           <p className="text-sm text-[#6B6661] max-w-xs">{message}</p>
           {failedOrderId && (
@@ -160,9 +165,9 @@ function SuccessInner() {
             </p>
           )}
           <div className="flex flex-col gap-2 w-full max-w-xs mt-2">
-            {charged && (
+            {(charged || unverified) && (
               <button
-                onClick={() => router.push(`/contact?category=payment&subject=${encodeURIComponent(`결제 확인 문의 (주문번호 ${failedOrderId})`)}&message=${encodeURIComponent(`주문번호: ${failedOrderId}\n결제 시각: ${new Date().toLocaleString("ko-KR")}\n\n결제는 확인되었으나 처리 중 문제가 발생했다는 안내를 받았습니다. 확인 부탁드립니다.`)}`)}
+                onClick={() => router.push(`/contact?category=payment&subject=${encodeURIComponent(`결제 확인 문의${failedOrderId ? ` (주문번호 ${failedOrderId})` : ""}`)}&message=${encodeURIComponent(`주문번호: ${failedOrderId}\n결제 시각: ${new Date().toLocaleString("ko-KR")}\n\n${charged ? "결제는 확인되었으나 처리 중 문제가 발생했다는 안내를 받았습니다." : "결제 상태를 확인하지 못했다는 안내를 받았습니다."} 확인 부탁드립니다.`)}`)}
                 className="bg-[#C8743A] text-white rounded-xl px-6 py-3 text-sm font-semibold"
               >
                 결제 문의하기

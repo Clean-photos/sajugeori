@@ -38,11 +38,14 @@ export default async function SavedTaekilReportPage({ params }: { params: Promis
 
   const { data: row } = await supabaseAdmin
     .from("reports")
-    .select("content, profile_id, extra")
+    .select("content, profile_id, variant")
     .eq("id", id).eq("user_id", userId).eq("product_id", "taekil_one")
     .maybeSingle();
 
-  const extra = (row?.extra ?? {}) as { purpose?: string; range_from?: string; range_to?: string };
+  // 목적·기간은 variant("목적|시작일|종료일")에 항상 들어 있다 — extra는 저장 경로에 따라
+  // 비어 있을 수 있어(신규 생성분에 한때 빠졌다) variant를 기준으로 쓴다.
+  const [vPurpose, vFrom, vTo] = (row?.variant ?? "").split("|");
+  const extra = { purpose: vPurpose, range_from: vFrom, range_to: vTo };
 
   if (!row?.content) {
     return (

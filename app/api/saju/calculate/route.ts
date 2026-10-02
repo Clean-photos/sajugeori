@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { runSajuEngine } from "@/lib/saju-engine";
 import { auth } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/db/client";
+import { MAX_REGISTERED_PROFILES } from "@/lib/billing/profile-limits";
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { birth_date, birth_time, calendar, gender, persist, label } = body;
+  const { birth_date, birth_time, calendar, gender, persist, label, mode } = body;
 
   if (!birth_date || !gender || !calendar) {
     return NextResponse.json({ error: "birth_date, gender, calendar are required" }, { status: 400 });
@@ -24,6 +25,40 @@ export async function POST(req: NextRequest) {
 
   if (persist) {
     const session = await auth();
+
+    // 9차 D(CoS+CEO 확정, 2026-10-02): "다른 사주 등록"이 내 사주를 통째로 교체하던 문제.
+    // mode="other"는 이름(label)과 함께 본인이 아닌 사람의 사주를 **추가**만 한다 —
+    // is_primary(내 사주)는 건드리지 않는다. 계정당 등록 상한은 30개.
+    if (session?.user?.id && mode === "other") {
+      const name = typeof label === "string" ? label.trim().slice(0, 20) : "";
+      if (!name || name === "본인" || name === "대상") {
+        return NextResponse.json({ error: "이름을 입력해 주세요(‘본인’·‘대상’은 쓸 수 없어요)." }, { status: 400 });
+      }
+      const { data: mine } = await supabaseAdmin
+        .from("saju_profiles").select("id").eq("user_id", session.user.id).eq("kind", "person").eq("is_primary", true).maybeSingle();
+      if (!mine) {
+        return NextResponse.json({ error: "먼저 내 사주를 등록해 주세요." }, { status: 400 });
+      }
+      const { count } = await supabaseAdmin
+        .from("saju_profiles").select("id", { count: "exact", head: true })
+        .eq("user_id", session.user.id).eq("kind", "person")
+        .or('is_primary.eq.true,label.not.in.("본인","대상")');
+      if ((count ?? 0) >= MAX_REGISTERED_PROFILES) {
+        return NextResponse.json({ error: `등록할 수 있는 사주는 최대 ${MAX_REGISTERED_PROFILES}개예요.` }, { status: 400 });
+      }
+      const { error } = await supabaseAdmin.from("saju_profiles").insert({
+        user_id: session.user.id, label: name, kind: "person", is_primary: false,
+        birth_date, birth_time: birth_time ?? null, calendar, gender,
+        saju_raw: result.saju_raw, saju_json: result.saju_json, schema_version: 1,
+        birth_date_confirmed_at: new Date().toISOString(),
+      });
+      if (error) {
+        console.error("saju_profiles(other) insert error:", error);
+        return NextResponse.json({ error: "저장 중 오류가 발생했습니다." }, { status: 500 });
+      }
+      return NextResponse.json({ saju_json: result.saju_json });
+    }
+
     if (session?.user?.id) {
       // §[다중 사주 우선순위 확정, 2026-10-01, 마이그레이션 021]: 온보딩은
       // "본인" 하나만 다루는 화면이다 — 다시 등록하면 새 row가 본인 자리를

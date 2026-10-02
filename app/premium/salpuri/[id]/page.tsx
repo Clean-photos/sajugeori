@@ -96,7 +96,7 @@ export default async function SavedSalpuriReportPage({ params }: { params: Promi
         content={row.content}
         sal={salList}
         card={card}
-        target={{ birth_date: profile.birth_date, birth_time: profile.birth_time, gender: profile.gender }}
+        reportId={id}
       />
 
       <BottomTabBar hasProfile />

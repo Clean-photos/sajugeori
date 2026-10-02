@@ -4,7 +4,7 @@
  */
 
 import * as C from "./constants";
-export { buildChart, calcYearPillar, calcDayPillar, stemBranchKr } from "./engine";
+export { calcYearPillar, calcDayPillar, stemBranchKr } from "./engine";
 export { buildFacts, coreStructureTags, strengthsAndWeaknesses, daewoonNarrative } from "./facts";
 export { pairAnalysis, mutualAnalysis } from "./compatibility";
 export { scoreDate, rankDates } from "./taekil";
@@ -17,8 +17,22 @@ export { petCompatibility, PET_DEFAULT_MONTH, PET_FLOW_HINT, PET_BRANCH_HINT, SP
 export type { PetCompatInput, PetCompatFacts, PetFlow, PetBranchRelation, PetSpecies } from "./pet";
 export type { SajuChart, Pillar, Pillars, StrengthResult, YongsinResult, DaewoonResult, SalEntry } from "./engine";
 
-import { buildChart } from "./engine";
+import { buildPreciseChart, type BlueprintChart } from "@/lib/blueprint-engine/engine";
 import { buildFacts } from "./facts";
+
+/**
+ * 모든 상품(유료 7종·무료·챗)이 쓰는 유일한 명식 계산 진입점.
+ *
+ * 2026-10-02(CoS 8·9차 A-1, CEO 확정): 예전에는 운명 설계도만 정밀 엔진(진태양시·
+ * 천문 절기)을 쓰고 나머지는 구엔진(시계 시각·달력 근사 절기)이라, 같은 사주가
+ * 상품에 따라 시주가 달랐다(1989-03-21 19:20 여: 설계도 乙酉 / 궁합 丙戌). 이제 전부
+ * lib/blueprint-engine의 buildPreciseChart로 위임한다 — 구엔진의 buildChart는
+ * lib/saju-engine/engine.ts에 남아 있지만(펫 체인·단위 테스트용) 앱 코드는 쓰지 않는다.
+ */
+export function buildChart(birthIso: string, gender: string, hasHour = true): BlueprintChart {
+  return buildPreciseChart(birthIso, gender, hasHour);
+}
+export type { BlueprintChart };
 
 /**
  * 메인 진입점. 생년월일시 → saju_raw(Layer A) + saju_json(Layer B).

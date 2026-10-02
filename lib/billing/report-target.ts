@@ -162,6 +162,24 @@ export async function ensureOwnProfileId(
 export const TARGET_PROFILE_LABEL = "대상";
 
 /**
+ * 본인이 아닌 대상의 saju_profile_id를 **찾기만** 한다(만들지 않는다).
+ * 9차 D: 이름 붙여 등록한 분(label이 "본인"·"대상"이 아닌 비본인 행)이 같은
+ * 생년월일시·성별이면 그 행을 우선 쓴다 — 같은 사람이 "대상" 행으로 한 번 더 복제되지
+ * 않게. 없으면 자동 생성된 "대상" 행.
+ */
+export async function findTargetProfileId(userId: string, input: TargetInput): Promise<string | null> {
+  const { data: candidates } = await supabaseAdmin
+    .from("saju_profiles").select("id, label, birth_time")
+    .eq("user_id", userId).eq("kind", "person").eq("is_primary", false)
+    .eq("birth_date", input.birthDate).eq("gender", input.gender)
+    .order("created_at", { ascending: false });
+  const sameTime = (candidates ?? []).filter((c) => timeKeyOf(c.birth_time) === timeKeyOf(input.birthTime));
+  const named = sameTime.find((c) => c.label !== "본인" && c.label !== TARGET_PROFILE_LABEL);
+  if (named?.id) return named.id;
+  return sameTime.find((c) => c.label === TARGET_PROFILE_LABEL)?.id ?? null;
+}
+
+/**
  * **어떤 대상이든** saju_profile_id를 확보한다(운명 설계도 전용).
  *
  * 운명 설계도는 다른 리포트와 달리 재개 가능한 다단계 생성기라, 진행 상태
@@ -179,12 +197,8 @@ export async function ensureTargetProfileId(
 ): Promise<string | null> {
   if (!isAdhoc) return ensureOwnProfileId(userId, input, ownProfile);
 
-  const { data: existing } = await supabaseAdmin
-    .from("saju_profiles").select("id")
-    .eq("user_id", userId).eq("label", TARGET_PROFILE_LABEL)
-    .eq("birth_date", input.birthDate).eq("gender", input.gender)
-    .order("created_at", { ascending: false }).limit(1).maybeSingle();
-  if (existing?.id) return existing.id;
+  const found = await findTargetProfileId(userId, input);
+  if (found) return found;
 
   try {
     const engine = runSajuEngine({

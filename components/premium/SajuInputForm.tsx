@@ -8,6 +8,7 @@ export type SavedSaju = { birth_date: string; birth_time: string | null; gender:
 
 type OtherProfile = {
   id: string;
+  label: string;
   birth_date: string;
   birth_time: string | null;
   gender: string;
@@ -30,14 +31,18 @@ function useOtherProfiles(): OtherProfile[] {
         if (cancelled || !data?.profiles) return;
         const seen = new Set<string>();
         const others: OtherProfile[] = [];
-        for (const p of data.profiles as (OtherProfile & { kind: string })[]) {
+        // 9차 D: 이름 붙여 등록한 분을 먼저 보여 준다("본인"·"대상"은 이름이 없는 자동 생성/옛 기록).
+        const isNamed = (l: string) => l !== "본인" && l !== "대상";
+        const sorted = [...(data.profiles as (OtherProfile & { kind: string })[])]
+          .sort((a, b) => Number(isNamed(b.label)) - Number(isNamed(a.label)));
+        for (const p of sorted) {
           if (p.kind !== "person" || p.is_primary) continue;
           const key = `${p.birth_date}|${p.birth_time ?? ""}|${p.gender}`;
           if (seen.has(key)) continue; // 이미 더 최근 row를 담았다(API가 최신순 정렬)
           seen.add(key);
           others.push(p);
         }
-        setProfiles(others.slice(0, 8)); // 칩이 너무 길어지지 않게
+        setProfiles(others.slice(0, 30)); // 등록 상한(30)까지 — 칩은 줄바꿈된다
       })
       .catch(() => { /* 실패해도 기존 입력 폼은 그대로 동작해야 한다 */ });
     return () => { cancelled = true; };
@@ -233,7 +238,9 @@ export function SajuInputForm({
                   onClick={() => pickOther(p)}
                   className="rounded-full border border-[#E5DFD4] bg-white text-[#1A1A18] px-3 py-1.5 text-xs font-medium active:scale-[0.97] transition-all"
                 >
-                  {p.birth_date} · {p.gender === "M" ? "남성" : "여성"}
+                  {p.label !== "본인" && p.label !== "대상"
+                    ? `${p.label} · ${p.birth_date}`
+                    : `${p.birth_date} · ${p.gender === "M" ? "남성" : "여성"}`}
                 </button>
               ))}
             </div>

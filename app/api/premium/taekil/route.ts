@@ -161,7 +161,8 @@ ${avoidLines}`.trim();
           const { data: inserted } = await supabaseAdmin.from("reports").upsert(
             {
               profile_id: profileId, product_id: PRODUCT_ID, variant, user_id: userId,
-              content: report, expires_at: reportExpiresAtIso(), created_at: new Date().toISOString(),
+              content: report, extra: { purpose, range_from: from, range_to: to },
+              expires_at: reportExpiresAtIso(), created_at: new Date().toISOString(),
             },
             { onConflict: "profile_id,product_id,variant" }
           ).select("id").single();

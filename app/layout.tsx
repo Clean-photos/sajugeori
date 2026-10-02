@@ -3,6 +3,7 @@ import Script from "next/script";
 import { Suspense } from "react";
 import { SITE_URL } from "@/lib/site";
 import { RouteProgressBar } from "@/components/ui/RouteProgressBar";
+import { InternalTraffic } from "@/components/analytics/InternalTraffic";
 import { CardReferralTracker } from "@/components/share/CardReferralTracker";
 import "./globals.css";
 
@@ -72,7 +73,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <>
             <Script src={`https://www.googletagmanager.com/gtag/js?id=${GA4_ID}`} strategy="afterInteractive" />
             <Script id="ga4" strategy="afterInteractive">
-              {`window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','${GA4_ID}');`}
+              {`window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());var q=false;try{var m=location.search.match(/[?&]qa=([01])(&|$)/);if(m){if(m[1]==='1')localStorage.setItem('sj_qa','1');else localStorage.removeItem('sj_qa');}q=localStorage.getItem('sj_qa')==='1';}catch(e){}gtag('config','${GA4_ID}',q?{traffic_type:'internal'}:{});`}
             </Script>
           </>
         )}
@@ -80,6 +81,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <Suspense fallback={null}>
           <RouteProgressBar />
+          {GA4_ID && <InternalTraffic />}
         </Suspense>
         <CardReferralTracker />
         <main className="min-h-screen mx-auto max-w-[480px] relative">

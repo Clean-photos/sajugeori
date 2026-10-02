@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { getPlan, REPORT_PRODUCTS, DESTINY_BLUEPRINT_ONE } from "@/lib/billing/plans";
 import { Spinner } from "@/components/ui/Spinner";
-import { LaunchNotifyForm } from "@/components/premium/LaunchNotifyForm";
 import { CouponForm } from "@/components/premium/CouponForm";
 import { trackEvent } from "@/lib/analytics";
 
@@ -208,9 +207,8 @@ export function BuyClient({ planId, returnTo }: { planId: string; returnTo: stri
         <>
           <div className="rounded-xl bg-[#1F3D34]/5 border border-[#1F3D34]/15 px-4 py-3">
             <p className="text-sm font-medium text-[#1F3D34]">결제 시스템 준비 중입니다</p>
-            <p className="text-xs text-[#6B6661] mt-1 leading-relaxed">9월 중 오픈 예정입니다. 조금만 기다려 주세요.</p>
+            <p className="text-xs text-[#6B6661] mt-1 leading-relaxed">조금만 기다려 주세요.</p>
           </div>
-          <LaunchNotifyForm />
         </>
       )}
 

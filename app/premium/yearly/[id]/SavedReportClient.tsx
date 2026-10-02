@@ -11,15 +11,15 @@ type Target = { birth_date: string; birth_time: string | null; gender: string };
  * 아예 없다(서버 컴포넌트에서 소유권만 확인하고 이미 통과했다).
  */
 export function SavedReportClient({
-  content, year, card, target,
-}: { content: string; year: number; card: YearlyCardData | null; target: Target | null }) {
+  content, year, card, reportId,
+}: { content: string; year: number; card: YearlyCardData | null; target?: Target | null; reportId: string }) {
   const router = useRouter();
 
   async function handleDelete() {
     const res = await fetch("/api/premium/yearly", {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ year, ...(target ?? {}) }),
+      body: JSON.stringify({ id: reportId }),
     });
     if (!res.ok) throw new Error("delete failed");
     router.push("/mypage");

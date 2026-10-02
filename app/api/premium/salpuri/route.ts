@@ -206,6 +206,11 @@ export async function DELETE(req: NextRequest) {
   const userId = session.user.id;
 
   const q = req.nextUrl.searchParams;
+  const reportIdParam = q.get("id");
+  if (reportIdParam) {
+    await supabaseAdmin.from("reports").delete().eq("id", reportIdParam).eq("user_id", userId).eq("product_id", PRODUCT_ID);
+    return NextResponse.json({ ok: true });
+  }
   const parsed = parseTargetBody({
     birth_date: q.get("birth_date"), birth_time: q.get("birth_time"), gender: q.get("gender"),
   });

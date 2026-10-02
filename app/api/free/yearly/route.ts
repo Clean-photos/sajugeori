@@ -26,6 +26,15 @@ export async function POST(req: NextRequest) {
     );
     const yongsin = j.yongsin.eokbu.length > 0 ? j.yongsin.eokbu : j.yongsin.johu;
 
+    // §A-6(CoS 9차, 2026-10-02): 모델이 오행 개수를 보고 스스로 "木 과다"라고 서술해
+    // (실제 분포는 火3·木2) 엔진 데이터와 어긋났다. 과다·부족 판정을 엔진이 미리
+    // 내려 주고, 모델은 그 판정만 쓰게 한다 — 분포 숫자만 주고 판단을 맡기지 않는다.
+    const elementEntries = Object.entries(j.elements) as [string, number][];
+    const maxCount = Math.max(...elementEntries.map(([, v]) => v));
+    const strongest = elementEntries.filter(([, v]) => v === maxCount && v > 0).map(([e, v]) => `${e}${v}`);
+    const absent = elementEntries.filter(([, v]) => v === 0).map(([e]) => e);
+    const elementVerdict = `가장 많은 오행: ${strongest.join(", ")} / 없는 오행: ${absent.length ? absent.join(", ") : "없음"}`;
+
     engineSummary = `
 조회 연도: ${targetYear}년 (${age}세)
 일간: ${j.identity.day_master} / 강약: ${j.identity.strength_label}
@@ -37,7 +46,8 @@ export async function POST(req: NextRequest) {
 강점: ${j.personality.strengths.slice(0, 3).join(", ")}
 약점: ${j.personality.weaknesses.slice(0, 3).join(", ")}
 직업 위험요인: ${j.career.risk_factors.slice(0, 2).join(", ") || "없음"}
-오행 분포: ${Object.entries(j.elements).map(([e, v]) => `${e}${v}`).join(" ")}
+오행 분포: ${elementEntries.map(([e, v]) => `${e}${v}`).join(" ")}
+오행 판정(엔진 계산): ${elementVerdict}
     `.trim();
   } catch (e) {
     console.error(e);
@@ -65,6 +75,7 @@ ${engineSummary}
 【 ${year}년 조언 】
 2문장. 40자 이내로 짧게.
 
+오행이 "많다·강하다·과다"라고 쓸 수 있는 것은 위 "오행 판정"의 "가장 많은 오행"뿐이고, "없다·부족하다"라고 쓸 수 있는 것은 "없는 오행"뿐입니다. 분포 숫자를 직접 해석해 다른 오행을 과다·부족이라 쓰지 마세요.
 추측 없이 위 데이터에 근거해 작성(위에 없는 정보 임의 생성 금지). 한국어로. 과장 금지. 마크다운 절대 금지(#, ##, **, *, @, >, - 기호 사용 금지). 섹션 제목은 【 】 형식만 사용.
 한자 표기 규칙: 한자 뒤에 반드시 한글 독음 괄호 표기. 예: 庚(경), 辛未(신미). 한자 단독 사용 절대 금지.
 이미 한글로만 쓰인 단어(예: 신약, 극신약, 신강)에는 괄호로 같은 한글을 또 붙이지 말 것 — 한자를 병기할 때만 괄호를 쓴다.`;

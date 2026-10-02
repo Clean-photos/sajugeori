@@ -188,6 +188,19 @@ export function BlueprintReportView({ report, showPrintButton = true }: { report
           <p className="text-xs text-[#6B6661] mt-3">
             일간 {facts.dayMaster} — 신강도: {facts.strengthVerdict}
           </p>
+          {/* 8·9차 A-3/A-4(CoS+CEO 확정, 2026-10-02): 계산 규칙 고지. 이미 저장된 옛
+              리포트에는 legal_offset_minutes가 없어 undefined라 서머타임 문구는 새
+              리포트에만 나온다. */}
+          {p.hour && (
+            <p className="text-[10.5px] text-[#6B6661] mt-1 leading-snug">
+              자시(23:00~01:00) 출생은 다음 날 일주로 계산합니다.
+            </p>
+          )}
+          {chart.legal_offset_minutes != null && chart.legal_offset_minutes !== 540 && (
+            <p className="text-[10.5px] text-[#6B6661] mt-1 leading-snug">
+              출생 당시의 {chart.legal_offset_minutes === 510 ? "옛 표준시(UTC+8:30)" : chart.legal_offset_minutes === 570 ? "옛 표준시와 서머타임(UTC+9:30)" : "서머타임(UTC+10:00)"}을 반영해 진태양시로 계산했습니다.
+            </p>
+          )}
           <div className="mt-3 pt-3 border-t border-[#E5DFD4]">
             <p className="text-xs text-[#6B6661] mb-2">오행 분포 — 이 오행이 사주 전체에서 실제로 얼마나 힘을 갖는지 근사치</p>
             <div className="flex flex-col gap-1.5">

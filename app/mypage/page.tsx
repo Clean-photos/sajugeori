@@ -121,8 +121,11 @@ export default async function MypagePage() {
               <a href="/premium" className="mt-3 block text-center bg-[#C8743A] text-white rounded-xl py-2.5 text-sm font-semibold">
                 프리미엄 사주 풀이 보기
               </a>
-              <a href="/onboarding" className="mt-2 block text-center border border-[#E5DFD4] text-[#1B3A4B] rounded-xl py-2.5 text-sm font-medium">
-                사주 다시 등록
+              <a href="/onboarding?add=1" className="mt-2 block text-center border border-[#E5DFD4] text-[#1B3A4B] rounded-xl py-2.5 text-sm font-medium">
+                다른 분 사주 추가
+              </a>
+              <a href="/onboarding" className="mt-1 block text-center text-xs text-[#6B6661] underline underline-offset-4 py-1.5">
+                내 사주 정보 수정
               </a>
             </>
           ) : (
@@ -158,7 +161,9 @@ export default async function MypagePage() {
                         {/* 4차 §5-A(CoS 실물 확인, 2026-09-29): "프리미엄 사주"는 리포트 ID가 아니라
                             현재 등록된 사주를 불러오는 방식이라, 사주를 다시 등록하면 이 줄이 가리키는
                             내용이 바뀐다 — 재설계 전까지 임시로 그 한계를 명시한다. */}
-                        {r.href === "/premium" && (
+                        {/* 9차 B: id가 있는 프리미엄 사주는 이제 영구 주소(/premium/report/[id])라 이 주의가
+                            필요 없다. id가 없는 "직접 입력" 1회성 기록(016)만 정적 화면으로 열린다. */}
+                        {r.href === "/premium" && !r.id && (
                           <span className="text-[10px] text-[#9B968F] mt-0.5">현재 등록된 사주 기준으로 열립니다</span>
                         )}
                       </span>

@@ -128,7 +128,7 @@ export async function POST(req: NextRequest) {
           // QA(2026-09-05) D-2: upsert 충돌 시 created_at DEFAULT가 다시 안 타
           // 재생성해도 생성일이 그대로였다 — 명시적으로 갱신한다.
           await supabaseAdmin.from("reports").upsert(
-            { profile_id: profileId, product_id: PRODUCT_ID, variant, user_id: userId, content: report, expires_at: reportExpiresAtIso(), created_at: new Date().toISOString() },
+            { profile_id: profileId, product_id: PRODUCT_ID, variant, user_id: userId, content: report, extra: { year }, expires_at: reportExpiresAtIso(), created_at: new Date().toISOString() },
             { onConflict: "profile_id,product_id,variant" }
           );
         } catch { /* noop */ }
@@ -159,6 +159,11 @@ export async function DELETE(req: NextRequest) {
   const userId = session.user.id;
 
   const body = await req.json().catch(() => ({}));
+  // 저장본 재열람 화면은 이 행의 정확한 PK를 안다 — "지금의 본인 프로필"로 되짚지 않는다.
+  if (typeof body.id === "string" && body.id) {
+    await supabaseAdmin.from("reports").delete().eq("id", body.id).eq("user_id", userId).eq("product_id", PRODUCT_ID);
+    return NextResponse.json({ ok: true });
+  }
   const year = parseInt(body.year) || new Date().getFullYear();
   const parsed = parseTargetBody(body);
   const ownProfile = await loadOwnProfile(userId);

@@ -160,14 +160,6 @@ export default function TermsPage() {
               않습니다. 열람기간이 끝나기 전 내용을 보관하고 싶다면 화면 하단의
               인쇄·저장 기능을 이용해 주세요.
             </p>
-            <p className="text-[#6B6661] leading-relaxed mt-3 font-semibold">
-              5-2. 정기 구독
-            </p>
-            <p className="text-[#6B6661] leading-relaxed mt-1">
-              구독형 상품은 결제일로부터 7일 이내이면서 서비스를 이용하지 않은 경우
-              전자상거래법에 따라 청약철회를 요청할 수 있습니다. 이미 이용한 기간이 있다면
-              그 기간을 제외하고 일할 계산하여 환불합니다.
-            </p>
             <p className="text-[#6B6661] leading-relaxed mt-3">
               환불 문의는 아래 &lsquo;문의&rsquo; 항목의 방법으로 접수해 주시면 확인 후 안내드립니다.
             </p>
@@ -176,20 +168,7 @@ export default function TermsPage() {
           <div className="h-px bg-[#E5DFD4]" />
 
           <section>
-            <h2 className="font-semibold text-base text-[#1F3D34] mb-2">6. 이용 한도 (공정 사용 정책)</h2>
-            <p className="text-[#6B6661] leading-relaxed">
-              안정적인 서비스 제공을 위해 일부 기능에는 공정 사용 정책에 따른 이용 한도가 적용됩니다.
-              무료 회원의 AI 역술가 대화는 누적 20회, 유료(프리미엄) 회원의 AI 역술가 대화는
-              월 1,000회(매월 1일 0시 한국 시간 기준 초기화)로 제한됩니다.
-              한도에 도달한 경우 해당 기능 이용이 일시 제한되며, 유료 회원의 한도는 다음 달 1일에 자동으로 초기화됩니다.
-              서비스는 운영 상황에 따라 한도를 변경할 수 있으며, 변경 시 서비스 내 공지 등으로 안내합니다.
-            </p>
-          </section>
-
-          <div className="h-px bg-[#E5DFD4]" />
-
-          <section>
-            <h2 className="font-semibold text-base text-[#1F3D34] mb-2">7. 서비스 변경 및 중단</h2>
+            <h2 className="font-semibold text-base text-[#1F3D34] mb-2">6. 서비스 변경 및 중단</h2>
             <p className="text-[#6B6661] leading-relaxed">
               서비스는 운영상·기술상 필요에 따라 서비스 내용을 변경하거나 중단할 수 있습니다.
               중요한 변경 사항은 서비스 내 공지 또는 등록된 이메일로 사전 안내합니다.
@@ -199,7 +178,7 @@ export default function TermsPage() {
           <div className="h-px bg-[#E5DFD4]" />
 
           <section>
-            <h2 className="font-semibold text-base text-[#1F3D34] mb-2">8. 준거법 및 관할</h2>
+            <h2 className="font-semibold text-base text-[#1F3D34] mb-2">7. 준거법 및 관할</h2>
             <p className="text-[#6B6661] leading-relaxed">
               본 약관은 대한민국 법령에 따라 해석되며, 분쟁 발생 시 서비스 소재지 관할 법원을 전속 관할 법원으로 합니다.
             </p>
@@ -208,7 +187,7 @@ export default function TermsPage() {
           <div className="h-px bg-[#E5DFD4]" />
 
           <section>
-            <h2 className="font-semibold text-base text-[#1F3D34] mb-2">9. 사업자 정보</h2>
+            <h2 className="font-semibold text-base text-[#1F3D34] mb-2">8. 사업자 정보</h2>
             <div className="bg-[#F6F1E7] rounded-xl p-4 text-[#6B6661] flex flex-col gap-1">
               <p>상호: {BUSINESS.name}</p>
               {BUSINESS.ceo && <p>대표자: {BUSINESS.ceo}</p>}
@@ -228,7 +207,7 @@ export default function TermsPage() {
           <div className="h-px bg-[#E5DFD4]" />
 
           <section>
-            <h2 className="font-semibold text-base text-[#1F3D34] mb-2">10. 문의</h2>
+            <h2 className="font-semibold text-base text-[#1F3D34] mb-2">9. 문의</h2>
             <div className="bg-[#F6F1E7] rounded-xl p-4 text-[#6B6661]">
               <p>서비스명: {SERVICE_NAME}</p>
               <p className="mt-1">

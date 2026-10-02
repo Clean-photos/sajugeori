@@ -80,6 +80,9 @@ export function viewHref(r: { href: string; id: MyReport["id"]; year?: MyReport[
     case "/premium/compatibility":
     case "/premium/destiny":
       return `${r.href}/${r.id}`;
+    case "/premium":
+      // 프리미엄 사주(saju_one) — 9차 B: reports.id 영구 주소.
+      return `/premium/report/${r.id}`;
     case "/premium/yearly":
       return r.year ? `/premium/yearly/${r.id}?year=${r.year}` : r.href;
     default:
@@ -103,11 +106,16 @@ export async function listUserReports(userId: string): Promise<MyReport[]> {
 
   // 대상 사주 표시(target)는 각 소스 조회가 끝난 뒤 profile id를 모아 한 번에 읽는다 —
   // 예전엔 행마다 순서대로 await해 왕복이 리포트 수만큼 늘었다(2026-09-19 마이페이지 4.6초 후속).
-  type ProfileRow = { id: string; birth_date: string; birth_time: string | null; gender: string; calendar: string };
+  type ProfileRow = { id: string; label: string; birth_date: string; birth_time: string | null; gender: string; calendar: string };
   const profileIdOf = new Map<MyReport, string>();
   const remember = (r: MyReport, profileId: unknown) => {
     if (typeof profileId === "string" && profileId) profileIdOf.set(r, profileId);
   };
+  // 9차 D: 가족·지인(016·018 1회성 캐시)으로 만든 리포트는 profile_id가 없다 — 생년월일·시각·성별로
+  // "이름 붙여 등록한 분"과 맞춰 보면 이름을 달 수 있다.
+  const adhocKeyOf = new Map<MyReport, string>();
+  const keyOf = (birthDate: string, birthTime: string | null | undefined, gender: string) =>
+    `${birthDate}|${birthTime ? birthTime.slice(0, 5) : ""}|${gender}`;
 
   // 서로 무관한 독립 쿼리라 하나의 Promise.all로 동시에 실행한다(2026-09-17 후속).
   await Promise.all([
@@ -176,13 +184,15 @@ export async function listUserReports(userId: string): Promise<MyReport[]> {
           .limit(20);
         for (const row of data ?? []) {
           if (!row?.created_at) continue;
-          out.push({
+          const r016: MyReport = {
             label: "프리미엄 사주 (직접 입력)", href: "/premium", created_at: row.created_at,
             target: row.birth_date ? formatTarget(row.birth_date, row.gender, null, row.birth_time) : null,
             id: null, // 016(직접입력) 전용 열람 라우트가 아직 없다 — 정적 href로 폴백.
             year: null,
             adhocId: null,
-          });
+          };
+          if (row.birth_date) adhocKeyOf.set(r016, keyOf(row.birth_date, row.birth_time, row.gender));
+          out.push(r016);
         }
       } catch { /* noop */ }
     })(),
@@ -200,7 +210,7 @@ export async function listUserReports(userId: string): Promise<MyReport[]> {
           if (!row?.created_at) continue;
           const meta = ADHOC_PRODUCT_MAP[row.product_id as string];
           if (!meta) continue; // 모르는 product_id는 목록을 깨뜨리느니 건너뛴다
-          out.push({
+          const r018: MyReport = {
             label: meta.label, href: meta.href, created_at: row.created_at,
             target: row.birth_date ? formatTarget(row.birth_date, row.gender, null, row.birth_time) : null,
             id: null,
@@ -208,7 +218,9 @@ export async function listUserReports(userId: string): Promise<MyReport[]> {
             // §0-2⑥: 오행만 전용 소급 라우트(/premium/ohang/adhoc/[id])가 있다.
             // 나머지 상품은 아직 없어 정적 href로 폴백한다(다음 회차로 이월).
             adhocId: row.product_id === "wuxing_one" ? (row.id as string) : null,
-          });
+          };
+          if (row.birth_date) adhocKeyOf.set(r018, keyOf(row.birth_date, row.birth_time, row.gender));
+          out.push(r018);
         }
       } catch { /* noop */ }
     })(),
@@ -219,13 +231,31 @@ export async function listUserReports(userId: string): Promise<MyReport[]> {
   if (profileIds.length > 0) {
     try {
       const { data } = await supabaseAdmin
-        .from("saju_profiles").select("id, birth_date, birth_time, gender, calendar").in("id", profileIds);
+        .from("saju_profiles").select("id, label, birth_date, birth_time, gender, calendar").in("id", profileIds);
       const byId = new Map((data as ProfileRow[] | null ?? []).map((p) => [p.id, p]));
       for (const [r, pid] of profileIdOf) {
         const p = byId.get(pid);
-        if (p) r.target = formatTarget(p.birth_date, p.gender, p.calendar, p.birth_time);
+        if (!p) continue;
+        r.target = formatTarget(p.birth_date, p.gender, p.calendar, p.birth_time);
+        // 이름 붙여 등록한 분이면 이름을 앞에 단다(본인·자동 생성 "대상"은 이름 없음).
+        if (p.label !== "본인" && p.label !== "대상") r.target = `${p.label} · ${r.target}`;
       }
     } catch { /* 표시 문구만 비는 것 — 무시 */ }
+  }
+  if (adhocKeyOf.size > 0) {
+    try {
+      const { data } = await supabaseAdmin
+        .from("saju_profiles").select("label, birth_date, birth_time, gender")
+        .eq("user_id", userId).eq("kind", "person").eq("is_primary", false).not("label", "in", '("본인","대상")');
+      const named = new Map<string, string>();
+      for (const p of (data ?? []) as { label: string; birth_date: string; birth_time: string | null; gender: string }[]) {
+        named.set(keyOf(p.birth_date, p.birth_time, p.gender), p.label);
+      }
+      for (const [r, k] of adhocKeyOf) {
+        const name = named.get(k);
+        if (name && r.target) r.target = `${name} · ${r.target}`;
+      }
+    } catch { /* 이름 붙이기만 실패 — 목록은 그대로 */ }
   }
 
   return out.sort((a, b) => (a.created_at < b.created_at ? 1 : -1));

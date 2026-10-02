@@ -7,7 +7,7 @@ import { BottomTabBar } from "@/components/layout/BottomTabBar";
 import type { WuxingReportData } from "@/lib/wuxing/report";
 import { buildWuxingReport } from "@/lib/wuxing/report";
 import { backfillMissingNarratives } from "@/lib/wuxing/narrative-backfill";
-import { buildChart } from "@/lib/saju-engine/engine";
+import { buildChart } from "@/lib/saju-engine";
 import { classify } from "@/lib/wuxing/classify";
 import { SavedReportClient } from "../../[id]/SavedReportClient";
 

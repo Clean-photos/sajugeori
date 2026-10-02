@@ -12,3 +12,6 @@ DEV_NOTES.md
 HANDOFF.md
 # 임시 스크립트
 _*.mjs
+
+# 로컬 백업(개인정보 포함 가능)
+.backup/

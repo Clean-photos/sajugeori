@@ -69,47 +69,75 @@ export const KOREA_AVG_LONGITUDE = 126.98;
  * 환경에서 검증한 게 그래서 안 잡혔다). 파싱 자체를 "+09:00"으로 명시해 대칭을
  * 맞춘다 — 서버 타임존과 완전히 무관해진다.
  */
-export function parseKstWallClock(birthIso: string): Date {
-  // 이미 오프셋(Z 또는 ±HH:mm)이 있으면 그대로 존중하고, 없을 때만 KST(+09:00)를 붙인다.
-  const hasOffset = /Z$|[+-]\d{2}:\d{2}$/.test(birthIso);
-  return new Date(hasOffset ? birthIso : `${birthIso}+09:00`);
+const SEOUL_FMT = new Intl.DateTimeFormat("en-US", {
+  timeZone: "Asia/Seoul", hourCycle: "h23",
+  year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit",
+});
+
+/**
+ * 어떤 절대 시각에 Asia/Seoul의 법정 UTC 오프셋이 몇 ms였는지(IANA tz 데이터 기준).
+ * 현행 +9:00 말고도 1954-03-21~1961-08-09의 +8:30, 서머타임(1948~51·1955~60·1987~88)
+ * 구간의 +9:30/+10:00을 날짜표 하드코딩 없이 그대로 돌려준다.
+ */
+export function seoulOffsetMs(utcMs: number): number {
+  const parts: Record<string, string> = {};
+  for (const p of SEOUL_FMT.formatToParts(new Date(utcMs))) if (p.type !== "literal") parts[p.type] = p.value;
+  const asUtc = Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day), Number(parts.hour), Number(parts.minute), Number(parts.second));
+  return asUtc - Math.floor(utcMs / 1000) * 1000;
 }
 
 /**
- * 어떤 절대 시각(Date)이 KST 달력으로 몇 년·몇 월·몇 일·몇 시인지를 서버 타임존과
- * 무관하게 뽑아낸다.
+ * "YYYY-MM-DDTHH:mm:ss"(오프셋 없음)를 **그 날짜에 실제로 적용되던 서울 법정 시각**으로
+ * 확정해 절대 시각(Date)으로 바꾼다.
  *
- * §(CoS 실물 확인, 2026-09-30): buildPreciseChart가 진태양시 보정 후 값을
- * getUTCHours()/getUTCDate() 등 UTC 접근자로 읽고 있었다 — 실측 재현: KST
- * 12:00 입력이 보정 후 getHours()=11(맞음)인데 getUTCHours()=2(9시간 밀림,
- * calcHourPillar에 그대로 들어가 시주가 통째로 틀림). KST 00~09시 출생은 이
- * 9시간 밀림이 날짜 경계까지 넘겨 일주(일간)까지 바뀌었다. 서버 런타임
- * 타임존에 기대는 getHours() 대신, Asia/Seoul을 명시해 항상 같은 결과가
- * 나오게 한다(로컬 KST 환경이든 Vercel의 UTC 기본값이든 동일).
+ * 이전(parseKstWallClock)은 모든 입력에 "+09:00"을 붙였다 — 서버 타임존과는 무관해졌지만,
+ * 서머타임(예: 1987-06-01은 +10:00)이나 옛 표준시(1954~61은 +8:30) 출생자는 한 시간
+ * 안팎 틀린 절대 시각으로 계산돼 시주·일주가 바뀔 수 있었다(CoS 9차 A-3, CEO 확정:
+ * 적용). 이제 IANA 오프셋으로 되돌린다. 서버 타임존과 무관한 점은 그대로다.
+ * 오프셋이 이미 붙은 입력(Z·±HH:mm)은 그대로 존중한다.
+ */
+export function parseSeoulWallClock(birthIso: string): Date {
+  if (/Z$|[+-]\d{2}:\d{2}$/.test(birthIso)) return new Date(birthIso);
+  const m = birthIso.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?/);
+  if (!m) return new Date(NaN);
+  const wall = Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(m[4]), Number(m[5]), Number(m[6] ?? 0));
+  // 오프셋은 "그 순간"의 값이라, 벽시계 → 절대시각은 순환 의존이다. +9로 한 번 추정하고
+  // 그 결과 시점의 오프셋으로 다시 맞춘다(서머타임 경계의 건너뛴·겹친 시각도 안정적으로 수렴).
+  let off = seoulOffsetMs(wall - 9 * 3600000);
+  for (let i = 0; i < 3; i++) {
+    const next = seoulOffsetMs(wall - off);
+    if (next === off) break;
+    off = next;
+  }
+  return new Date(wall - off);
+}
+
+/**
+ * 진태양시 보정이 끝난 Date를 "표준 +9시 프레임"의 달력 값으로 읽는다.
+ *
+ * 보정 결과(trueSolarTime)는 "절대 시각 + 경도·균시차 보정"이라, 이 값의 UTC+9 필드가
+ * 곧 진태양시 시계값이다. 이 읽기는 Asia/Seoul의 실제 법정 오프셋(서머타임 등)을
+ * 쓰면 안 된다 — 이미 법정 시각 차이를 절대 시각 단계에서 정확히 풀었으므로, 여기서
+ * 법정 오프셋을 또 반영하면 이중으로 틀린다. 서버 타임존과도 무관하다(UTC 접근자만 사용).
  */
 export function kstFieldsOf(date: Date): { y: number; m: number; d: number; h: number; min: number; s: number } {
-  const fmt = new Intl.DateTimeFormat("en-US", {
-    timeZone: "Asia/Seoul", hour12: false,
-    year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit",
-  });
-  const parts: Record<string, string> = {};
-  for (const p of fmt.formatToParts(date)) if (p.type !== "literal") parts[p.type] = p.value;
-  // hour12:false인데도 자정을 "24"로 주는 로케일 처리가 있어(Intl 명세상 정상 동작) 0으로 보정한다.
-  const hour24 = parts.hour === "24" ? 0 : Number(parts.hour);
-  return { y: Number(parts.year), m: Number(parts.month), d: Number(parts.day), h: hour24, min: Number(parts.minute), s: Number(parts.second) };
+  const t = new Date(date.getTime() + KST_STANDARD_MERIDIAN / 15 * 3600000);
+  return { y: t.getUTCFullYear(), m: t.getUTCMonth() + 1, d: t.getUTCDate(), h: t.getUTCHours(), min: t.getUTCMinutes(), s: t.getUTCSeconds() };
 }
 
 /**
- * 진태양시 보정을 적용한 Date를 돌려준다.
- * 보정 = (관측지 경도 - 135°) × 4분/도 + 균시차.
+ * 진태양시 보정을 적용한 Date를 돌려준다. 입력은 **절대 시각**(parseSeoulWallClock 결과)이다.
+ * 보정 = 경도 오프셋 + 균시차. 경도 오프셋은 "(관측지 경도 - 135°) × 4분/도"로 표현하되,
+ * 절대 시각 기준이라 법정 표준시가 +8:30이던 시기도 자연스럽게 맞는다(법정 시각이 아니라
+ * UTC에서 출발해 관측지 지방평균시 = UTC + 경도/15시간으로 가므로).
  * 출생지 입력을 받지 않으므로 전국 평균 경도(서울)로 고정 근사한다 — 극단
  * 지역(신의주·독도 등)은 수 분 오차가 남을 수 있다는 걸 판독 한계에 명시할 것.
  */
-export function trueSolarTime(kstDate: Date, longitude = KOREA_AVG_LONGITUDE): Date {
+export function trueSolarTime(instant: Date, longitude = KOREA_AVG_LONGITUDE): Date {
   const longitudeOffsetMin = (longitude - KST_STANDARD_MERIDIAN) * 4;
-  const eotMin = equationOfTimeMinutes(kstDate);
+  const eotMin = equationOfTimeMinutes(instant);
   const totalOffsetMs = (longitudeOffsetMin + eotMin) * 60 * 1000;
-  return new Date(kstDate.getTime() + totalOffsetMs);
+  return new Date(instant.getTime() + totalOffsetMs);
 }
 
 /**

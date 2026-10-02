@@ -4,7 +4,7 @@ import { supabaseAdmin } from "@/lib/db/client";
 import { checkDestinyAccess, consumeOneTimePass } from "@/lib/billing/access";
 import { startAttempt, finishAttemptDone, finishAttemptFailed, discardAttempt, touchAttempt } from "@/lib/billing/attempts";
 import { reportExpiresAtIso, notExpiredFilter } from "@/lib/billing/report-ttl";
-import { parseTargetBody, resolveTarget, ensureTargetProfileId, isoOf, loadOwnProfile } from "@/lib/billing/report-target";
+import { parseTargetBody, resolveTarget, ensureTargetProfileId, findTargetProfileId, isoOf, loadOwnProfile } from "@/lib/billing/report-target";
 import { runBlueprintStep, type BlueprintPartial, type BlueprintResumeState, type BlueprintReport } from "@/lib/blueprint-engine/generate";
 import { computeAnchorFacts } from "@/lib/blueprint-engine/anchor";
 
@@ -310,12 +310,7 @@ export async function DELETE(req: NextRequest) {
     // 여기서는 없는 프로필을 새로 만들지 않는다(삭제인데 행을 만들 이유가 없다).
     profileId = isAdhoc ? null : ownProfile?.id ?? null;
     if (isAdhoc) {
-      const { data } = await supabaseAdmin
-        .from("saju_profiles").select("id")
-        .eq("user_id", userId).eq("label", "대상")
-        .eq("birth_date", parsed.input.birthDate).eq("gender", parsed.input.gender)
-        .order("created_at", { ascending: false }).limit(1).maybeSingle();
-      profileId = data?.id ?? null;
+      profileId = await findTargetProfileId(userId, parsed.input);
     }
   } else {
     profileId = (await loadOwnProfile(userId))?.id ?? null;

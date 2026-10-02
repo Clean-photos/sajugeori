@@ -99,6 +99,7 @@ export default async function SavedYearlyReportPage({
         content={row.content}
         year={year}
         card={card}
+        reportId={id}
         target={profile ? { birth_date: profile.birth_date, birth_time: profile.birth_time, gender: profile.gender } : null}
       />
 

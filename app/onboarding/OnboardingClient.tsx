@@ -40,7 +40,13 @@ function OnboardingInner({ existingProfile, reports }: { existingProfile: Existi
   const nextParam = searchParams.get("next");
   const nextPath = nextParam && /^\/(?!\/)/.test(nextParam) ? nextParam : null;
   // 등록된 사주가 있으면 먼저 그 사주를 보여주고, "다시 등록"을 눌러야 폼으로 들어간다.
-  const [showForm, setShowForm] = useState(!existingProfile);
+  // ?add=1 — 마이페이지 등에서 곧장 "다른 분 사주 추가" 폼으로(내 사주가 있을 때만 의미가 있다).
+  const addDirect = searchParams.get("add") === "1" && !!existingProfile;
+  const [showForm, setShowForm] = useState(!existingProfile || addDirect);
+  // 9차 D(CoS+CEO 확정, 2026-10-02): "other"는 이름과 함께 다른 분의 사주를 **추가**만 한다 —
+  // 예전엔 이 버튼이 내 사주 자리를 통째로 교체했다. "self"는 내 사주 최초 등록·수정.
+  const [mode, setMode] = useState<"self" | "other">(addDirect ? "other" : "self");
+  const [name, setName] = useState("");
   const [step, setStep] = useState(0);
   const [form, setForm] = useState({
     birth_date: "",
@@ -59,6 +65,7 @@ function OnboardingInner({ existingProfile, reports }: { existingProfile: Existi
   // 라벨과 달리 명식을 보여주지 않고 곧장 홈으로 이동했다(라벨-동작 불일치).
   // 등록 직후 최소한 일간·강약은 보여주는 완료 화면을 하나 끼운다.
   const [registered, setRegistered] = useState<{ day_master: string; strength_label: string } | null>(null);
+  const isOther = mode === "other";
 
   async function handleSubmit() {
     const conv = toSolar(form.birth_date, form.calendar as CalendarKind);
@@ -76,6 +83,7 @@ function OnboardingInner({ existingProfile, reports }: { existingProfile: Existi
           calendar: "solar",
           gender: form.gender,
           persist: true,
+          ...(isOther ? { mode: "other", label: name.trim() } : {}),
         }),
       });
       if (!res.ok) {
@@ -101,7 +109,7 @@ function OnboardingInner({ existingProfile, reports }: { existingProfile: Existi
   }
 
   const canNext = [
-    !!form.birth_date,
+    !!form.birth_date && (!isOther || name.trim().length > 0),
     true,
     !!form.gender,
   ][step];
@@ -120,12 +128,12 @@ function OnboardingInner({ existingProfile, reports }: { existingProfile: Existi
             style={{ backgroundImage: "radial-gradient(circle at 10% 90%, #C8743A 0%, transparent 55%)" }}
           />
           <p className="relative text-xs font-medium tracking-[0.2em] text-[#C8743A] uppercase mb-1">My Saju</p>
-          <h1 className="relative font-serif text-[26px] font-bold text-white">등록됐어요</h1>
+          <h1 className="relative font-serif text-[26px] font-bold text-white">{isOther ? `${name.trim()} 님을 추가했어요` : "등록됐어요"}</h1>
         </div>
 
         <div className="flex-1 px-5 py-8 flex flex-col gap-5">
           <div className="bg-[#FBF8F2] border border-[#E5DFD4] rounded-2xl p-5">
-            <p className="text-xs text-[#6B6661] mb-1">내 일간</p>
+            <p className="text-xs text-[#6B6661] mb-1">{isOther ? `${name.trim()} 님의 일간` : "내 일간"}</p>
             <p className="text-2xl font-serif font-bold text-[#1F3D34]">{registered.day_master}</p>
             <p className="text-sm text-[#6B6661] mt-1">{registered.strength_label}</p>
           </div>
@@ -179,10 +187,16 @@ function OnboardingInner({ existingProfile, reports }: { existingProfile: Existi
             이 사주로 프리미엄 리포트 보기
           </Link>
           <button
-            onClick={() => setShowForm(true)}
+            onClick={() => { setMode("other"); setShowForm(true); }}
             className="text-center border border-[#E5DFD4] text-[#1F3D34] rounded-xl py-3.5 font-semibold text-sm active:scale-[0.97] transition-all"
           >
-            다른 사주 등록하기
+            다른 분 사주 추가하기
+          </button>
+          <button
+            onClick={() => { setMode("self"); setShowForm(true); }}
+            className="text-center text-xs text-[#6B6661] underline underline-offset-4 py-1"
+          >
+            내 사주 정보 수정하기
           </button>
           {/* CoS[다중 사주 우선순위 확정, 2026-09-30]: 재등록은 기존 리포트를
               지우지 않는다(saju_profiles는 INSERT일 뿐 옛 row가 그대로 남고,
@@ -191,8 +205,8 @@ function OnboardingInner({ existingProfile, reports }: { existingProfile: Existi
               시도 자체를 막고 있었다. 확인창을 없애고, 사실에 맞는 안내로 대체. */}
           {reports.length > 0 && (
             <p className="text-center text-[11.5px] text-[#6B6661] leading-relaxed">
-              지금까지 만든 리포트 {reports.length}건은 계속 마이페이지에서 볼 수 있어요.
-              가족·반려동물의 사주로 새로 등록해도 사라지지 않습니다.
+              다른 분 사주를 추가해도 내 사주는 그대로예요. 지금까지 만든 리포트
+              {reports.length}건도 계속 마이페이지에서 볼 수 있습니다.
             </p>
           )}
         </div>
@@ -214,8 +228,10 @@ function OnboardingInner({ existingProfile, reports }: { existingProfile: Existi
           홈
         </Link>
         <p className="relative text-xs font-medium tracking-[0.2em] text-[#C8743A] uppercase mb-1">My Saju</p>
-        <h1 className="relative font-serif text-[26px] font-bold text-white">내 사주 등록</h1>
-        <p className="relative text-sm text-white/55 mt-1">한 번만 입력하면 다시 입력할 필요 없이 저장됩니다</p>
+        <h1 className="relative font-serif text-[26px] font-bold text-white">{isOther ? "다른 분 사주 추가" : existingProfile ? "내 사주 수정" : "내 사주 등록"}</h1>
+        <p className="relative text-sm text-white/55 mt-1">
+          {isOther ? "이름과 함께 저장해 두면 리포트를 만들 때 바로 고를 수 있어요. 내 사주는 바뀌지 않습니다" : "한 번만 입력하면 다시 입력할 필요 없이 저장됩니다"}
+        </p>
 
         {/* Progress */}
         <div className="relative flex gap-1.5 mt-5">
@@ -234,6 +250,19 @@ function OnboardingInner({ existingProfile, reports }: { existingProfile: Existi
         {/* Step 0: Birth Date */}
         {step === 0 && (
           <div className="flex flex-col gap-4 animate-fade-up">
+            {isOther && (
+              <div className="flex flex-col gap-2 mb-1">
+                <p className="text-[#1A1A18] font-medium">누구의 사주인가요?</p>
+                <input
+                  type="text"
+                  placeholder="예: 엄마, 민수"
+                  value={name}
+                  maxLength={20}
+                  onChange={(e) => setName(e.target.value)}
+                  className="w-full border border-[#E5DFD4] rounded-xl px-4 py-4 text-base bg-[#FBF8F2] focus:outline-none focus:border-[#1F3D34] focus:ring-2 focus:ring-[#1F3D34]/10 transition-all"
+                />
+              </div>
+            )}
             <p className="text-[#1A1A18] font-medium">생년월일을 입력해주세요</p>
             <input
               type="text"
@@ -379,7 +408,7 @@ function OnboardingInner({ existingProfile, reports }: { existingProfile: Existi
             >
               {loading && <Spinner />}
               {/* §4(CEO 결정 2026-09-02): 비활성 이유를 버튼 문구로. */}
-              {loading ? "사주를 저장 중..." : !form.gender ? "성별을 선택해주세요" : "내 사주 확인하기 →"}
+              {loading ? "사주를 저장 중..." : !form.gender ? "성별을 선택해주세요" : isOther ? "추가하기 →" : "내 사주 확인하기 →"}
             </button>
           )}
         </div>

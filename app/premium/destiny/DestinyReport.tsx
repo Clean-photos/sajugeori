@@ -41,6 +41,10 @@ function targetQuery(t: Target): string {
 export function DestinyReport({
   saved, hasOwnReport = false, hasUnusedPass = false,
 }: { saved: SavedSaju; hasOwnReport?: boolean; hasUnusedPass?: boolean }) {
+  // 9차 H(CoS 실물 확인, 2026-10-01): hasUnusedPass는 페이지를 불러온 시점의 서버 값이라, 이 화면에서
+  // 방금 이용권으로 생성을 끝내면(이용권은 이미 소진) 새로고침 전까지 "미사용 이용권으로 새로
+  // 만들기"가 남아 있었다. 이 방문에서 생성이 끝나면 끈다.
+  const [passSpentHere, setPassSpentHere] = useState(false);
   // 대상을 확정하기 전에는 생성을 시작하지 않는다(생성 직전 컨펌).
   // §0-2⑥(CoS 실물 재검증, 2026-09-10): 단, 본인 프로필로 이미 만들어 둔
   // 설계도가 있으면(hasOwnReport) 매번 이 확정 폼부터 다시 보여주지 않는다 —
@@ -119,7 +123,10 @@ export function DestinyReport({
       // 시간이 아니라 페이지 로드 시간이었다). 서버가 이번 요청에서 실제로 마지막
       // 스텝을 막 끝냈을 때만 내려주는 justCompleted로만 발화한다.
       if (next.status === "done") {
-        if (next.justCompleted) trackEvent("report_generated", { item_id: "destiny", duration_ms: Date.now() - start });
+        if (next.justCompleted) {
+          trackEvent("report_generated", { item_id: "destiny", duration_ms: Date.now() - start });
+          setPassSpentHere(true);
+        }
       } else if (next.status === "failed" || next.status === "error") {
         trackEvent("generation_failed", {
           item_id: "destiny",
@@ -316,7 +323,7 @@ export function DestinyReport({
       {/* §2-1(CoS 실물 확인, 2026-09-22): 미사용 이용권이 있어도 이 화면엔 쓸 방법이
           없었다 — 이 프로필은 완성본을 하나만 담을 수 있어(다단계 상태 저장 구조),
           쓰려면 결과부터 지워야 하는데 그 안내조차 없었다. 새 이용권이 있을 때만 보인다. */}
-      {hasUnusedPass && !confirmingRegen && (
+      {hasUnusedPass && !passSpentHere && !confirmingRegen && (
         confirmingUsePass ? (
           <div className="no-print rounded-2xl border border-[#E5DFD4] bg-[#FBF8F2] p-4 flex flex-col gap-3">
             <p className="text-xs text-[#1A1A18] leading-relaxed">

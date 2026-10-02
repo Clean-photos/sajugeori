@@ -4,6 +4,7 @@ import { BottomTabBar } from "@/components/layout/BottomTabBar";
 import { auth } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/db/client";
 import { isPremiumUser, findUnusedOneTimePass } from "@/lib/billing/access";
+import { listUserReports, viewHref } from "@/lib/billing/my-reports";
 import { loadOwnProfile } from "@/lib/billing/report-target";
 import { ONE_REPORT_PRICE } from "@/lib/billing/plans";
 import { SAMPLE_REPORTS } from "@/lib/sample-reports";
@@ -67,6 +68,18 @@ export default async function PremiumPage() {
   const hasPass = !premium && userId ? (await findUnusedOneTimePass(userId, "saju_one")) !== null : false;
   const canView = premium || hasPass || hasReport;
 
+  // 9차 B(CoS 실물 확인, 2026-10-01): 본인 프로필이 바뀐 계정은 "지금의 본인" 기준 hasReport가
+  // false라 예전 사주로 이미 결제해 만든 프리미엄 사주가 결제 화면 뒤로 숨었다. 이 계정이
+  // 가진 프리미엄 사주를 id 영구 주소로 직접 연결한다.
+  let ownedSajuReports: { href: string; target: string | null; date: string }[] = [];
+  if (userId && !canView) {
+    try {
+      ownedSajuReports = (await listUserReports(userId))
+        .filter((r) => r.href === "/premium" && r.id)
+        .map((r) => ({ href: viewHref(r), target: r.target, date: r.created_at.slice(0, 10) }));
+    } catch { /* 목록 실패는 결제 화면을 막지 않는다 */ }
+  }
+
   return (
     <div className="flex flex-col min-h-screen pb-20 bg-[#F6F1E7]">
       {/* §4: 4,000px 넘는 샘플을 읽다 결제/로그인으로 갔다 뒤로가기로 돌아오면
@@ -104,6 +117,22 @@ export default async function PremiumPage() {
         <PremiumReport hasProfile={hasProfile} saved={savedSaju} hasDestiny={hasDestiny} hasReport={hasReport} />
       ) : (
         <>
+          {ownedSajuReports.length > 0 && (
+            <div className="px-4 pt-4">
+              <p className="text-sm font-semibold text-[#1F3D34] mb-2">이미 만든 프리미엄 사주</p>
+              <div className="flex flex-col gap-2">
+                {ownedSajuReports.map((r) => (
+                  <Link key={r.href} href={r.href} className="flex items-center justify-between rounded-xl border border-[#1F3D34] bg-[#FBF8F2] px-4 py-3 text-sm text-[#1F3D34]">
+                    <span className="min-w-0">
+                      <span className="block font-semibold">프리미엄 사주 {r.date.slice(5).replace("-", "/")}</span>
+                      {r.target && <span className="block text-xs text-[#6B6661] truncate">{r.target}</span>}
+                    </span>
+                    <span className="text-xs flex-shrink-0 ml-2">보기 →</span>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
           <div className="px-4 pt-4">
             <Link
               href={loggedIn ? "/premium/buy?product=saju_one" : "/login?redirect=/premium"}

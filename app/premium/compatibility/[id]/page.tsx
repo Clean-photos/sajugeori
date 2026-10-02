@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/db/client";
 import { BottomTabBar } from "@/components/layout/BottomTabBar";
-import { buildChart } from "@/lib/saju-engine/engine";
+import { buildChart } from "@/lib/saju-engine";
 import { buildCompatPillarSummary, type CompatPillarSummary } from "@/lib/premium/compat-pillars";
 import { SavedReportClient } from "./SavedReportClient";
 

@@ -7,7 +7,7 @@ import { BottomTabBar } from "@/components/layout/BottomTabBar";
 import type { WuxingReportData } from "@/lib/wuxing/report";
 import { buildWuxingReport } from "@/lib/wuxing/report";
 import { backfillMissingNarratives } from "@/lib/wuxing/narrative-backfill";
-import { buildChart } from "@/lib/saju-engine/engine";
+import { buildChart } from "@/lib/saju-engine";
 import { classify } from "@/lib/wuxing/classify";
 import { SavedReportClient } from "./SavedReportClient";
 
@@ -114,7 +114,7 @@ export default async function SavedWuxingReportPage({ params }: { params: Promis
 
       <SavedReportClient
         report={report}
-        target={{ birth_date: profile.birth_date, birth_time: profile.birth_time, gender: profile.gender }}
+        reportId={id}
       />
 
       <BottomTabBar hasProfile />

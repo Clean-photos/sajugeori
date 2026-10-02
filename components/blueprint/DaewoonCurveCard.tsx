@@ -52,10 +52,22 @@ export function DaewoonCurveCard({ chart, facts }: { chart: BlueprintChart; fact
   const firstAge = points[0].startAge;
   const lastAge = points[n - 1].startAge;
 
-  // §2(CoS 실물 확인, 2026-09-30): 주석이 최대 2개인데, 서로 가까운 구간을
-  // 가리키면 둘 다 "위" 판정이 나와 같은 자리에서 겹쳤다(정점 라벨 위에 교차
-  // 라벨이 그대로 포개짐). 각자의 자리를 먼저 계산해 두고, 가로로 겹치는데
-  // 세로도 같은 쪽이면 두 번째 것만 반대쪽으로 뒤집는다.
+  // §C(CoS 9차, 2026-10-01 실물 확인): 라벨이 `지금`·교차 주석·정점 주석 3개인데, 이전엔 주석 둘
+  // 사이만 충돌을 봐서 교차 주석이 맨 위로 올라가 `지금`과 겹쳤다("ㅈ55세~"). 이제 고정
+  // 라벨(`지금`)을 포함한 3개 전체의 사각형 충돌을 보고, 후보 위치를 하나씩 시험해 겹치지 않는
+  // 첫 자리를 쓴다. 후보는 점에 가까운 순서(점 바로 위 → 바로 아래 → 이웃 구간 밖 위/아래)라
+  // 정점 라벨이 정점 동그라미에서 멀리 떨어지지 않는다.
+  type Rect = { l: number; r: number; t: number; b: number };
+  const hit = (a: Rect, b: Rect) => a.l < b.r && b.l < a.r && a.t < b.b && b.t < a.b;
+  // 글자폭 근사: 한글·한자 9.4px, 그 외(숫자·기호·공백) 5.4px(9.5px 글꼴 + 흰 외곽선 여유).
+  const textWidth = (t: string) => [...t].reduce((w, ch) => w + (/[ㄱ-힣一-鿿]/.test(ch) ? 9.4 : 5.4), 0);
+
+  const fixed: Rect[] = [];
+  if (curIdx >= 0) {
+    const cx = xOf(curIdx);
+    fixed.push({ l: cx - 10, r: cx + 10, t: Y_TOP - 10, b: Y_TOP + 2 }); // "지금"(굵은 9px)
+  }
+  const placed: Rect[] = [];
   const annPositions = annotations.map((a) => {
     const p = points[a.index];
     const x = xOf(a.index);
@@ -63,18 +75,30 @@ export function DaewoonCurveCard({ chart, facts }: { chart: BlueprintChart; fact
     const nb = points.slice(Math.max(0, a.index - 2), Math.min(n, a.index + 3));
     const nbTop = Math.min(...nb.map((q) => Math.min(yOf(q.e), yOf(q.s))));
     const nbBottom = Math.max(...nb.map((q) => Math.max(yOf(q.e), yOf(q.s))));
-    const above = nbTop > Y_TOP + 26;
-    const anchor: "start" | "middle" | "end" = x < X0 + 70 ? "start" : x > X1 - 70 ? "end" : "middle";
-    // 대략적인 글자폭 추정(한글 9.5px 기준) — 수치 라벨이 아니라 겹침 여부만 보면 되므로 근사면 충분.
-    const halfWidth = (a.text.length * 6.5) / 2;
-    const cx = anchor === "start" ? x + halfWidth : anchor === "end" ? x - halfWidth : x;
-    return { a, x, yHigh, nbTop, nbBottom, above, anchor, left: cx - halfWidth, right: cx + halfWidth };
+    const w = textWidth(a.text);
+    const naturalAnchor: "start" | "middle" | "end" = x < X0 + 70 ? "start" : x > X1 - 70 ? "end" : "middle";
+    const rectOf = (anchor: "start" | "middle" | "end", ty: number): Rect => {
+      const l = anchor === "start" ? x : anchor === "end" ? x - w : x - w / 2;
+      return { l, r: l + w, t: ty - 10, b: ty + 3 };
+    };
+    // 후보: (세로 위치, 가로 정렬) — 점에 가까운 순서.
+    const ys = [yHigh - 8, yHigh + 17, nbTop - 12, nbBottom + 17];
+    const anchors: ("start" | "middle" | "end")[] = [naturalAnchor, "start", "end", "middle"];
+    let chosen: { ty: number; anchor: "start" | "middle" | "end" } | null = null;
+    outer: for (const ty of ys) {
+      for (const anchor of anchors) {
+        const r = rectOf(anchor, ty);
+        if (r.l < 2 || r.r > W - 2 || r.t < 0 || r.b > H) continue; // 뷰박스 밖
+        if ([...fixed, ...placed].some((o) => hit(r, o))) continue;
+        chosen = { ty, anchor };
+        break outer;
+      }
+    }
+    // 어느 후보도 안 맞으면(극단적으로 붐비는 경우) 가장 점에 가까운 자리를 쓴다 — 라벨을 지우진 않는다.
+    const final = chosen ?? { ty: ys[0], anchor: naturalAnchor };
+    placed.push(rectOf(final.anchor, final.ty));
+    return { a, x, yHigh, ty: final.ty, anchor: final.anchor };
   });
-  if (annPositions.length === 2) {
-    const [p0, p1] = annPositions;
-    const overlapsX = p0.left < p1.right && p1.left < p0.right;
-    if (overlapsX && p0.above === p1.above) p1.above = !p0.above;
-  }
 
   return (
     <div className="print-card rounded-2xl border border-[#E5DFD4] bg-[#FBF8F2] p-4">
@@ -105,15 +129,12 @@ export function DaewoonCurveCard({ chart, facts }: { chart: BlueprintChart; fact
           </g>
         )}
 
-        {annPositions.map(({ a, x, yHigh, nbTop, nbBottom, above, anchor }) => {
-          const ty = above ? nbTop - 12 : nbBottom + 17;
-          return (
-            <g key={a.index}>
-              <circle cx={x} cy={yHigh} r={3.2} fill="#FBF8F2" stroke="#8A5228" strokeWidth={1.4} />
-              <text x={x} y={ty} textAnchor={anchor} fontSize={9.5} fontWeight={600} fill="#8A5228" stroke="#FBF8F2" strokeWidth={3.5} paintOrder="stroke" strokeLinejoin="round">{a.text}</text>
-            </g>
-          );
-        })}
+        {annPositions.map(({ a, x, yHigh, ty, anchor }) => (
+          <g key={a.index}>
+            <circle cx={x} cy={yHigh} r={3.2} fill="#FBF8F2" stroke="#8A5228" strokeWidth={1.4} />
+            <text x={x} y={ty} textAnchor={anchor} fontSize={9.5} fontWeight={600} fill="#8A5228" stroke="#FBF8F2" strokeWidth={3.5} paintOrder="stroke" strokeLinejoin="round">{a.text}</text>
+          </g>
+        ))}
 
         {/* 가로축 — 나이 구간을 두 줄로(10개가 390px에서 겹치지 않게).
             §8(CoS 실물 확인, 2026-09-29): 마지막 칸은 "92~101"처럼 끝나이가 찍혀
