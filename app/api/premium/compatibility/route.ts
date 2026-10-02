@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/db/client";
-import { checkReportAccess, consumeOneTimePass, hasUnusedPassForRegenerate } from "@/lib/billing/access";
+import { checkReportAccess, refundOneTimePass, hasUnusedPassForRegenerate } from "@/lib/billing/access";
 import { startAttempt, finishAttemptDone, finishAttemptFailed, discardAttempt } from "@/lib/billing/attempts";
 import { reportExpiresAtIso, notExpiredFilter } from "@/lib/billing/report-ttl";
 import {
@@ -143,6 +143,7 @@ export async function POST(req: NextRequest) {
     normalizedScore = Math.min(100, Math.max(0, Math.round(38 + mutual.combinedScore * 6)));
   } catch (e) {
     console.error("premium compatibility engine error:", e);
+    if (access.passId) await refundOneTimePass(access.passId);
     await finishAttemptFailed(started.attemptId, "사주 계산 오류");
     return NextResponse.json({ error: "사주 계산 오류", attemptId: started.attemptId }, { status: 500 });
   }
@@ -201,13 +202,12 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 이용권 사용자는 생성 성공 시점에 소진 (실패 시 이용권 보존)
-    if (access.passId) await consumeOneTimePass(access.passId);
     await finishAttemptDone(started.attemptId);
 
     return NextResponse.json({ report, score: normalizedScore, context, cached: false, id: savedId, pillars });
   } catch (e) {
     console.error("premium compatibility LLM error:", e);
+    if (access.passId) await refundOneTimePass(access.passId);
     await finishAttemptFailed(started.attemptId, "LLM 호출 오류");
     return NextResponse.json({ error: "분석 중 오류가 발생했습니다. 같은 정보로 다시 시도해주세요.", attemptId: started.attemptId }, { status: 500 });
   }

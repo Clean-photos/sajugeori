@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/db/client";
-import { isPremiumUser, findUnusedOneTimePass, consumeOneTimePass, hasUnusedPassForRegenerate } from "@/lib/billing/access";
+import { isPremiumUser, ANY_REPORT_PASS, claimOneTimePass, refundOneTimePass, hasUnusedPassForRegenerate } from "@/lib/billing/access";
 import { startAttempt, finishAttemptDone, finishAttemptFailed } from "@/lib/billing/attempts";
 import { reportExpiresAtIso, notExpiredFilter } from "@/lib/billing/report-ttl";
 import {
@@ -86,9 +86,12 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // 구독자 또는 990원 1회 이용권 보유자만 신규 생성 가능
+  // 구독자 또는 990원 1회 이용권 보유자만 신규 생성 가능.
+  // §레이스 수정(2026-10-02): findUnusedOneTimePass(순수 조회)였던 걸 원자적
+  // 선점(claimOneTimePass)으로 교체 — 동시에 2번 요청해도 한쪽만 선점에 성공해
+  // LLM 비용이 중복 발생하지 않는다(access.ts의 claimOneTimePass 주석 참고).
   const premium = await isPremiumUser(userId);
-  const passId = premium ? null : await findUnusedOneTimePass(userId, SALPURI_ONE.id);
+  const passId = premium ? null : await claimOneTimePass(userId, [SALPURI_ONE.id, ANY_REPORT_PASS]);
   if (!premium && !passId) {
     return NextResponse.json({ error: "premium_required", redirect: "/premium/salpuri" }, { status: 402 });
   }
@@ -178,13 +181,12 @@ ${salSection}`.trim();
       }
     }
 
-    // 이용권 사용자는 생성 성공 시점에 소진 (실패 시 이용권 보존)
-    if (passId) await consumeOneTimePass(passId);
     await finishAttemptDone(started.attemptId);
 
     return NextResponse.json({ report, sal: salList, card, cached: false });
   } catch (e) {
     console.error("premium salpuri LLM error:", e);
+    if (passId) await refundOneTimePass(passId);
     await finishAttemptFailed(started.attemptId, "LLM 호출 오류");
     return NextResponse.json({ error: "분석 중 오류가 발생했습니다. 같은 정보로 다시 시도해주세요.", attemptId: started.attemptId }, { status: 500 });
   }

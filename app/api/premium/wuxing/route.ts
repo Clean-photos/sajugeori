@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/db/client";
-import { checkReportAccess, consumeOneTimePass, hasUnusedPassForRegenerate } from "@/lib/billing/access";
+import { checkReportAccess, refundOneTimePass, hasUnusedPassForRegenerate } from "@/lib/billing/access";
 import { startAttempt, finishAttemptDone, finishAttemptFailed, discardAttempt } from "@/lib/billing/attempts";
 import { reportExpiresAtIso, notExpiredFilter } from "@/lib/billing/report-ttl";
 import {
@@ -152,6 +152,7 @@ export async function POST(req: NextRequest) {
     // 전용이다(예: 이용권 부족). 사주 계산 실패는 실제 생성 시도가 실패한 것이므로
     // finishAttemptFailed로 error_message를 남겨야 사후 조회로 원인 파악이 가능하다.
     console.error("wuxing [사주 계산 실패]:", e);
+    if (passId) await refundOneTimePass(passId);
     await finishAttemptFailed(started.attemptId, "사주 계산 오류");
     return NextResponse.json({ error: "사주 계산 오류" }, { status: 400 });
   }
@@ -161,11 +162,11 @@ export async function POST(req: NextRequest) {
     report = await buildFullReport(chart);
   } catch (e) {
     console.error("wuxing [리포트 조립 실패]:", e);
+    if (passId) await refundOneTimePass(passId);
     await finishAttemptFailed(started.attemptId, e instanceof Error ? e.message : "생성 실패");
     return NextResponse.json({ error: "생성에 실패했습니다. 잠시 후 다시 시도해주세요." }, { status: 500 });
   }
 
-  if (passId) await consumeOneTimePass(passId);
   await finishAttemptDone(started.attemptId);
 
   if (isAdhoc) {

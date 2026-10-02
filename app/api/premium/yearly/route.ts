@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/db/client";
-import { checkReportAccess, consumeOneTimePass, hasUnusedPassForRegenerate } from "@/lib/billing/access";
-import { startAttempt, finishAttemptDone, finishAttemptFailed } from "@/lib/billing/attempts";
+import { isPremiumUser, findUnusedOneTimePass, ANY_REPORT_PASS, claimOneTimePass, refundOneTimePass, hasUnusedPassForRegenerate } from "@/lib/billing/access";
+import { startAttempt, finishAttemptDone, finishAttemptFailed, discardAttempt } from "@/lib/billing/attempts";
 import { reportExpiresAtIso, notExpiredFilter } from "@/lib/billing/report-ttl";
 import {
   parseTargetBody, resolveTarget, readAdhocCache, writeAdhocCache,
@@ -26,9 +26,17 @@ export async function POST(req: NextRequest) {
   }
   const userId = session.user.id;
 
-  // 구독자 또는 990원 단건 이용권 보유자만 통과. 이용권은 생성 성공 후 소진한다.
-  const access = await checkReportAccess(userId, "yearly_one");
-  if (!access.allowed) {
+  // 구독자 또는 990원 단건 이용권 보유자만 통과.
+  //
+  // §순서 주의(2026-10-02): 아래 hasUnusedPassForRegenerate(캐시 건너뛰기 판단)보다
+  // 먼저 실행돼야 하는데, 여기서 이용권을 바로 선점(claim)해버리면 그 판단이
+  // "방금 선점돼 사라진" 이용권을 못 보고 캐시로 돌려보내 프로모션 이용권 기능이
+  // 깨진다. 그래서 여기는 순수 조회(findUnusedOneTimePass)만 하고, 실제 선점은
+  // 캐시를 다 확인한 뒤 생성 직전에 claimOneTimePass로 한다(레이스 수정 핵심은
+  // "선점"이 아니라 "생성 비용을 쓰기 직전에 원자적으로 확정"하는 것).
+  const premium = await isPremiumUser(userId);
+  const hasPass = premium ? true : (await findUnusedOneTimePass(userId, "yearly_one")) !== null;
+  if (!hasPass) {
     return NextResponse.json({ error: "premium_required", redirect: "/premium/buy?product=yearly_one" }, { status: 402 });
   }
 
@@ -63,9 +71,10 @@ export async function POST(req: NextRequest) {
   // 캐시 조회 (테이블 없으면 조용히 무시).
   //
   // 2026-09-22(CEO 지시, 프로모션 이용권 배포): 단, 지금 쓸 수 있는 미사용 이용권이
-  // 있으면 캐시를 건너뛰고 새로 생성한다 — 위에서 access.allowed로 이미 통과했더라도
-  // 캐시가 먼저 걸리면 consumeOneTimePass(109행)까지 절대 못 가 그 이용권이 영영
-  // 안 쓰인다. 유일한 우회가 "결과 삭제하기"뿐이었다. 구독자는 대상이 아니다.
+  // 있으면 캐시를 건너뛰고 새로 생성한다 — 위에서 hasPass로 이미 통과했더라도
+  // 캐시가 먼저 걸리면 생성 자체를 안 해 그 이용권이 영영 안 쓰인다(아래에서
+  // 실제 선점·소진은 생성 직전에만 한다). 유일한 우회가 "결과 삭제하기"뿐이었다.
+  // 구독자는 대상이 아니다.
   const skipCacheForPass = await hasUnusedPassForRegenerate(userId, PRODUCT_ID);
   if (!skipCacheForPass) {
     if (isAdhoc) {
@@ -91,6 +100,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: started.error, busy: started.busy ?? false }, { status: started.status });
   }
 
+  // §레이스 수정(2026-10-02): 여기서, 즉 실제로 LLM을 호출하기 직전에만 이용권을
+  // 원자적으로 선점한다 — 위쪽의 hasPass는 순수 조회였으므로 동시에 2번 요청하면
+  // 둘 다 통과했지만, 이 선점은 한쪽만 성공한다(claimOneTimePass 주석 참고).
+  let passId: string | null = null;
+  if (!premium) {
+    passId = await claimOneTimePass(userId, [PRODUCT_ID, ANY_REPORT_PASS]);
+    if (!passId) {
+      await discardAttempt(started.attemptId);
+      return NextResponse.json({ error: "premium_required", redirect: "/premium/buy?product=yearly_one" }, { status: 402 });
+    }
+  }
+
   try {
     const report = await generateYearlyReport(yr, year, chart);
 
@@ -113,13 +134,12 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 이용권 사용자는 생성 성공 시점에 소진 (실패 시 이용권 보존)
-    if (access.passId) await consumeOneTimePass(access.passId);
     await finishAttemptDone(started.attemptId);
 
     return NextResponse.json({ report, year, card, cached: false });
   } catch (e) {
     console.error("premium yearly LLM error:", e);
+    if (passId) await refundOneTimePass(passId);
     await finishAttemptFailed(started.attemptId, "LLM 호출 오류");
     return NextResponse.json({ error: "분석 중 오류가 발생했습니다. 같은 정보로 다시 시도해주세요.", attemptId: started.attemptId }, { status: 500 });
   }

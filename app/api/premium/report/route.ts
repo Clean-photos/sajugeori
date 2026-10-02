@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/db/client";
-import { checkReportAccess, consumeOneTimePass, hasUnusedPassForRegenerate } from "@/lib/billing/access";
+import { checkReportAccess, refundOneTimePass, hasUnusedPassForRegenerate } from "@/lib/billing/access";
 import { startAttempt, finishAttemptDone, finishAttemptFailed, discardAttempt } from "@/lib/billing/attempts";
 import { reportExpiresAtIso, notExpiredFilter } from "@/lib/billing/report-ttl";
 import { generateReport } from "@/lib/premium/saju-generate";
@@ -71,10 +71,10 @@ export async function GET(req: NextRequest) {
 
   const report = await generateReport(j, profile.birth_date);
   if (!report) {
+    if (passId) await refundOneTimePass(passId);
     await finishAttemptFailed(started.attemptId, "빈 응답");
     return NextResponse.json({ error: "생성에 실패했습니다. 잠시 후 다시 시도해주세요." }, { status: 500 });
   }
-  if (passId) await consumeOneTimePass(passId);
   await finishAttemptDone(started.attemptId);
 
   // 캐시 저장 (테이블 없으면 무시)
@@ -175,10 +175,10 @@ export async function POST(req: NextRequest) {
 
   const report = await generateReport(j, birthDate);
   if (!report) {
+    if (passId) await refundOneTimePass(passId);
     await finishAttemptFailed(started.attemptId, "빈 응답");
     return NextResponse.json({ error: "생성에 실패했습니다. 잠시 후 다시 시도해주세요." }, { status: 500 });
   }
-  if (passId) await consumeOneTimePass(passId);
   await finishAttemptDone(started.attemptId);
 
   if (existingProfile?.id) {

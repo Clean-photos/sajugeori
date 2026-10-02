@@ -97,10 +97,15 @@ export async function findUnusedDestinyPass(userId: string): Promise<string | nu
   }
 }
 
-/** 운명 설계도 열람 권한 확인. 구독자는 무료, 아니면 미사용 이용권(직구매 또는 업그레이드)이 있어야 한다. */
+/**
+ * 운명 설계도 열람 권한 확인 + 이용권 선점. 구독자는 무료, 아니면 미사용
+ * 이용권(직구매 또는 업그레이드)을 그 자리에서 선점한다 — checkReportAccess와
+ * 같은 레이스 수정(claimOneTimePass 주석 참고). ANY_REPORT_PASS 폴백은 쓰지
+ * 않는다(findUnusedDestinyPass와 동일 이유 — 묶음권은 990원 상품 전용).
+ */
 export async function checkDestinyAccess(userId: string): Promise<{ allowed: boolean; passId: string | null }> {
   if (await isPremiumUser(userId)) return { allowed: true, passId: null };
-  const passId = await findUnusedDestinyPass(userId);
+  const passId = await claimOneTimePass(userId, [DESTINY_BLUEPRINT_ONE.id, DESTINY_UPGRADE.id]);
   return { allowed: passId !== null, passId };
 }
 
@@ -207,22 +212,82 @@ export async function purchasedProductIds(userId: string): Promise<Set<string>> 
 }
 
 /**
- * 리포트 열람 권한 확인.
+ * 미사용 이용권 하나를 그 자리에서 원자적으로 선점한다(SELECT 따로, UPDATE 따로
+ * 하던 findUnusedOneTimePass와 달리 "찾는 동시에 표시"까지 한 번에 끝낸다).
  *
- * 구독자면 이용권을 쓰지 않고 통과시키고, 아니면 단건 이용권을 찾는다.
- * 반환된 passId는 리포트 생성이 성공한 뒤 consumeOneTimePass로 소진해야 한다.
- * 생성 전에 소진하면 실패했을 때 이용권만 날아간다.
+ * §레이스(2026-07-19 발견, 2026-10-02 수정): 예전엔 생성 "성공 후"에 소진해서,
+ * 같은 이용권으로 동시에 2번 요청하면 둘 다 "미사용"을 보고 통과해 LLM 비용이
+ * 중복 발생했다(findUnusedOneTimePass의 SELECT와 consumeOneTimePass의 UPDATE
+ * 사이에 틈이 있었음). 이 함수는 그 틈을 없앤다 — 후보를 찾은 즉시 조건부
+ * UPDATE(.is("used_at", null))로 선점을 시도하고, 다른 요청이 먼저 가져갔으면
+ * (영향받은 행 0개) 같은 product_id 안에서 다음 후보로 재시도한다.
+ *
+ * findUnusedOneTimePass 자체는 건드리지 않는다 — 여러 화면이 "이용권이 있나?"만
+ * 가볍게 물어볼 때 쓰는 순수 조회라(_PremiumGate, premium/page.tsx, destiny/page.tsx,
+ * payments/prepare 등), 그 함수를 선점형으로 바꾸면 조회만 했는데 이용권이 소진되는
+ * 훨씬 심각한 버그가 된다. 실제로 "쓰겠다"고 확정하는 지점(checkReportAccess·
+ * checkDestinyAccess)에서만 이 선점 함수를 쓴다.
+ *
+ * export하는 이유: app/api/premium/yearly/route.ts는 checkReportAccess를 캐시
+ * 건너뛰기 판단(hasUnusedPassForRegenerate)보다 먼저 호출하는 구조라, checkReportAccess
+ * 안에서 바로 선점해버리면 그 직후의 hasUnusedPassForRegenerate가 "이미 선점돼
+ * 방금 없어진" 이용권을 못 보고 캐시로 새 버전을 건너뛰어야 할 요청을 캐시로
+ * 돌려보낸다(프로모션 이용권 기능 자체가 깨짐). 그 라우트는 이 함수를 직접 가져다
+ * "생성 직전"에만 선점하도록 순서를 조정해 쓴다.
+ */
+export async function claimOneTimePass(userId: string, productIds: string[]): Promise<string | null> {
+  for (const pid of productIds) {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const { data: candidate } = await supabaseAdmin
+        .from("one_time_purchases")
+        .select("id")
+        .eq("user_id", userId).eq("product_id", pid).eq("status", "paid")
+        .is("used_at", null)
+        .order("created_at", { ascending: true })
+        .limit(1).maybeSingle();
+      if (!candidate?.id) break; // 이 product_id엔 더 없음 — 다음 product_id로
+      const { data: claimed } = await supabaseAdmin
+        .from("one_time_purchases")
+        .update({ used_at: new Date().toISOString() })
+        .eq("id", candidate.id).is("used_at", null)
+        .select("id").maybeSingle();
+      if (claimed?.id) return claimed.id;
+      // 동시 요청이 먼저 가져갔다 — 같은 product_id 안에서 다음 후보로 재시도
+    }
+  }
+  return null;
+}
+
+/**
+ * 리포트 열람 권한 확인 + 이용권 선점.
+ *
+ * 구독자면 이용권을 쓰지 않고 통과시키고, 아니면 단건 이용권을 그 자리에서
+ * 선점한다(claimOneTimePass). 생성이 실패하면 호출부가 refundOneTimePass로
+ * 되돌려야 한다 — 성공 후 별도로 consumeOneTimePass를 또 부를 필요는 없다
+ * (이미 선점 시점에 소진 처리됨).
  */
 export async function checkReportAccess(
   userId: string,
   productId: string
 ): Promise<{ allowed: boolean; passId: string | null }> {
   if (await isPremiumUser(userId)) return { allowed: true, passId: null };
-  const passId = await findUnusedOneTimePass(userId, productId);
+  const passId = await claimOneTimePass(userId, [productId, ANY_REPORT_PASS]);
   return { allowed: passId !== null, passId };
 }
 
-/** 단건 이용권 소진 처리. 리포트 생성이 성공한 뒤에만 호출할 것. */
+/** 생성이 실패했을 때 선점했던 이용권을 되돌린다(claimOneTimePass와 짝). */
+export async function refundOneTimePass(passId: string): Promise<void> {
+  await supabaseAdmin
+    .from("one_time_purchases")
+    .update({ used_at: null })
+    .eq("id", passId);
+}
+
+/**
+ * @deprecated claimOneTimePass가 선점 시점에 이미 소진 처리한다. 과거 코드와의
+ * 호환을 위해 남겨 두되, 이미 소진된(used_at not null) 행에는 조건부 UPDATE가
+ * 아무 영향을 주지 않으므로 호출해도 안전하게 아무 일도 안 일어난다.
+ */
 export async function consumeOneTimePass(passId: string): Promise<void> {
   await supabaseAdmin
     .from("one_time_purchases")
