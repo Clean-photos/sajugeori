@@ -3,6 +3,8 @@ import { z } from "zod";
 import { randomBytes } from "crypto";
 import { supabaseAdmin } from "@/lib/db/client";
 import { hashPassword } from "@/lib/auth/password";
+import { consume, clientIp, siteOrigin, LIMITS } from "@/lib/security/rate-limit";
+import { SITE_URL } from "@/lib/site";
 import { sendEmail } from "@/lib/email/resend";
 
 const VERIFY_TTL_MS = 24 * 60 * 60 * 1000; // 24시간
@@ -19,6 +21,9 @@ const SignupSchema = z.object({
 });
 
 export async function POST(req: NextRequest) {
+  if (!(await consume("signup_ip", clientIp(req), LIMITS.signupIp))) {
+    return NextResponse.json({ error: "잠시 후 다시 시도해주세요." }, { status: 429 });
+  }
   const body = await req.json();
   const parsed = SignupSchema.safeParse(body);
 
@@ -48,7 +53,7 @@ export async function POST(req: NextRequest) {
       oauth_sub: email,
       email,
       display_name: nickname,
-      password_hash: hashPassword(password),
+      password_hash: await hashPassword(password),
     })
     .select("id, email, display_name")
     .single();
@@ -64,7 +69,7 @@ export async function POST(req: NextRequest) {
     const token = randomBytes(32).toString("hex");
     const expiresAt = new Date(Date.now() + VERIFY_TTL_MS).toISOString();
     await supabaseAdmin.from("email_verification_tokens").insert({ token, user_id: user.id, expires_at: expiresAt });
-    const verifyUrl = `${req.nextUrl.origin}/api/auth/verify-email?token=${token}`;
+    const verifyUrl = `${siteOrigin(req.nextUrl.origin, SITE_URL)}/api/auth/verify-email?token=${token}`;
     await sendEmail({
       to: email,
       subject: "[사주거리] 이메일 인증",

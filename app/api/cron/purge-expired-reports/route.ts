@@ -53,5 +53,17 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  // 2026-10-04: 쌓이기만 하던 보조 테이블 정리 — 요청 제한 기록(2일)·광고 토큰(7일).
+  const cutoff = (days: number) => new Date(Date.now() - days * 86400000).toISOString();
+  for (const [table, days] of [["rate_limit_events", 2], ["ad_tokens", 7]] as const) {
+    try {
+      const { count, error } = await supabaseAdmin
+        .from(table).delete({ count: "exact" }).lte("created_at", cutoff(days));
+      results[table] = error ? `error: ${error.message}` : count ?? 0;
+    } catch (e) {
+      results[table] = `exception: ${e instanceof Error ? e.message : String(e)}`;
+    }
+  }
+
   return NextResponse.json({ ok: true, purged: results, at: nowIso });
 }

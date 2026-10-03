@@ -3,10 +3,15 @@ import Google from "next-auth/providers/google";
 import Kakao from "next-auth/providers/kakao";
 import Credentials from "next-auth/providers/credentials";
 import { supabaseAdmin } from "@/lib/db/client";
-import { hashPassword } from "@/lib/auth/password";
+import { hashPassword, verifyPassword } from "@/lib/auth/password";
+import { isLimited, recordHit, clientIp, LIMITS } from "@/lib/security/rate-limit";
 
 class InvalidCredentials extends CredentialsSignin {
   code = "invalid_credentials";
+}
+
+class TooManyAttempts extends CredentialsSignin {
+  code = "too_many_attempts";
 }
 
 export const { handlers: { GET, POST }, auth, signIn, signOut } = NextAuth({
@@ -34,8 +39,19 @@ export const { handlers: { GET, POST }, auth, signIn, signOut } = NextAuth({
         email: { label: "이메일", type: "email" },
         password: { label: "비밀번호", type: "password" },
       },
-      async authorize(credentials) {
+      async authorize(credentials, request) {
         if (!credentials?.email || !credentials?.password) return null;
+
+        // 무차별 대입 방어(2026-10-04): 이메일·IP별 "실패" 횟수만 센다. 한도를 넘으면
+        // 비밀번호가 맞아도 잠시 막는다(계정 잠금이 아니라 시간당 시도 제한).
+        const email = String(credentials.email).toLowerCase();
+        const ip = clientIp(request);
+        if (
+          (await isLimited("login_fail_email", email, LIMITS.loginFailEmail)) ||
+          (await isLimited("login_fail_ip", ip, LIMITS.loginFailIp))
+        ) {
+          throw new TooManyAttempts();
+        }
 
         const { data: user } = await supabaseAdmin
           .from("users")
@@ -44,10 +60,23 @@ export const { handlers: { GET, POST }, auth, signIn, signOut } = NextAuth({
           .eq("oauth_provider", "email")
           .single();
 
-        if (!user) throw new InvalidCredentials();
+        const result = await verifyPassword(credentials.password as string, user?.password_hash);
+        if (!user || !result.ok) {
+          await Promise.all([recordHit("login_fail_email", email), recordHit("login_fail_ip", ip)]);
+          throw new InvalidCredentials();
+        }
 
-        const hash = hashPassword(credentials.password as string);
-        if (hash !== user.password_hash) throw new InvalidCredentials();
+        // 옛 해시(SHA-256)로 로그인했으면 지금 새 형식으로 바꿔 저장한다(점진 이전).
+        if (result.needsRehash) {
+          try {
+            const { error: rehashErr } = await supabaseAdmin.from("users")
+              .update({ password_hash: await hashPassword(credentials.password as string) })
+              .eq("id", user.id);
+            if (rehashErr) console.error("password rehash 실패(로그인은 계속):", rehashErr.message);
+          } catch (e) {
+            console.error("password rehash 실패(로그인은 계속):", e);
+          }
+        }
 
         return {
           id: user.id,

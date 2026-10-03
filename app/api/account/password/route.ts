@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/db/client";
-import { hashPassword } from "@/lib/auth/password";
+import { hashPassword, verifyPassword } from "@/lib/auth/password";
+import { isLimited, recordHit, LIMITS } from "@/lib/security/rate-limit";
 
 const Schema = z.object({
   currentPassword: z.string().min(1, "현재 비밀번호를 입력해주세요"),
@@ -37,12 +38,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "이메일로 가입한 계정만 비밀번호를 변경할 수 있어요." }, { status: 403 });
   }
 
-  if (hashPassword(currentPassword) !== user.password_hash) {
+  if (await isLimited("change_pw_fail", userId, LIMITS.changePwFailUser)) {
+    return NextResponse.json({ error: "시도가 너무 많아요. 잠시 후 다시 시도해주세요." }, { status: 429 });
+  }
+  if (!(await verifyPassword(currentPassword, user.password_hash)).ok) {
+    await recordHit("change_pw_fail", userId);
     return NextResponse.json({ error: "현재 비밀번호가 일치하지 않습니다." }, { status: 400 });
   }
 
   const { error } = await supabaseAdmin
-    .from("users").update({ password_hash: hashPassword(newPassword) })
+    .from("users").update({ password_hash: await hashPassword(newPassword) })
     .eq("id", userId);
 
   if (error) {

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdRewardProvider } from "@/lib/ads";
+import { freeCapReached, recordFreeLlm } from "@/lib/security/rate-limit";
 import { buildChart } from "@/lib/saju-engine";
 import { pairAnalysis } from "@/lib/saju-engine";
 import { wrapStreamError } from "@/lib/report-stream-error";
@@ -11,8 +12,13 @@ export async function POST(req: NextRequest) {
   if (!ad_token) return NextResponse.json({ error: "ad_token required" }, { status: 400 });
 
   const ip = req.headers.get("x-forwarded-for") ?? "unknown";
+  // 무료 AI 하루 전체 상한(비용 안전장치, 2026-10-04) — 토큰을 소비하기 전에 확인한다.
+  if (await freeCapReached()) {
+    return NextResponse.json({ error: "오늘 무료 이용량이 모두 소진되었어요. 내일 다시 이용해 주세요." }, { status: 429 });
+  }
   const valid = await getAdRewardProvider().verify(ad_token, ip);
   if (!valid) return NextResponse.json({ error: "Invalid ad token" }, { status: 403 });
+  await recordFreeLlm();
 
   const contextLabel: Record<string, string> = { romance: "연애·결혼", work: "직장·비즈니스", friend: "친구·지인" };
 

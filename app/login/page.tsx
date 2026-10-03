@@ -64,7 +64,12 @@ function LoginInner() {
     });
     setLoading(false);
     if (result?.error) {
-      setError("이메일 또는 비밀번호가 올바르지 않습니다.");
+      const code = (result as { code?: string }).code;
+      setError(
+        code === "too_many_attempts"
+          ? "로그인 시도가 너무 많아요. 15분 뒤에 다시 시도해주세요."
+          : "이메일 또는 비밀번호가 올바르지 않습니다."
+      );
     } else {
       router.push(callbackUrl);
     }

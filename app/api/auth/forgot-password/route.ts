@@ -3,6 +3,8 @@ import { z } from "zod";
 import { randomBytes } from "crypto";
 import { supabaseAdmin } from "@/lib/db/client";
 import { sendEmail } from "@/lib/email/resend";
+import { consume, clientIp, siteOrigin, LIMITS } from "@/lib/security/rate-limit";
+import { SITE_URL } from "@/lib/site";
 
 const Schema = z.object({ email: z.string().email() });
 
@@ -22,6 +24,11 @@ export async function POST(req: NextRequest) {
     message: "가입된 이메일이라면 재설정 링크를 보내드렸어요.",
   });
 
+  // 메일 폭탄 방어(2026-10-04): 한도를 넘어도 같은 응답을 돌려 존재 여부를 노출하지 않는다.
+  const okIp = await consume("forgot_ip", clientIp(req), LIMITS.forgotIp);
+  const okEmail = okIp && (await consume("forgot_email", email.toLowerCase(), LIMITS.forgotEmail));
+  if (!okIp || !okEmail) return GENERIC_OK;
+
   const { data: user } = await supabaseAdmin
     .from("users")
     .select("id, email, oauth_provider")
@@ -30,7 +37,7 @@ export async function POST(req: NextRequest) {
 
   if (!user) return GENERIC_OK;
 
-  const origin = req.nextUrl.origin;
+  const origin = siteOrigin(req.nextUrl.origin, SITE_URL);
 
   if (user.oauth_provider !== "email") {
     // 소셜 로그인 계정 — 비밀번호가 없으므로 안내 메일만 발송
