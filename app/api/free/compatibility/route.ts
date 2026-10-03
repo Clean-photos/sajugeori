@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdRewardProvider } from "@/lib/ads";
+import { parseFree, BAD_INPUT, freeCompatSchema } from "@/lib/free/validate";
 import { freeCapReached, recordFreeLlm } from "@/lib/security/rate-limit";
 import { buildChart } from "@/lib/saju-engine";
 import { pairAnalysis } from "@/lib/saju-engine";
 import { wrapStreamError } from "@/lib/report-stream-error";
 
 export async function POST(req: NextRequest) {
-  const body = await req.json();
-  const { my_birth, my_gender, other_birth, other_gender, context, ad_token } = body;
-
-  if (!ad_token) return NextResponse.json({ error: "ad_token required" }, { status: 400 });
+  const parsed = parseFree(freeCompatSchema, await req.json().catch(() => null));
+  if (!parsed.ok) return NextResponse.json(BAD_INPUT, { status: 400 });
+  const { my_birth, my_gender, other_birth, other_gender, context, ad_token } = parsed.data;
 
   const ip = req.headers.get("x-forwarded-for") ?? "unknown";
   // 무료 AI 하루 전체 상한(비용 안전장치, 2026-10-04) — 토큰을 소비하기 전에 확인한다.

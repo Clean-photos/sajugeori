@@ -1,6 +1,7 @@
 import { buildYongsinDualTrack, yongsinDualTrackPromptLine } from "@/lib/premium/yongsin-track";
 import type { Element } from "@/lib/saju-engine/constants";
 import { parseJsonLoose } from "@/lib/llm-json-sanitize";
+import { kstYear } from "@/lib/time/kst";
 
 // 프리미엄 사주 풀이 8개 섹션 키 (프리미엄 페이지 SECTIONS와 일치)
 const SECTION_KEYS = [
@@ -92,7 +93,7 @@ export async function generateReport(j: Record<string, unknown>, birthDate?: str
 
   // 현재 나이·현재 대운은 엔진이 이미 정확히 계산해 둔 값(current_phase)을 그대로 쓴다.
   const currentAge = birthDate
-    ? new Date().getFullYear() - parseInt(birthDate.slice(0, 4), 10)
+    ? kstYear() - parseInt(birthDate.slice(0, 4), 10)
     : null;
   const phase = j.current_phase as { age_range?: string } | undefined;
   const currentCycle =
@@ -114,7 +115,7 @@ ${yongsinDualTrackPromptLine(yongsinTrack)}
 개운 장소: ${kaiun || "없음"}
 대운 흐름(전 구간): ${allLuck || "없음"}
 핵심 태그: ${coreTags.map((t) => t.tag).join(", ")}
-현재 연도: ${new Date().getFullYear()}년${currentAge !== null ? ` / 현재 나이: 만 ${currentAge}세` : ""}
+현재 연도: ${kstYear()}년${currentAge !== null ? ` / 현재 나이: 만 ${currentAge}세` : ""}
 현재 대운: ${currentCycle ? fmtCycle(currentCycle) : "정보 없음"}
 다음 대운: ${nextCycle ? fmtCycle(nextCycle) : "정보 없음"}
   `.trim();

@@ -12,6 +12,22 @@ const nextConfig: NextConfig = {
   // 여기서 한 번 고정해 process.env로 주입 — 서버리스 함수의 콜드스타트
   // 시각이 아니라 실제 `next build` 시각이 나가야 배포 단위와 정확히 맞는다.
   env: { BUILD_TIME: new Date().toISOString() },
+  // 2026-10-04 보안 점검: 응답 헤더가 하나도 없었다. 광고(AdSense·Adfit)·결제(Toss)·GA 스크립트를
+  // 깨뜨릴 수 있는 CSP는 제외하고, 부작용 없는 기본 헤더만 건다.
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "X-Frame-Options", value: "SAMEORIGIN" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+          { key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" },
+        ],
+      },
+    ];
+  },
   async rewrites() {
     return [
       {

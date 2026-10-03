@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdRewardProvider } from "@/lib/ads";
+import { kstYear } from "@/lib/time/kst";
+import { parseFree, BAD_INPUT, freeYearlySchema } from "@/lib/free/validate";
 import { freeCapReached, recordFreeLlm } from "@/lib/security/rate-limit";
 import { runSajuEngine } from "@/lib/saju-engine";
 import { wrapStreamError } from "@/lib/report-stream-error";
 
 export async function POST(req: NextRequest) {
-  const body = await req.json();
-  const { birth_date, gender, year, ad_token } = body;
-
-  if (!ad_token) return NextResponse.json({ error: "ad_token required" }, { status: 400 });
+  const parsed = parseFree(freeYearlySchema, await req.json().catch(() => null));
+  if (!parsed.ok) return NextResponse.json(BAD_INPUT, { status: 400 });
+  const { birth_date, gender, year, ad_token } = parsed.data;
 
   const ip = req.headers.get("x-forwarded-for") ?? "unknown";
   // 무료 AI 하루 전체 상한(비용 안전장치, 2026-10-04) — 토큰을 소비하기 전에 확인한다.
@@ -23,7 +24,7 @@ export async function POST(req: NextRequest) {
   try {
     const result = runSajuEngine({ birth_date: birth_date ?? "1990-01-01", birth_time: null, calendar: "solar", gender: gender ?? "M" });
     const j = result.saju_json;
-    const targetYear = parseInt(year ?? new Date().getFullYear());
+    const targetYear = year ?? kstYear();
     const birthYear = parseInt((birth_date ?? "1990-01-01").slice(0, 4));
     const age = targetYear - birthYear;
 

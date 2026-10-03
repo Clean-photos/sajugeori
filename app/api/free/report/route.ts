@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdRewardProvider } from "@/lib/ads";
+import { kstYear } from "@/lib/time/kst";
+import { parseFree, BAD_INPUT, freeReportSchema } from "@/lib/free/validate";
 import { freeCapReached, recordFreeLlm } from "@/lib/security/rate-limit";
 import { runSajuEngine, checkSamjae } from "@/lib/saju-engine";
 import { PHASE_MEANING } from "@/lib/saju-engine/samjae";
@@ -7,10 +9,9 @@ import { wrapStreamError } from "@/lib/report-stream-error";
 import { buildFreeSajuCard } from "@/lib/free/free-saju-card";
 
 export async function POST(req: NextRequest) {
-  const body = await req.json();
-  const { ad_token, extra } = body;
-
-  if (!ad_token) return NextResponse.json({ error: "ad_token required" }, { status: 400 });
+  const parsed = parseFree(freeReportSchema, await req.json().catch(() => null));
+  if (!parsed.ok) return NextResponse.json(BAD_INPUT, { status: 400 });
+  const { ad_token, extra } = parsed.data;
 
   const ip = req.headers.get("x-forwarded-for") ?? "unknown";
   // 무료 AI 하루 전체 상한(비용 안전장치, 2026-10-04) — 토큰을 소비하기 전에 확인한다.
@@ -21,7 +22,7 @@ export async function POST(req: NextRequest) {
   if (!valid) return NextResponse.json({ error: "Invalid or used ad token" }, { status: 403 });
   await recordFreeLlm();
 
-  const nowYear = new Date().getFullYear();
+  const nowYear = kstYear();
   let engineSummary = "";
   let samjaeSection = ""; // 삼재인 해에만 채워지고, 아니면 프롬프트에서 통째로 빠진다.
   // §B-6(CoS 실물 확인, 2026-09-23): 무료 결과에 명식 8글자·오행 분포·신살 목록이

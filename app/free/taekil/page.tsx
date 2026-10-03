@@ -11,6 +11,7 @@ import { WaitingCards } from "@/components/premium/WaitingCards";
 import { CalendarField } from "../CalendarField";
 import { fetchFreeReport } from "../fetchFreeReport";
 import { toSolar, type CalendarKind } from "@/lib/calendar/convert";
+import { localDateStr } from "@/lib/time/kst";
 
 type Step = "form" | "ad" | "loading" | "result";
 
@@ -25,8 +26,8 @@ const PURPOSE_OPTIONS = [
 
 function nextMonthRange() {
   const now = new Date();
-  const from = now.toISOString().split("T")[0];
-  const to = new Date(now.getFullYear(), now.getMonth() + 3, 0).toISOString().split("T")[0];
+  const from = localDateStr(now);
+  const to = localDateStr(new Date(now.getFullYear(), now.getMonth() + 3, 0));
   return { from, to };
 }
 

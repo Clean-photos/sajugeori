@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/db/client";
+import { consume, LIMITS } from "@/lib/security/rate-limit";
 
 const CATEGORIES = ["general", "bug", "payment", "account", "suggestion"];
 
@@ -31,7 +32,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "login_required" }, { status: 401 });
   }
 
-  const body = await req.json();
+  if (!(await consume("inquiry_user", session.user.id, ...LIMITS.inquiryUser))) {
+    return NextResponse.json({ error: "문의를 너무 많이 보내셨어요. 잠시 후 다시 시도해주세요." }, { status: 429 });
+  }
+
+  const body = await req.json().catch(() => ({}));
   const category = CATEGORIES.includes(body.category) ? body.category : "general";
   const subject = (body.subject ?? "").toString().trim().slice(0, 100);
   const message = (body.message ?? "").toString().trim().slice(0, 2000);

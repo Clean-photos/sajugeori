@@ -13,6 +13,7 @@ import type { Element, Stem, Branch } from "@/lib/saju-engine/constants";
 import { calcYearPillar } from "@/lib/saju-engine/engine";
 import type { SajuChart } from "@/lib/saju-engine/engine";
 import type { Classification } from "./classify";
+import { kstYear } from "@/lib/time/kst";
 
 /** 세운 1년치 — 그 해에 들어오는 기운만 담는다. 길흉·사건 판단 없음 */
 export interface SeunYear {
@@ -99,7 +100,7 @@ function toSeunDaewoon(d: {
 export function buildSeunPlan(
   chart: SajuChart,
   cls: Classification,
-  fromYear: number = new Date().getFullYear()
+  fromYear: number = kstYear()
 ): SeunPlan {
   const birthYear = new Date(chart.birth_iso).getFullYear();
   const primary = cls.primary;

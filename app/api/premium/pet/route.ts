@@ -11,6 +11,7 @@ import {
 import { buildChart, petCompatibility, PET_DEFAULT_MONTH, PET_FLOW_HINT, PET_BRANCH_HINT } from "@/lib/saju-engine";
 import type { PetSpecies } from "@/lib/saju-engine";
 import { generatePetReport } from "@/lib/premium/pet-generate";
+import { kstYear } from "@/lib/time/kst";
 
 // 펫 리포트 생성이 병렬 5콜로 나뉘어 있어도(lib/premium/pet-generate.ts 참고)
 // 전체 요청 처리 시간은 Vercel Hobby 플랜의 60초 제한 안에 들어와야 한다.
@@ -52,7 +53,7 @@ export async function POST(req: NextRequest) {
   const petMonth = parseInt(String(input.petMonth)) || PET_DEFAULT_MONTH;
   const petDay = input.petDay ? parseInt(String(input.petDay)) : null;
   const petName = String(input.petName ?? "").slice(0, 20).trim() || "아이";
-  if (!petYear || petYear < 1980 || petYear > new Date().getFullYear()) {
+  if (!petYear || petYear < 1980 || petYear > kstYear()) {
     await discardAttempt(started.attemptId);
     return NextResponse.json({ error: "반려동물 출생 연도를 확인해주세요." }, { status: 400 });
   }

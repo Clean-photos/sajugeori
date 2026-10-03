@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/db/client";
 import { REPORT_PRODUCTS, DESTINY_BLUEPRINT_ONE } from "@/lib/billing/plans";
+import { isLimited, recordHit, clientIp, LIMITS } from "@/lib/security/rate-limit";
 
 const REASON_MESSAGE: Record<string, string> = {
   not_found: "존재하지 않는 쿠폰 코드입니다.",
@@ -19,6 +20,15 @@ export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: "login_required" }, { status: 401 });
+  }
+
+  // 코드 추측(무차별 대입) 방어(2026-10-04): 실패한 시도만 사용자·IP별로 센다.
+  const ip = clientIp(req);
+  if (
+    (await isLimited("coupon_fail_user", session.user.id, LIMITS.couponFailUser)) ||
+    (await isLimited("coupon_fail_ip", ip, LIMITS.couponFailIp))
+  ) {
+    return NextResponse.json({ error: "시도가 너무 많아요. 잠시 후 다시 시도해주세요." }, { status: 429 });
   }
 
   const body = await req.json().catch(() => ({}));
@@ -50,6 +60,9 @@ export async function POST(req: NextRequest) {
   const result = data as { ok?: boolean; reason?: string } | null;
   if (!result?.ok) {
     const reason = result?.reason ?? "not_found";
+    if (reason === "not_found") {
+      await Promise.all([recordHit("coupon_fail_user", session.user.id), recordHit("coupon_fail_ip", ip)]);
+    }
     return NextResponse.json({ error: REASON_MESSAGE[reason] ?? "사용할 수 없는 쿠폰입니다." }, { status: 400 });
   }
 

@@ -5,6 +5,7 @@ import { buildSystemPrompt } from "@/lib/character-ai/buildContext";
 import { extractAndMergeMemory } from "@/lib/character-ai/extractMemory";
 import { buildChart, toSajuCompact } from "@/lib/saju-engine";
 import { pairAnalysis } from "@/lib/saju-engine";
+const CHAT_MESSAGE_MAX_CHARS = 1000;
 import { isPremiumUser, countUserChatMessages, currentMonthStartKstIso, FREE_CHAT_MESSAGE_LIMIT, PREMIUM_MONTHLY_CHAT_LIMIT } from "@/lib/billing/access";
 import type { UserMemory } from "@/types/saju";
 
@@ -158,9 +159,14 @@ export async function POST(
   { params }: { params: Promise<{ characterId: string }> }
 ) {
   const { characterId } = await params;
-  const { message } = await req.json();
+  const raw = await req.json().catch(() => null);
+  const message = typeof raw?.message === "string" ? raw.message.trim() : "";
 
   if (!message) return NextResponse.json({ error: "message required" }, { status: 400 });
+  // 2026-10-04 점검: 길이 제한이 없어 한 번에 거대한 입력을 보내 토큰 비용을 키울 수 있었다.
+  if (message.length > CHAT_MESSAGE_MAX_CHARS) {
+    return NextResponse.json({ error: "message_too_long", message: `한 번에 ${CHAT_MESSAGE_MAX_CHARS}자까지 보낼 수 있어요.` }, { status: 400 });
+  }
 
   const characterPrompt = CHARACTER_PROMPTS[characterId];
   if (!characterPrompt) return NextResponse.json({ error: "Unknown character" }, { status: 404 });

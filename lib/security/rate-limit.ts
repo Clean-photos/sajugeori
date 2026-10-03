@@ -65,6 +65,12 @@ export const LIMITS = {
   forgotEmail: { limit: 3, windowSec: 3600 } as Window,
   forgotIp: { limit: 15, windowSec: 3600 } as Window,
   resetIp: { limit: 20, windowSec: 3600 } as Window,
+  couponFailUser: { limit: 10, windowSec: 3600 } as Window,
+  couponFailIp: { limit: 40, windowSec: 3600 } as Window,
+  inquiryUser: [
+    { limit: 3, windowSec: 600 },
+    { limit: 15, windowSec: 86400 },
+  ] as Window[],
   changePwFailUser: { limit: 5, windowSec: 900 } as Window,
 };
 

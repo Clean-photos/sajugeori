@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdRewardProvider } from "@/lib/ads";
+import { kstNow } from "@/lib/time/kst";
+import { parseFree, BAD_INPUT, freeTaekilSchema } from "@/lib/free/validate";
 import { freeCapReached, recordFreeLlm } from "@/lib/security/rate-limit";
 import { runSajuEngine, buildChart, rankDates } from "@/lib/saju-engine";
 import type { TaekilPurpose } from "@/lib/saju-engine";
@@ -11,10 +13,9 @@ const PURPOSE_LABEL: Record<string, string> = {
 };
 
 export async function POST(req: NextRequest) {
-  const body = await req.json();
-  const { birth_date, gender, purpose, range_from, range_to, ad_token } = body;
-
-  if (!ad_token) return NextResponse.json({ error: "ad_token required" }, { status: 400 });
+  const parsed = parseFree(freeTaekilSchema, await req.json().catch(() => null));
+  if (!parsed.ok) return NextResponse.json(BAD_INPUT, { status: 400 });
+  const { birth_date, gender, purpose, range_from, range_to, ad_token } = parsed.data;
 
   const ip = req.headers.get("x-forwarded-for") ?? "unknown";
   // 무료 AI 하루 전체 상한(비용 안전장치, 2026-10-04) — 토큰을 소비하기 전에 확인한다.
@@ -38,8 +39,8 @@ export async function POST(req: NextRequest) {
     // 지어냈다(5개 중 4개 오류, 그중 하나는 기신과 합을 이루는 날을 좋은 날로
     // 추천). 프리미엄 택일과 같은 엔진(rankDates)으로 실제 일진을 계산해 넘기고,
     // 모델은 그 날짜에 대한 설명만 쓰게 한다 — 날짜·간지 자체는 모델이 못 짓는다.
-    const from: string = typeof range_from === "string" && range_from ? range_from : new Date().toISOString().slice(0, 10);
-    const to: string = typeof range_to === "string" && range_to ? range_to : new Date(Date.now() + 90 * 86400000).toISOString().slice(0, 10);
+    const from: string = typeof range_from === "string" && range_from ? range_from : kstNow().toISOString().slice(0, 10);
+    const to: string = typeof range_to === "string" && range_to ? range_to : kstNow(Date.now() + 90 * 86400000).toISOString().slice(0, 10);
     const chart = buildChart(`${birthDate}T00:00:00`, genderVal, false);
     const ranked = rankDates(chart, from, to, (purpose as TaekilPurpose) ?? "other");
     const bestLines = ranked.best.slice(0, 3)

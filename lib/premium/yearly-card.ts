@@ -9,6 +9,7 @@
  * 순수 함수 — scoreYear()의 결과(YearlyResult)만 읽고 계산 엔진은 건드리지 않는다.
  */
 import type { YearlyResult } from "@/lib/saju-engine/yearly";
+import { kstYear, kstMonth } from "@/lib/time/kst";
 
 export type MonthTier = "good" | "neutral" | "caution";
 
@@ -88,7 +89,7 @@ export function buildYearlyCard(result: YearlyResult, now: Date = new Date()): Y
     ratio: span > 0 ? (m.score - lo) / span : 0.5,
   }));
 
-  const currentMonth = result.year === now.getFullYear() ? now.getMonth() + 1 : 1;
+  const currentMonth = result.year === kstYear(now.getTime()) ? kstMonth(now.getTime()) : 1;
   const upcoming = result.months.filter((m) => m.month >= currentMonth);
   // 조회 연도의 남은 달이 없으면(예: 12월에 올해 카드) 과거 조언만 남기느니 전체 12개월로 되돌린다.
   const pool = upcoming.length > 0 ? upcoming : result.months;
@@ -107,7 +108,7 @@ export function buildYearlyCard(result: YearlyResult, now: Date = new Date()): Y
     const benefit = extractBenefit(best.note);
     // §3-5③(CoS 재검증, CEO 결정 2026-09-26): "3월은 …의 해입니다"는 한 달의 근거가 연 전체
     // 결론처럼 읽혀 어색했다 — 엔진이 쓴 근거 문구는 그대로 두고 연 단위 프레임만 앞에 붙인다.
-    const yearLabel = result.year === now.getFullYear() ? "올해" : `${result.year}년`;
+    const yearLabel = result.year === kstYear(now.getTime()) ? "올해" : `${result.year}년`;
     if (benefit) verdict = `${yearLabel} 가장 좋은 달은 ${best.month}월입니다 — ${benefit.replace(/의 해$/, "의 시기")}입니다.`;
   }
 

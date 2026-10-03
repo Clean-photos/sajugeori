@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { supabaseAdmin } from "@/lib/db/client";
 import { fulfillPayment } from "@/lib/billing/fulfill";
+import { fetchTossPayment } from "@/lib/billing/toss";
 
 // Toss 대시보드에 등록한 웹훅의 서명 검증용 시크릿. 웹훅 등록 시 별도로 발급됨(API 시크릿키와 다름).
 const WEBHOOK_SECRET = process.env.TOSS_WEBHOOK_SECRET;
@@ -119,6 +120,21 @@ export async function POST(req: NextRequest) {
 
     if (eventType === "PAYMENT_STATUS_CHANGED" && data?.status && CANCEL_STATUSES.has(data.status)) {
       const { orderId, paymentKey } = data;
+
+      // 2026-10-04 점검: 취소 반영도 웹훅 본문을 믿지 않는다 — 서명 시크릿이 없는 환경이라 누구나
+      // 취소 이벤트를 위조해 남의 구독·이용권을 회수시킬 수 있었다. 토스에 직접 조회해 실제로
+      // 취소 상태일 때만 회수한다. 조회 자체가 불안정하면 503으로 돌려 토스가 재시도하게 한다.
+      const looked = await fetchTossPayment({ orderId, paymentKey });
+      if (!looked.ok && !looked.notFound) {
+        console.error("[payment_webhook_cancel_lookup_failed]", JSON.stringify({ orderId, reason: looked.reason }));
+        return NextResponse.json({ error: "verify_unavailable" }, { status: 503 });
+      }
+      if (!looked.ok || !CANCEL_STATUSES.has(looked.status)) {
+        console.error("[payment_webhook_cancel_ignored]", JSON.stringify({
+          orderId, claimed: data.status, actual: looked.ok ? looked.status : looked.reason,
+        }));
+        return NextResponse.json({ received: true });
+      }
       const query = supabaseAdmin.from("subscriptions").update({ status: "canceled" });
       const { error } = orderId
         ? await query.eq("order_id", orderId)

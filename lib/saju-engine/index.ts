@@ -19,6 +19,7 @@ export type { SajuChart, Pillar, Pillars, StrengthResult, YongsinResult, Daewoon
 
 import { buildPreciseChart, type BlueprintChart } from "@/lib/blueprint-engine/engine";
 import { buildFacts } from "./facts";
+import { kstYear } from "@/lib/time/kst";
 
 /**
  * 모든 상품(유료 7종·무료·챗)이 쓰는 유일한 명식 계산 진입점.
@@ -94,7 +95,7 @@ export function runSajuEngine(input: {
     health: { score: 50, watch_list: [] },
     life_patterns: { repeating_themes: facts.core_structure.map(t => t.tag), major_life_lessons: [] },
     current_phase: (() => {
-      const currentYear = new Date().getFullYear();
+      const currentYear = kstYear();
       const birthYear = parseInt(input.birth_date.slice(0, 4));
       const currentAge = currentYear - birthYear;
       const cur = facts.daewoon_narrative.timeline.find(

@@ -11,6 +11,7 @@ import {
 import { buildChart, scoreYear } from "@/lib/saju-engine";
 import { generateYearlyReport } from "@/lib/premium/yearly-generate";
 import { buildYearlyCard } from "@/lib/premium/yearly-card";
+import { kstYear } from "@/lib/time/kst";
 
 // 생성이 여러 병렬 LLM 호출로 나뉘어 있어도(lib/premium/yearly-generate.ts 참고)
 // 전체 요청 처리 시간은 Vercel Hobby 플랜의 60초 제한 안에 들어와야 한다.
@@ -41,7 +42,7 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json().catch(() => ({}));
-  const year = parseInt(body.year) || new Date().getFullYear();
+  const year = parseInt(body.year) || kstYear();
 
   // 대상 사주는 화면에서 확정해 보낸다(생성 직전 컨펌). 예전처럼 "마지막에 등록한
   // 본인 사주"를 말없이 쓰지 않는다 — 가족 사주를 볼 방법이 없던 원인이었다.
@@ -164,7 +165,7 @@ export async function DELETE(req: NextRequest) {
     await supabaseAdmin.from("reports").delete().eq("id", body.id).eq("user_id", userId).eq("product_id", PRODUCT_ID);
     return NextResponse.json({ ok: true });
   }
-  const year = parseInt(body.year) || new Date().getFullYear();
+  const year = parseInt(body.year) || kstYear();
   const parsed = parseTargetBody(body);
   const ownProfile = await loadOwnProfile(userId);
 
