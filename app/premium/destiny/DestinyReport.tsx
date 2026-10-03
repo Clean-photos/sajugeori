@@ -1,5 +1,6 @@
 "use client";
 
+import { resolveProfileMeta } from "@/lib/analytics-profile";
 import { useEffect, useRef, useState } from "react";
 import type { BlueprintReport, BlueprintPartial } from "@/lib/blueprint-engine/generate";
 import { BlueprintReportView } from "@/components/blueprint/BlueprintReportView";
@@ -109,6 +110,7 @@ export function DestinyReport({
     // 폴링(스텝 여러 번)이 최종 상태(done/failed/error)에 도달할 때 1회만
     // 보낸다 — 중간 "generating" 스텝마다 보내면 이벤트가 부풀려진다.
     const start = Date.now();
+    const metaP = resolveProfileMeta("destiny", t);
     try {
       let next = await fetchOnce(extra ? `${base}&${extra}` : base);
       if (next.status === "generating" || next.status === "failed") lastPartialRef.current = next.partial;
@@ -124,13 +126,14 @@ export function DestinyReport({
       // 스텝을 막 끝냈을 때만 내려주는 justCompleted로만 발화한다.
       if (next.status === "done") {
         if (next.justCompleted) {
-          trackEvent("report_generated", { item_id: "destiny", duration_ms: Date.now() - start });
+          trackEvent("report_generated", { item_id: "destiny", duration_ms: Date.now() - start, ...(await metaP) });
           setPassSpentHere(true);
         }
       } else if (next.status === "failed" || next.status === "error") {
         trackEvent("generation_failed", {
           item_id: "destiny",
           reason: next.status === "failed" ? next.error : next.message,
+          ...(await metaP),
         });
       }
     } finally {

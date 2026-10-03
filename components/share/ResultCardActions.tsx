@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { trackEvent } from "@/lib/analytics";
+import { recentProfileMeta } from "@/lib/analytics-profile";
 
 /**
  * 결과 요약 카드의 [이미지로 저장] [공유] 버튼 — 상품 공용.
@@ -50,14 +51,14 @@ export function ResultCardActions({
     if (!el || viewedRef.current) return;
     if (typeof IntersectionObserver === "undefined") {
       viewedRef.current = true;
-      trackEvent("report_card_view", { item_id: itemId });
+      trackEvent("report_card_view", { item_id: itemId, ...recentProfileMeta(itemId) });
       return;
     }
     const io = new IntersectionObserver(
       (entries) => {
         if (viewedRef.current || !entries.some((e) => e.isIntersecting)) return;
         viewedRef.current = true;
-        trackEvent("report_card_view", { item_id: itemId });
+        trackEvent("report_card_view", { item_id: itemId, ...recentProfileMeta(itemId) });
         io.disconnect();
       },
       { threshold: 0.5 }
@@ -88,7 +89,7 @@ export function ResultCardActions({
       a.click();
       a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 10_000);
-      trackEvent("report_card_save", { item_id: itemId });
+      trackEvent("report_card_save", { item_id: itemId, ...recentProfileMeta(itemId) });
     } catch {
       flash("이미지를 만들지 못했어요. 화면 캡처로 저장해 주세요.");
     } finally {
@@ -122,7 +123,7 @@ export function ResultCardActions({
         await navigator.clipboard.writeText(shareUrl);
         flash("링크가 복사됐어요.");
       }
-      trackEvent("report_card_share", { item_id: itemId, method: native ? "native" : "copy" });
+      trackEvent("report_card_share", { item_id: itemId, ...recentProfileMeta(itemId), method: native ? "native" : "copy" });
     } catch (e) {
       // 사용자가 공유 시트를 닫은 경우(AbortError)는 실패도 공유도 아니다.
       if (!(e instanceof DOMException && e.name === "AbortError")) flash("공유하지 못했어요. 이미지 저장을 이용해 주세요.");

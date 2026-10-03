@@ -14,6 +14,7 @@
  * 타므로, A가 아직 진행 중이면 여전히 busy로 막히고 재시도만 반복된다.
  */
 import { trackEvent } from "@/lib/analytics";
+import { resolveProfileMeta } from "@/lib/analytics-profile";
 
 export type GenerateRetryResult<T> =
   | { ok: true; data: T }
@@ -35,11 +36,14 @@ function productIdFromUrl(url: string): string {
 async function requestWithBusyRetry<T>(
   url: string,
   doFetch: () => Promise<Response>,
+  body: unknown,
   opts?: { maxWaitMs?: number; onRetry?: (attempt: number) => void }
 ): Promise<GenerateRetryResult<T>> {
   const maxWaitMs = opts?.maxWaitMs ?? 90_000;
   const start = Date.now();
   const itemId = productIdFromUrl(url);
+  // 9차 G-5: 요청과 병행해 "누구 사주인지"를 구한다(실패해도 이벤트는 그대로 나간다).
+  const metaP = resolveProfileMeta(itemId, body);
   let attempt = 0;
 
   for (;;) {
@@ -47,7 +51,7 @@ async function requestWithBusyRetry<T>(
     try {
       res = await doFetch();
     } catch {
-      trackEvent("generation_failed", { item_id: itemId, reason: "network_error" });
+      trackEvent("generation_failed", { item_id: itemId, reason: "network_error", ...(await metaP) });
       return { ok: false, data: null, status: 0 };
     }
 
@@ -63,7 +67,7 @@ async function requestWithBusyRetry<T>(
       // 그대로 나가, 같은 조건으로 재조회만 해도 매번 report_generated가 잡혔다
       // (Ads 전환·주요 이벤트 오염). 실제로 새로 생성한 응답일 때만 보낸다.
       const isCached = !!(data as { cached?: boolean } | null)?.cached;
-      if (!isCached) trackEvent("report_generated", { item_id: itemId, duration_ms: Date.now() - start });
+      if (!isCached) trackEvent("report_generated", { item_id: itemId, duration_ms: Date.now() - start, ...(await metaP) });
       return { ok: true, data: data as T };
     }
 
@@ -75,7 +79,7 @@ async function requestWithBusyRetry<T>(
       continue;
     }
     const reason = (data as { error?: string } | null)?.error ?? `http_${res.status}`;
-    trackEvent("generation_failed", { item_id: itemId, reason });
+    trackEvent("generation_failed", { item_id: itemId, reason, ...(await metaP) });
     return { ok: false, data, status: res.status };
   }
 }
@@ -88,6 +92,7 @@ export function postWithBusyRetry<T = unknown>(
   return requestWithBusyRetry<T>(
     url,
     () => fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
+    body,
     opts
   );
 }
@@ -96,5 +101,5 @@ export function getWithBusyRetry<T = unknown>(
   url: string,
   opts?: { maxWaitMs?: number; onRetry?: (attempt: number) => void }
 ): Promise<GenerateRetryResult<T>> {
-  return requestWithBusyRetry<T>(url, () => fetch(url), opts);
+  return requestWithBusyRetry<T>(url, () => fetch(url), undefined, opts);
 }
