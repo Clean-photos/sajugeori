@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { Spinner } from "@/components/ui/Spinner";
+import { safeInternalPath } from "@/lib/security/redirect";
 
 function GoogleIcon() {
   return (
@@ -28,7 +29,7 @@ function KakaoIcon() {
 function LoginInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get("redirect") ?? searchParams.get("callbackUrl") ?? "/";
+  const callbackUrl = safeInternalPath(searchParams.get("redirect") ?? searchParams.get("callbackUrl"));
   const errorCode = searchParams.get("error");
 
   const [email, setEmail] = useState("");

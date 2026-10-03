@@ -3,19 +3,25 @@ import type { Metadata } from "next";
 import { BottomTabBar } from "@/components/layout/BottomTabBar";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { ganjiTable, ipchunNote, yearGanji } from "../data";
+import { kstYear } from "@/lib/time/kst";
 
-const YEAR = new Date().getFullYear();
+// 2026-10-04 점검: 연도 모듈 상수는 빌드 시점에 굳는다 — 요청 시점(한국 기준)으로 계산하고 1시간마다 재생성.
+export const revalidate = 3600;
 const FROM = 1940;
-const TO = YEAR + 6;
 
-export const metadata: Metadata = {
-  title: `출생 연도별 띠·간지 조견표 (${FROM}~${TO}) | 사주거리`,
-  description:
-    `${FROM}년부터 ${TO}년까지 각 해의 육십갑자와 띠를 정리한 조견표입니다. 사주에서 해가 바뀌는 기준은 1월 1일이 아니라 입춘이므로, 연초 출생자의 띠가 갈리는 경우도 함께 표시했습니다.`,
-  alternates: { canonical: "/reference/ganji" },
-};
+export function generateMetadata(): Metadata {
+  const TO = kstYear() + 6;
+  return {
+    title: `출생 연도별 띠·간지 조견표 (${FROM}~${TO}) | 사주거리`,
+    description:
+      `${FROM}년부터 ${TO}년까지 각 해의 육십갑자와 띠를 정리한 조견표입니다. 사주에서 해가 바뀌는 기준은 1월 1일이 아니라 입춘이므로, 연초 출생자의 띠가 갈리는 경우도 함께 표시했습니다.`,
+    alternates: { canonical: "/reference/ganji" },
+  };
+}
 
 export default function GanjiTablePage() {
+  const YEAR = kstYear();
+  const TO = YEAR + 6;
   const rows = ganjiTable(FROM, TO);
   const cur = yearGanji(YEAR);
   // 입춘 경계로 띠가 갈리는 해 (사실상 매년이지만 최근 몇 개만 예시로)

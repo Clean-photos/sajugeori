@@ -1,3 +1,4 @@
+import { createHmac } from "crypto";
 import { supabaseAdmin } from "@/lib/db/client";
 
 /**
@@ -8,6 +9,14 @@ import { supabaseAdmin } from "@/lib/db/client";
  *  - 판정(isLimited)과 기록(recordHit)을 분리 — 로그인처럼 "실패만" 세야 하는 경우에 쓴다.
  *  - 동시 요청 몇 건이 한도를 살짝 넘길 수는 있다(남용 방어 목적이라 허용).
  */
+/**
+ * 이메일·IP는 개인정보라 원문을 저장하지 않는다 — 키는 HMAC(AUTH_SECRET)으로 해시해 쓴다.
+ * 같은 값은 항상 같은 해시라 횟수 집계에는 충분하고, DB가 유출돼도 원문을 되돌릴 수 없다.
+ */
+export function hashKey(key: string): string {
+  return createHmac("sha256", process.env.AUTH_SECRET ?? "rate-limit").update(key).digest("hex").slice(0, 32);
+}
+
 export interface Window { limit: number; windowSec: number }
 
 export async function isLimited(kind: string, key: string, w: Window): Promise<boolean> {
@@ -16,7 +25,7 @@ export async function isLimited(kind: string, key: string, w: Window): Promise<b
     const { count, error } = await supabaseAdmin
       .from("rate_limit_events")
       .select("id", { count: "exact", head: true })
-      .eq("kind", kind).eq("key", key).gte("created_at", since);
+      .eq("kind", kind).eq("key", hashKey(key)).gte("created_at", since);
     if (error) return false;
     return (count ?? 0) >= w.limit;
   } catch {
@@ -26,7 +35,7 @@ export async function isLimited(kind: string, key: string, w: Window): Promise<b
 
 export async function recordHit(kind: string, key: string): Promise<void> {
   try {
-    await supabaseAdmin.from("rate_limit_events").insert({ kind, key });
+    await supabaseAdmin.from("rate_limit_events").insert({ kind, key: hashKey(key) });
   } catch {
     /* 기록 실패는 무시(fail-open) */
   }

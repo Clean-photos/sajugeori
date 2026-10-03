@@ -8,6 +8,7 @@ import { CalendarField } from "@/app/free/CalendarField";
 import { toSolar, type CalendarKind } from "@/lib/calendar/convert";
 import { BirthDateConfirmBanner } from "@/components/BirthDateConfirmBanner";
 import type { MyReport } from "@/lib/billing/my-reports";
+import { safeInternalPath } from "@/lib/security/redirect";
 
 // §13(CoS+CEO 실물 확인, 2026-09-08): 역법(양력/음력)이 3단계(성별)에 있어서,
 // 정작 생년월일을 입력하는 1단계에서는 무슨 기준으로 적을지 모르는 채로
@@ -38,7 +39,7 @@ function OnboardingInner({ existingProfile, reports }: { existingProfile: Existi
   // 떨어뜨리지 않기 위해 호출부가 next를 넘긴다. 외부 URL로 튕기지 않도록
   // 사이트 내부 경로("/로 시작하되 //가 아닌")만 허용한다.
   const nextParam = searchParams.get("next");
-  const nextPath = nextParam && /^\/(?!\/)/.test(nextParam) ? nextParam : null;
+  const nextPath = nextParam && safeInternalPath(nextParam, "") ? nextParam : null;
   // 등록된 사주가 있으면 먼저 그 사주를 보여주고, "다시 등록"을 눌러야 폼으로 들어간다.
   // ?add=1 — 마이페이지 등에서 곧장 "다른 분 사주 추가" 폼으로(내 사주가 있을 때만 의미가 있다).
   const addDirect = searchParams.get("add") === "1" && !!existingProfile;

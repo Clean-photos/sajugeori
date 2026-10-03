@@ -3,17 +3,24 @@ import type { Metadata } from "next";
 import { BottomTabBar } from "@/components/layout/BottomTabBar";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { yearGanji, samjaeOfYear, samjaeCycles } from "../data";
+import { kstYear } from "@/lib/time/kst";
 
-const YEAR = new Date().getFullYear();
+// 2026-10-04 점검: 연도를 모듈 상수로 두면 빌드 시점 값이 굳어 새해가 돼도 옛 해로 남는다 —
+// 요청 시점(한국 기준)으로 계산하고 정적 페이지는 1시간마다 다시 만든다.
+export const revalidate = 3600;
 
-export const metadata: Metadata = {
-  title: `${YEAR}년 삼재 띠 총정리 — 띠별 삼재 연도 조견표 | 사주거리`,
-  description:
-    `${YEAR}년에 삼재가 드는 띠와 들삼재·눌삼재·날삼재 단계를 정리했습니다. 열두 띠 각각이 앞으로 언제 삼재를 맞는지 연도까지 계산한 조견표를 함께 제공합니다.`,
-  alternates: { canonical: "/reference/samjae" },
-};
+export function generateMetadata(): Metadata {
+  const YEAR = kstYear();
+  return {
+    title: `${YEAR}년 삼재 띠 총정리 — 띠별 삼재 연도 조견표 | 사주거리`,
+    description:
+      `${YEAR}년에 삼재가 드는 띠와 들삼재·눌삼재·날삼재 단계를 정리했습니다. 열두 띠 각각이 앞으로 언제 삼재를 맞는지 연도까지 계산한 조견표를 함께 제공합니다.`,
+    alternates: { canonical: "/reference/samjae" },
+  };
+}
 
 export default function SamjaeTablePage() {
+  const YEAR = kstYear();
   const g = yearGanji(YEAR);
   const thisYear = samjaeOfYear(YEAR);
   const cycles = samjaeCycles(YEAR, 3);
