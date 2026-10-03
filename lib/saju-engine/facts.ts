@@ -5,7 +5,7 @@
 
 import * as C from "./constants";
 import type { Element } from "./constants";
-import { type SajuChart, tenGod, branchTenGod, elementDistribution } from "./engine";
+import { type SajuChart, tenGod, branchTenGod } from "./engine";
 
 // ─── 1. 격국 ─────────────────────────────────────────────
 export function deriveGyeokguk(chart: SajuChart) {
@@ -106,7 +106,6 @@ export function coreStructureTags(chart: SajuChart) {
   const gyeok = deriveGyeokguk(chart);
   const cats = tenGodCategorySummary(chart);
   const bal = elementBalance(chart);
-  const de = chart.day_master_element;
 
   tags.push({ tag: gyeok.name, label: gyeok.description, why: `월지 ${gyeok.from_branch}의 본기가 ${gyeok.ten_god}이라서.` });
 

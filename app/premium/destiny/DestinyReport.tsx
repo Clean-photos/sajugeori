@@ -143,6 +143,8 @@ export function DestinyReport({
   }
 
   // 확정 전에는 자동 시작하지 않는다. 확정되면 그때부터 폴링을 돌린다.
+  // driveSteps는 매 렌더 새로 만들어지는 클로저 — target이 확정될 때 한 번만 시작해야 하므로 의존성에서 일부러 뺀다.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { if (target) driveSteps(target); }, [target]);
 
   function regenerate() {

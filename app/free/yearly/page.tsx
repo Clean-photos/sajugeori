@@ -14,12 +14,6 @@ import { toSolar, type CalendarKind } from "@/lib/calendar/convert";
 
 type Step = "form" | "ad" | "loading" | "result";
 
-function maxBirthDate() {
-  const d = new Date();
-  d.setFullYear(d.getFullYear() - 14);
-  return d.toISOString().split("T")[0];
-}
-
 const THIS_YEAR = new Date().getFullYear();
 const YEARS = [THIS_YEAR, THIS_YEAR + 1, THIS_YEAR + 2];
 

@@ -264,8 +264,6 @@ function FreeSajuInner() {
   }
 
   // Result
-  const lines = result.split("\n");
-
   return (
     <div className="min-h-screen bg-[#F6F1E7] flex flex-col">
       <FreeResultNav current="/free/saju" />

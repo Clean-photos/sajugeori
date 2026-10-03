@@ -5,10 +5,12 @@ export function getLLMAdapter(tier: LLMTier): LLMAdapter {
   const config = MODEL_BY_TIER[tier];
 
   if (config.provider === "anthropic") {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- 사용하는 구현만 지연 로드
     const { AnthropicAdapter } = require("./anthropic");
     return new AnthropicAdapter(config.model);
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-require-imports -- 사용하는 구현만 지연 로드
   const { OpenAIAdapter } = require("./openai");
   return new OpenAIAdapter(config.model);
 }

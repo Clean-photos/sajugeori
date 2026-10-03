@@ -19,7 +19,7 @@ export default async function BuyPage({
   searchParams: Promise<{ product?: string }>;
 }) {
   const { product } = await searchParams;
-  let planId = product ?? "saju_one";
+  const planId = product ?? "saju_one";
   const session = await auth();
 
   // 운명 설계도 업그레이드가(6,900원)는 프리미엄 사주를 이미 본 사람만 결제할 수

@@ -48,7 +48,7 @@ export default function TermsPage() {
           <section>
             <h2 className="font-semibold text-base text-[#1F3D34] mb-2">1. 목적</h2>
             <p className="text-[#6B6661] leading-relaxed">
-              본 약관은 {SERVICE_NAME}(이하 "서비스")가 제공하는 모든 서비스의 이용 조건과 절차, 이용자와 서비스 간의 권리·의무 및 책임 사항을 규정함을 목적으로 합니다.
+              본 약관은 {SERVICE_NAME}(이하 &ldquo;서비스&rdquo;)가 제공하는 모든 서비스의 이용 조건과 절차, 이용자와 서비스 간의 권리·의무 및 책임 사항을 규정함을 목적으로 합니다.
             </p>
           </section>
 

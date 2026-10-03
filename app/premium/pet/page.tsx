@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { Metadata } from "next";
 import { auth } from "@/lib/auth";
 import { loadOwnProfile } from "@/lib/billing/report-target";
@@ -54,7 +55,7 @@ export default async function PremiumPetPage() {
 
           <p className="text-[13px] text-[#6B6661] leading-relaxed">
             반려동물 사주가 궁금하시다면 결제 없이{" "}
-            <a href="/guide/do-pets-have-saju" className="underline">읽을거리</a>에서
+            <Link href="/guide/do-pets-have-saju" className="underline">읽을거리</Link>에서
             먼저 살펴보실 수 있습니다. 본 풀이는 오락 및 참고 목적으로 제공되며, 아이의 건강과
             관련한 문제는 반드시 수의사와 상담해 주세요.
           </p>

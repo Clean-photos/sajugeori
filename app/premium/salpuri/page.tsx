@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { Metadata } from "next";
 import { auth } from "@/lib/auth";
 import { loadOwnProfile } from "@/lib/billing/report-target";
@@ -57,7 +58,7 @@ export default async function PremiumSalpuriPage() {
           </p>
 
           <p className="text-[13px] text-[#6B6661] leading-relaxed">
-            각 살의 뜻이 궁금하다면 결제 없이 <a href="/dictionary" className="underline">사주 용어 백과</a>에서
+            각 살의 뜻이 궁금하다면 결제 없이 <Link href="/dictionary" className="underline">사주 용어 백과</Link>에서
             신살 26종을 포함한 48개 용어를 모두 읽어 보실 수 있습니다.
           </p>
         </>

@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { BottomTabBar } from "@/components/layout/BottomTabBar";
 import { SiteFooter } from "@/components/layout/SiteFooter";
-import { ZODIACS, yearGanji, samjaeOfYear, samjaeCycles } from "../data";
+import { yearGanji, samjaeOfYear, samjaeCycles } from "../data";
 
 const YEAR = new Date().getFullYear();
 

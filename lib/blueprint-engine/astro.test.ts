@@ -2,7 +2,7 @@
  * astro.ts 검증 — 실행: npx tsx lib/blueprint-engine/astro.test.ts
  * 알려진 천문 기준점(춘분·하지·추분·동지)과 절기 근사 날짜로 정밀도를 확인한다.
  */
-import { apparentSolarLongitude, toJulianDay, findSolarLongitudeCrossing, preciseMonthBranch, preciseLichun, trueSolarTime } from "./astro";
+import { apparentSolarLongitude, toJulianDay, preciseMonthBranch, preciseLichun, trueSolarTime } from "./astro";
 
 function check(label: string, actual: number, expected: number, tolerance: number) {
   let diff = Math.abs(actual - expected);

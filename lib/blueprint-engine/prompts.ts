@@ -3,7 +3,6 @@
  * 모든 호출에 anchor.ts의 사실 시트를 동일하게 주입해 축 간 모순을 막는다.
  */
 import { anchorFactsToPromptText, type AnchorFacts, type AnchorNarrative } from "./anchor";
-import type { AxisDef } from "./questions";
 
 const COMMON_RULES = `
 규칙(전부 필수):

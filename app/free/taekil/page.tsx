@@ -23,12 +23,6 @@ const PURPOSE_OPTIONS = [
   { value: "other", label: "기타" },
 ];
 
-function maxBirthDate() {
-  const d = new Date();
-  d.setFullYear(d.getFullYear() - 14);
-  return d.toISOString().split("T")[0];
-}
-
 function nextMonthRange() {
   const now = new Date();
   const from = now.toISOString().split("T")[0];

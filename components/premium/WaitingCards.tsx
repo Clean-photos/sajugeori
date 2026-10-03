@@ -26,7 +26,7 @@ function useShuffleBag() {
   function next(): WaitingCard {
     if (posRef.current >= bagRef.current.length) {
       const last = bagRef.current[bagRef.current.length - 1];
-      let fresh = shuffled(WAITING_CARDS);
+      const fresh = shuffled(WAITING_CARDS);
       if (fresh[0] === last) {
         const swapAt = 1 + Math.floor(Math.random() * (fresh.length - 1));
         [fresh[0], fresh[swapAt]] = [fresh[swapAt], fresh[0]];

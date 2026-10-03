@@ -16,10 +16,6 @@ import { buildCompatPillarSummary } from "@/lib/premium/compat-pillars";
 // 전체 요청 처리 시간은 Vercel Hobby 플랜의 60초 제한 안에 들어와야 한다.
 export const maxDuration = 60;
 
-const CONTEXT_LABEL: Record<string, string> = {
-  romance: "연애·결혼", work: "직장·비즈니스", friend: "친구·지인",
-};
-
 type Ctx = "romance" | "work" | "friend";
 
 const PRODUCT_ID = "compatibility_one";

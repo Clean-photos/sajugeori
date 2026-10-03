@@ -6,7 +6,7 @@ const rows = [
   { label: "본인", kind: "person", is_primary: true, birth_date: "1990-01-01", birth_time: "14:30", gender: "M", created_at: "2026-01-01" },
   { label: "콩이", kind: "pet", is_primary: false, birth_date: "2020-01-01", birth_time: null, gender: "M", created_at: "2026-04-01" },
 ];
-(globalThis as any).fetch = async () => ({ ok: true, json: async () => ({ profiles: rows }) });
+(globalThis as unknown as { fetch: unknown }).fetch = async () => ({ ok: true, json: async () => ({ profiles: rows }) });
 
 const { resolveProfileMeta, recentProfileMeta } = await import("./analytics-profile");
 
@@ -20,6 +20,6 @@ assert.deepEqual(await resolveProfileMeta("report"), { profile_relation: "self",
 assert.deepEqual(await resolveProfileMeta("pet", {}), { profile_relation: "pet", profile_index: 0 });
 assert.deepEqual(recentProfileMeta("pet"), { profile_relation: "pet", profile_index: 0 });
 assert.deepEqual(recentProfileMeta("salpuri"), {}); // 다른 상품 값이 새어 들어가지 않는다
-(globalThis as any).fetch = async () => { throw new Error("offline"); };
+(globalThis as unknown as { fetch: unknown }).fetch = async () => { throw new Error("offline"); };
 assert.deepEqual(await resolveProfileMeta("taekil", {}), {});
 console.log("analytics-profile OK");

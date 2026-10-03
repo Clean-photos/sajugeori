@@ -14,12 +14,6 @@ import { toSolar, type CalendarKind } from "@/lib/calendar/convert";
 
 type Step = "form" | "ad" | "loading" | "result";
 
-function maxBirthDate() {
-  const d = new Date();
-  d.setFullYear(d.getFullYear() - 14);
-  return d.toISOString().split("T")[0];
-}
-
 const CONTEXT_OPTIONS = [
   { value: "romance", label: "연애 · 결혼" },
   { value: "work", label: "직장 · 비즈니스" },

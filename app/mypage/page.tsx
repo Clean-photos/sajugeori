@@ -14,7 +14,7 @@ export default async function MypagePage() {
   const loggedIn = !!session?.user?.id;
 
   let profile: OwnProfile | null = null;
-  let payments: { label: string; status: string; created_at: string; amount?: number }[] = [];
+  const payments: { label: string; status: string; created_at: string; amount?: number }[] = [];
   let reports: MyReport[] = [];
   let isEmailAccount = false;
 

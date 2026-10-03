@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/db/client";
 import { buildSystemPrompt } from "@/lib/character-ai/buildContext";
 import { extractAndMergeMemory } from "@/lib/character-ai/extractMemory";
-import { buildChart, toSajuCompact, runSajuEngine } from "@/lib/saju-engine";
+import { buildChart, toSajuCompact } from "@/lib/saju-engine";
 import { pairAnalysis } from "@/lib/saju-engine";
 import { isPremiumUser, countUserChatMessages, currentMonthStartKstIso, FREE_CHAT_MESSAGE_LIMIT, PREMIUM_MONTHLY_CHAT_LIMIT } from "@/lib/billing/access";
 import type { UserMemory } from "@/types/saju";

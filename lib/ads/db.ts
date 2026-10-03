@@ -4,7 +4,7 @@ import { supabaseAdmin } from "@/lib/db/client";
 // 1회용 토큰 검증 provider.
 // /api/ads/token이 발급한 미사용 토큰이면 통과시키고 즉시 used=true로 소비한다(재사용 차단).
 export class DbAdReward implements AdRewardProvider {
-  async verify(adToken: string, _userKey: string): Promise<boolean> {
+  async verify(adToken: string): Promise<boolean> {
     if (!adToken) return false;
 
     const { data, error } = await supabaseAdmin

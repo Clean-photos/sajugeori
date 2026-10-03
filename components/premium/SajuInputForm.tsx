@@ -120,7 +120,7 @@ export function SajuInputForm({
 
   const canSubmit = birthDate.length === 10 && !!gender && !busy && !!conv?.ok;
 
-  function useSaved() {
+  function applySaved() {
     if (!saved) return;
     setCalendar("solar");
     setBirthDate(saved.birth_date);
@@ -135,7 +135,7 @@ export function SajuInputForm({
   function toggleUseOwn() {
     const next = !useOwn;
     setUseOwn(next);
-    if (next) { useSaved(); return; }
+    if (next) { applySaved(); return; }
     setBirthDate(""); setBirthTime(""); setNoTime(false); setGender(""); setCalendar("solar");
   }
 
@@ -220,7 +220,7 @@ export function SajuInputForm({
         {saved && !confirmMode && (
           <button
             type="button"
-            onClick={useSaved}
+            onClick={applySaved}
             className="w-full border border-[#1F3D34] text-[#1F3D34] rounded-xl py-3 text-sm font-semibold active:scale-[0.97] transition-all"
           >
             입력된 사주 사용 ({saved.birth_date} · {saved.gender === "M" ? "남성" : "여성"})
