@@ -99,7 +99,8 @@ export async function POST(req: NextRequest) {
         .eq("order_id", data.orderId)
         .maybeSingle();
 
-      if (order && order.status !== "done") {
+      // 탈퇴한 회원의 주문(user_id가 비워진 기록)에는 이용권을 새로 발급하지 않는다.
+      if (order && order.user_id && order.status !== "done") {
         const verified = await verifyPaymentWithToss(order.order_id, order.amount);
         if (!verified.ok) {
           console.error("[payment_webhook_verify_failed]", JSON.stringify({ orderId: data.orderId, reason: verified.reason }));
