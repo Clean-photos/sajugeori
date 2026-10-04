@@ -9,7 +9,7 @@ export { buildFacts, coreStructureTags, strengthsAndWeaknesses, daewoonNarrative
 export { pairAnalysis, mutualAnalysis } from "./compatibility";
 export { scoreDate, rankDates } from "./taekil";
 export type { TaekilPurpose, DayScore, TaekilResult } from "./taekil";
-export { scoreYear } from "./yearly";
+export { scoreYear, yearDirection } from "./yearly";
 export type { MonthScore, YearlyResult } from "./yearly";
 export { checkSamjae } from "./samjae";
 export type { SamjaeResult, SamjaePhase } from "./samjae";

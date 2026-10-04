@@ -3,7 +3,7 @@ import { getAdRewardProvider } from "@/lib/ads";
 import { parseFree, BAD_INPUT, freeCompatSchema } from "@/lib/free/validate";
 import { freeCapReached, recordFreeLlm } from "@/lib/security/rate-limit";
 import { buildChart } from "@/lib/saju-engine";
-import { pairAnalysis } from "@/lib/saju-engine";
+import { mutualAnalysis } from "@/lib/saju-engine";
 import { wrapStreamError } from "@/lib/report-stream-error";
 
 export async function POST(req: NextRequest) {
@@ -30,10 +30,13 @@ export async function POST(req: NextRequest) {
     const otherIso = `${other_birth}T00:00:00`;
     const meChart = buildChart(myIso, my_gender ?? "M", false);
     const otherChart = buildChart(otherIso, other_gender ?? "F", false);
-    const pair = pairAnalysis(meChart, otherChart, "나", "상대", context ?? "romance");
+    // 2026-10-04(CoS 10차 §4): 한 방향(입력한 사람 기준)만 보면 같은 커플이 나·상대를 바꿔 입력할 때
+    // 42/39로 갈렸다. 프리미엄과 같은 양방향 함수(mutualAnalysis)로 계산하고 시주만 제외한다.
+    const mutual = mutualAnalysis(meChart, otherChart, "나", "상대", context ?? "romance");
 
-    normalizedScore = Math.min(100, Math.max(0, Math.round(38 + pair.score * 6)));
-    engineData = `궁합 점수: ${normalizedScore}/100\n분석 포인트:\n${pair.notes.map((n) => `- ${n}`).join("\n")}`;
+    normalizedScore = Math.min(100, Math.max(0, Math.round(38 + mutual.combinedScore * 6)));
+    const notes = [...new Set([...mutual.partnerToMe.notes, ...mutual.meToPartner.notes])];
+    engineData = `궁합 점수: ${normalizedScore}/100\n분석 포인트:\n${notes.map((n) => `- ${n}`).join("\n")}`;
   } catch {
     engineData = "계산 데이터 없음 — 일반적인 사주 궁합 이론으로 분석";
   }
@@ -46,6 +49,7 @@ ${engineData}
 다음 형식으로 정확히 작성하세요 (각 섹션 타이틀 포함):
 
 【 궁합 점수 】 ${normalizedScore}점 / 100점
+(점수 바로 아래에 다음 한 줄을 그대로 쓸 것: 태어난 시각은 반영하지 않은 점수이며, 시각을 넣으면 달라질 수 있습니다.)
 
 【 잘 맞는 부분 】
 • (첫 번째 장점 — 구체적으로 2줄 이내)
@@ -69,6 +73,7 @@ ${engineData}
 '엔진', 'AI', '알고리즘', '분석 시스템', '데이터베이스' 같은 표현은 절대 쓰지 말 것. 대신 "사주에 따르면", "명리학적으로 보면" 같은 자연스러운 표현을 쓸 것.
 한자 표기 규칙: 한자 뒤에 반드시 한글 독음 괄호 표기. 예: 庚(경), 辛未(신미). 한자 단독 사용 절대 금지.
 이미 한글로만 쓰인 단어(예: 신약, 극신약, 신강)에는 괄호로 같은 한글을 또 붙이지 말 것 — 한자를 병기할 때만 괄호를 쓴다.
+오행 이름은 "土(토)"처럼 한자(한글) 형태 또는 한글만 쓰고, "토(토)"·"수(수)"처럼 같은 한글을 괄호에 반복하거나 "토지(土)"처럼 다른 뜻의 말로 바꿔 쓰지 말 것.
 위 "분석 포인트"에 이미 木(목)·火(화)처럼 한자(한글)이 병기된 오행은 그 표기를 그대로 옮겨 쓸 것 — 한글만 다시 괄호로 감싸(예: 토(토)) 쓰지 말 것.
 나이 차이(연상·연하 등)는 이 분석의 근거가 아니므로 절대 언급하지 말 것.`;
 

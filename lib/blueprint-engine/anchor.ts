@@ -15,7 +15,7 @@ import type { Element } from "@/lib/saju-engine/constants";
 import type { BlueprintChart } from "./engine";
 import { computeIndicators, type Indicators } from "./indicators";
 import { buildYongsinDualTrack, type YongsinDualTrack } from "@/lib/premium/yongsin-track";
-import { josaEunNeun, josaIga, josaEulReul } from "@/lib/wuxing/josa";
+import { josaEunNeun } from "@/lib/wuxing/josa";
 import { buildDaewoonRoadmap, daewoonRoadmapPromptText, type DaewoonRoadmapEntry } from "./daewoon-roadmap";
 import { sinsalHanja } from "@/lib/premium/sinsal-glossary";
 
@@ -154,15 +154,36 @@ export function computeAnchorFacts(chart: BlueprintChart): AnchorFacts {
  * 단일 경로) 한 곳에서 숫자를 원천적으로 안 준다 — 화면 요약 줄(facts.elements
  * 직접 렌더, BlueprintReportView.tsx)은 이 함수를 거치지 않아 그대로 숫자를 쓴다.
  */
-function elementRankLine(elements: Record<Element, number>): string {
-  const sorted = (Object.entries(elements) as [Element, number][]).sort((a, b) => b[1] - a[1]);
-  const order = sorted.map(([e]) => C.ELEMENT_KR[e]).join(">");
-  const top = sorted[0];
-  const bottom = sorted[sorted.length - 1];
-  const gap = top[1] >= bottom[1] * 2
-    ? `${C.ELEMENT_KR[top[0]]}${josaIga(top[0])} ${C.ELEMENT_KR[bottom[0]]}${josaEulReul(bottom[0])} 크게 압도`
+/** 이 폭(%p) 이내의 차이는 "비슷함"으로 묶는다 — 표(동률)와 본문(서열)이 어긋나던 문제(CoS 10차 §5). */
+export const ELEMENT_EQUAL_TOLERANCE_PP = 2;
+
+export function elementRankLine(elements: Record<Element, number>): string {
+  const total = Object.values(elements).reduce((a, b) => a + b, 0) || 1;
+  const pct = (e: Element) => (elements[e] / total) * 100;
+  const sorted = (Object.keys(elements) as Element[]).sort(
+    (a, b) => elements[b] - elements[a] || C.ELEMENTS.indexOf(a) - C.ELEMENTS.indexOf(b)
+  );
+
+  // 선두와의 차이가 허용 폭 이내인 오행끼리 한 층(tier)으로 묶는다.
+  const tiers: Element[][] = [];
+  for (const e of sorted) {
+    const tier = tiers[tiers.length - 1];
+    if (tier && pct(tier[0]) - pct(e) <= ELEMENT_EQUAL_TOLERANCE_PP) tier.push(e);
+    else tiers.push([e]);
+  }
+  const names = (t: Element[]) => t.map((e) => C.ELEMENT_KR[e]).join("·");
+  const order = tiers.map((t) => (t.length > 1 ? `${names(t)}(비슷함)` : names(t))).join(" > ");
+
+  const top = tiers[0];
+  const bottom = tiers[tiers.length - 1];
+  const wide = tiers.length > 1 && pct(top[0]) >= pct(bottom[0]) * 2;
+  const gap = wide
+    ? `가장 많은 쪽(${names(top)})과 가장 적은 쪽(${names(bottom)})의 차이가 큼`
     : "오행 간 편차는 크지 않음";
-  return `${order} 순 (${gap})`;
+  const rule =
+    '서열은 ">"로 갈린 곳에만 매기고 "(비슷함)"으로 묶인 오행끼리는 많고 적음을 가르지 말 것. ' +
+    '"과다·압도·부족" 같은 단정은 위에서 "차이가 큼"으로 표시된 가장 많은/적은 쪽에만 쓰고, 편차가 크지 않으면 쓰지 말 것.';
+  return `${order} 순 (${gap}) — ${rule}`;
 }
 
 /** LLM 프롬프트에 그대로 붙일 수 있는 사실 시트 텍스트. 모든 호출이 이 문자열을 동일하게 받는다. */

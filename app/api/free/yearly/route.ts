@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdRewardProvider } from "@/lib/ads";
 import { kstYear } from "@/lib/time/kst";
+import { scoreYear, yearDirection } from "@/lib/saju-engine";
 import { parseFree, BAD_INPUT, freeYearlySchema } from "@/lib/free/validate";
 import { freeCapReached, recordFreeLlm } from "@/lib/security/rate-limit";
 import { runSajuEngine } from "@/lib/saju-engine";
@@ -40,6 +41,11 @@ export async function POST(req: NextRequest) {
     const maxCount = Math.max(...elementEntries.map(([, v]) => v));
     const strongest = elementEntries.filter(([, v]) => v === maxCount && v > 0).map(([e, v]) => `${e}${v}`);
     const absent = elementEntries.filter(([, v]) => v === 0).map(([e]) => e);
+    // 2026-10-04(CoS 10차 §3): 무료 연운세가 대운만 보고 그해 간지(세운)를 전혀 반영하지 않아
+    // 2026·2027년이 같은 내용으로 나오고 프리미엄 판정과도 갈렸다. 프리미엄과 같은 세운 엔진·같은
+    // 방향 판정을 써서 그해 간지·합충·방향을 넣는다(월별만 생략).
+    const seun = scoreYear(result.saju_raw, targetYear);
+    const seunDirection = yearDirection(seun.yearScore);
     const elementVerdict = `가장 많은 오행: ${strongest.join(", ")} / 없는 오행: ${absent.length ? absent.join(", ") : "없음"}`;
 
     engineSummary = `
@@ -47,6 +53,9 @@ export async function POST(req: NextRequest) {
 일간: ${j.identity.day_master} / 강약: ${j.identity.strength_label}
 핵심 설명: ${j.identity.core_description}
 용신: ${yongsin.join(", ")}
+세운(그해 간지): ${targetYear}년 ${seun.yearGanji}
+세운 특징: ${seun.yearNotes.join(" / ") || "특별한 합충 없음"}
+연간 방향(판정): ${seunDirection.label}
 현재 대운: ${cycle ? `${cycle.ganji} (${cycle.start_age}~${cycle.end_age}세, ${cycle.favorability})` : "정보 없음"}
 대운 기회: ${j.current_phase.opportunities.join(", ") || "없음"}
 대운 주의: ${j.current_phase.warnings.join(", ") || "없음"}
@@ -68,7 +77,7 @@ ${engineSummary}
 다음 형식으로 작성하세요:
 
 【 ${year}년 총운 】
-2문장. 대운 유불리 명확히.
+3문장. 첫 문장은 반드시 ${year}년의 간지(위 "세운")를 밝히고 위 "연간 방향(판정)"과 같은 방향으로 시작할 것(유리/부담/무난을 바꾸지 말 것). 이어서 세운 특징과 현재 대운이 어떻게 겹치는지 설명.
 
 【 직업·재물운 】
 2문장. 핵심 흐름과 주의점.
@@ -85,7 +94,8 @@ ${engineSummary}
 오행이 "많다·강하다·과다"라고 쓸 수 있는 것은 위 "오행 판정"의 "가장 많은 오행"뿐이고, "없다·부족하다"라고 쓸 수 있는 것은 "없는 오행"뿐입니다. 분포 숫자를 직접 해석해 다른 오행을 과다·부족이라 쓰지 마세요.
 추측 없이 위 데이터에 근거해 작성(위에 없는 정보 임의 생성 금지). 한국어로. 과장 금지. 마크다운 절대 금지(#, ##, **, *, @, >, - 기호 사용 금지). 섹션 제목은 【 】 형식만 사용.
 한자 표기 규칙: 한자 뒤에 반드시 한글 독음 괄호 표기. 예: 庚(경), 辛未(신미). 한자 단독 사용 절대 금지.
-이미 한글로만 쓰인 단어(예: 신약, 극신약, 신강)에는 괄호로 같은 한글을 또 붙이지 말 것 — 한자를 병기할 때만 괄호를 쓴다.`;
+이미 한글로만 쓰인 단어(예: 신약, 극신약, 신강)에는 괄호로 같은 한글을 또 붙이지 말 것 — 한자를 병기할 때만 괄호를 쓴다.
+오행 이름은 "土(토)"처럼 한자(한글) 형태 또는 한글만 쓰고, "토(토)"·"수(수)"처럼 같은 한글을 괄호에 반복하거나 "토지(土)"처럼 다른 뜻의 말로 바꿔 쓰지 말 것.`;
 
   const Anthropic = (await import("@anthropic-ai/sdk")).default;
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });

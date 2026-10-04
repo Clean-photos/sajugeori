@@ -259,7 +259,7 @@ export function DestinyReport({
         <div className="px-4 pt-6 pb-2 flex flex-col items-center gap-2 text-center">
           <div className="text-2xl animate-pulse">🔮</div>
           <p className="text-sm text-[#6B6661]">{stageLabel}</p>
-          <p className="text-xs text-[#9B968F]">3~5분 정도 걸릴 수 있어요. 창을 닫았다 다시 열어도 진행된 부분은 그대로 남아있어요</p>
+          <p className="text-xs text-[#9B968F]">보통 5~8분, 길면 10분까지 걸릴 수 있어요. 창을 닫았다 다시 열어도 진행된 부분은 그대로 남아있어요</p>
           <WaitingCards />
         </div>
         <BlueprintReportView report={state.partial} />
@@ -321,7 +321,7 @@ export function DestinyReport({
           className="no-print mt-1 flex items-center justify-center gap-1.5 text-center text-xs text-[#6B6661] py-2 disabled:opacity-50"
         >
           {busy && <Spinner size={13} />}
-          {state.regenerateCount >= 1 ? "재생성 1회 사용 완료" : busy ? "다시 생성 중... (3~5분)" : "풀이 다시 생성하기 (1회 한정)"}
+          {state.regenerateCount >= 1 ? "재생성 1회 사용 완료" : busy ? "다시 생성 중... (최대 10분)" : "풀이 다시 생성하기 (1회 한정)"}
         </button>
       )}
 

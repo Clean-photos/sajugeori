@@ -9,7 +9,7 @@ import { PremiumErrorBanner } from "@/components/premium/PremiumErrorBanner";
 import { TaekilReportResultView, type TaekilBestDate } from "@/components/premium/TaekilReportResultView";
 import { postWithBusyRetry } from "@/lib/premium/generate-with-retry";
 import type { TaekilCardData } from "@/lib/premium/taekil-card";
-import { localDateStr } from "@/lib/time/kst";
+import { kstDateStr, kstMonthEndStr } from "@/lib/time/kst";
 
 type Step = "form" | "loading" | "result" | "deleted";
 
@@ -23,9 +23,8 @@ const PURPOSE_OPTIONS = [
 ];
 
 function defaultRange() {
-  const now = new Date();
-  const from = localDateStr(now);
-  const to = localDateStr(new Date(now.getFullYear(), now.getMonth() + 3, 0));
+  const from = kstDateStr();
+  const to = kstMonthEndStr(2);
   return { from, to };
 }
 

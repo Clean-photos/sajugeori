@@ -46,7 +46,7 @@ export interface DaewoonRoadmapEntry {
  * 하나만 용신이고 나머지 하나가 중립이면 보강 쪽으로, 하나만 기신이고
  * 나머지가 중립이면 소진 쪽으로 본다(둘 다 중립일 때만 "완만").
  */
-function classifyPhase(stemEl: Element, branchEl: Element, yongsin: Element[], gisin: Element[]): DaewoonPhase {
+export function classifyPhase(stemEl: Element, branchEl: Element, yongsin: Element[], gisin: Element[]): DaewoonPhase {
   const side = (el: Element): "y" | "g" | "n" => (yongsin.includes(el) ? "y" : gisin.includes(el) ? "g" : "n");
   const s = side(stemEl);
   const b = side(branchEl);

@@ -238,9 +238,10 @@ export function SajuInputForm({
                   onClick={() => pickOther(p)}
                   className="rounded-full border border-[#E5DFD4] bg-white text-[#1A1A18] px-3 py-1.5 text-xs font-medium active:scale-[0.97] transition-all"
                 >
+                  {/* 2026-10-04(CoS 10차 §9): 같은 날짜·다른 시각이 구분되도록 시각을 함께 보여 준다. */}
                   {p.label !== "본인" && p.label !== "대상"
-                    ? `${p.label} · ${p.birth_date}`
-                    : `${p.birth_date} · ${p.gender === "M" ? "남성" : "여성"}`}
+                    ? `${p.label} · ${p.birth_date}${p.birth_time ? ` ${p.birth_time.slice(0, 5)}` : ""}`
+                    : `${p.birth_date}${p.birth_time ? ` ${p.birth_time.slice(0, 5)}` : ""} · ${p.gender === "M" ? "남성" : "여성"}`}
                 </button>
               ))}
             </div>

@@ -6,6 +6,7 @@
  * 값(십성·용신·기신·지지 관계·신살)만 쓴다 · 숫자는 화면에 노출하지 않는다(4단계 라벨).
  * 계산 엔진(lib/saju-engine)은 읽기만 한다. 용신 판정은 yongsin-track.ts 결과를 그대로 받는다.
  */
+import { classifyPhase, type DaewoonPhase } from "./daewoon-roadmap";
 import * as C from "@/lib/saju-engine/constants";
 import type { Element, Stem, Branch } from "@/lib/saju-engine/constants";
 import { tenGod, branchTenGod } from "@/lib/saju-engine/engine";
@@ -23,6 +24,8 @@ export interface CurvePoint {
   eLabel: CurveLabel;
   sLabel: CurveLabel;
   isCurrent: boolean;
+  /** 대운 로드맵 판정(보강기·소진기·혼재·완만) — 본문과 같은 기준 */
+  phase: DaewoonPhase;
 }
 
 export interface CurveAnnotation {
@@ -47,6 +50,8 @@ const MIN_RANGE = 12; // 평탄한 사주 과장 방지
 const HIGH_MIN = 78;
 const END_START_AGE = 94; // 94세 시작 대운까지 표시
 const BRANCH_WEIGHT = 0.7;
+// 2026-10-04(CoS 10차 §6): 곡선의 높낮이가 대운 로드맵 판정과 같은 방향을 가리키도록 판정 가중을 더한다.
+const PHASE_DELTA: Record<DaewoonPhase, number> = { boost: 12, drain: -12, mixed: -8, neutral: 0 };
 
 // ① 십성 가중 [E, S]
 const TEN_GOD_WEIGHT: Record<string, [number, number]> = {
@@ -103,6 +108,10 @@ function branchRelationDelta(dwBranch: Branch, chartBranches: Branch[]): [number
   return [e, s];
 }
 
+function phaseOf(d: PreciseDaewoonEntry, facts: AnchorFacts): DaewoonPhase {
+  return classifyPhase(C.STEM_ELEMENT[d.stem as Stem], C.BRANCH_ELEMENT[d.branch as Branch], facts.yongsin, facts.gisin);
+}
+
 function rawScores(d: PreciseDaewoonEntry, chart: BlueprintChart, facts: AnchorFacts): [number, number] {
   const dayStem = chart.day_master as Stem;
   const branches = ([chart.pillars.year, chart.pillars.month, chart.pillars.day, chart.pillars.hour]
@@ -128,6 +137,9 @@ function rawScores(d: PreciseDaewoonEntry, chart: BlueprintChart, facts: AnchorF
     if (C.HWAGAE[base] === d.branch) s += 4;
   }
   if (C.CHEONEUL_GWIIN[dayStem]?.includes(d.branch)) s += 6;
+
+  const pd = PHASE_DELTA[phaseOf(d, facts)];
+  e += pd; s += pd;
 
   const clamp = (v: number) => Math.min(CLAMP_HI, Math.max(CLAMP_LO, v));
   return [clamp(e), clamp(s)];
@@ -156,6 +168,7 @@ export function buildDaewoonCurve(chart: BlueprintChart, facts: AnchorFacts): Da
     startAge: d.start_age, endAge: d.end_age, ganji: d.ganji,
     e: eN[i], s: sN[i], eLabel: curveLabelOf(eN[i]), sLabel: curveLabelOf(sN[i]),
     isCurrent: currentGanji !== null && d.ganji === currentGanji,
+    phase: phaseOf(d, facts),
   }));
   const curIdx = Math.max(0, points.findIndex((p) => p.isCurrent));
   const last = points.length - 1;
@@ -178,10 +191,13 @@ export function buildDaewoonCurve(chart: BlueprintChart, facts: AnchorFacts): Da
   const crossAt = crossings.length > 0 ? crossings[0].at : null;
 
   const ageRange = (i: number) => `${points[i].startAge}~${points[i].endAge}세`;
-  const peakIdx = points.reduce((best, p, i) => (p.e > points[best].e ? i : best), 0);
+  // 2026-10-04(CoS 10차 §6): "확장 정점"은 대운 로드맵이 보강기로 판정한 구간에서만 고른다.
+  // 혼재·소진기·완만 구간에는 정점 표현을 쓰지 않는다 — 본문이 그 구간을 좋은 시기로 말하지 않는다.
+  const boostIdx = points.map((p, i) => (p.phase === "boost" && i < points.length - 1 ? i : -1)).filter((i) => i >= 0);
+  const peakIdx = boostIdx.length > 0 ? boostIdx.reduce((best, i) => (points[i].e > points[best].e ? i : best), boostIdx[0]) : -1;
 
   // 주석 후보 — 하강 구간·마지막 대운에는 달지 않는다.
-  const peak: CurveAnnotation | null = peakIdx < last ? { index: peakIdx, text: `${ageRange(peakIdx)} 확장 정점` } : null;
+  const peak: CurveAnnotation | null = peakIdx >= 0 ? { index: peakIdx, text: `${ageRange(peakIdx)} 확장 정점` } : null;
 
   const ranked = crossings.filter((c) => c.rising && c.idx < last);
   const cross = ranked.find((c) => c.idx >= curIdx) ?? ranked[0];
@@ -208,10 +224,10 @@ export function buildDaewoonCurve(chart: BlueprintChart, facts: AnchorFacts): Da
   }
   annotations.sort((a, b) => a.index - b.index);
 
-  const peakText = ageRange(peakIdx);
+  const peakLead = peakIdx >= 0 ? `${ageRange(peakIdx)} 확장 정점` : "뚜렷한 확장 정점 없이 완만한 흐름";
   const summary = crossAt !== null
-    ? `${peakText} 확장 정점 · ${points[Math.ceil(crossAt)].startAge}세 이후 두 곡선이 교차한다`
-    : `${peakText} 확장 정점 · 두 힘이 나란히 가는 설계`;
+    ? `${peakLead} · ${points[Math.ceil(crossAt)].startAge}세 이후 두 곡선이 교차한다`
+    : `${peakLead} · 두 힘이 나란히 가는 설계`;
 
   return { points, annotations, crossAt, summary };
 }

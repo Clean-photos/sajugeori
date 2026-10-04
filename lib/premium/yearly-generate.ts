@@ -1,4 +1,5 @@
 import type { MonthScore, YearlyResult, SajuChart } from "@/lib/saju-engine";
+import { yearDirection } from "@/lib/saju-engine";
 import { buildYongsinDualTrack, yongsinDualTrackPromptLine } from "@/lib/premium/yongsin-track";
 
 // Vercel이 Hobby 플랜이라 함수 실행시간이 60초로 묶여 있다(lib/blueprint-engine와
@@ -64,6 +65,7 @@ export async function generateYearlyReport(yr: YearlyResult, year: number, chart
 대상 연도: ${year}년
 세운(그 해 간지): ${yr.yearGanji} [종합 ${yr.yearScore}]
 세운 특징: ${yr.yearNotes.join(" / ") || "특별한 합충 없음"}
+연간 방향(판정): ${yearDirection(yr.yearScore).label} — 총운의 방향은 이 판정과 같아야 한다
 현재 대운: ${yr.daewoon ? `${yr.daewoon.ganji} (${yr.daewoon.ageRange}, ${yr.daewoon.favorability})` : "정보 없음"}
 ${yongsinLine}
 (아래 월별 점수는 이 용신·기신 기준으로 이미 계산된 값이다 — 총운·조언도 이와

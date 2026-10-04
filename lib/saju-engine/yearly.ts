@@ -72,6 +72,20 @@ function interactionScore(chart: SajuChart, stem: Stem, branch: Branch, notes: s
   return s;
 }
 
+/**
+ * 그 해의 큰 방향 판정 — 무료·프리미엄이 같은 값을 쓰도록 한 곳에서 정한다(CoS 10차 §3).
+ * 세운 종합 점수(yearScore)에서만 나오며, LLM이 다시 판단하지 않는다.
+ */
+export type YearDirection = "favorable" | "burdened" | "neutral";
+export const YEAR_FAVORABLE_MIN = 2;
+export const YEAR_BURDENED_MAX = -1.5;
+
+export function yearDirection(yearScore: number): { kind: YearDirection; label: string } {
+  if (yearScore >= YEAR_FAVORABLE_MIN) return { kind: "favorable", label: "유리한 해(세운이 용신 쪽 기운을 돕는다)" };
+  if (yearScore <= YEAR_BURDENED_MAX) return { kind: "burdened", label: "부담이 있는 해(세운이 과다한 기운을 더하거나 일지와 부딪힌다)" };
+  return { kind: "neutral", label: "무난한 해(유리와 부담이 뚜렷하게 한쪽으로 기울지 않는다)" };
+}
+
 /** 특정 연도의 세운을 스코어링 */
 export function scoreYear(chart: SajuChart, year: number): YearlyResult {
   const yong = favorableElements(chart);
