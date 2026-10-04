@@ -1,13 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import { supabaseAdmin } from "@/lib/db/client";
-import { checkReportAccess, refundOneTimePass, hasUnusedPassForRegenerate } from "@/lib/billing/access";
-import { startAttempt, finishAttemptDone, finishAttemptFailed, discardAttempt } from "@/lib/billing/attempts";
-import { reportExpiresAtIso, notExpiredFilter } from "@/lib/billing/report-ttl";
-import {
-  parseTargetBody, resolveTarget, readAdhocCache, writeAdhocCache,
-  ensureOwnProfileId, isoOf, timeKeyOf, loadOwnProfile, sameAsProfile,
-} from "@/lib/billing/report-target";
+import { parseTargetBody, resolveTarget, isoOf } from "@/lib/billing/report-target";
+import { requireUser } from "@/lib/premium/require-user";
+import { beginAttempt, abortAttempt, acquirePass, runGeneration, failAttempt } from "@/lib/premium/pipeline";
+import { findCached, saveReport, deleteById, deleteByTarget } from "@/lib/premium/report-store";
 import { buildChart, petCompatibility, PET_DEFAULT_MONTH, PET_FLOW_HINT, PET_BRANCH_HINT } from "@/lib/saju-engine";
 import type { PetSpecies } from "@/lib/saju-engine";
 import { generatePetReport } from "@/lib/premium/pet-generate";
@@ -23,27 +18,23 @@ const PRODUCT_ID = "pet_one";
 // body에 attemptId가 있으면 "같은 정보로 재생성" 요청으로 보고, 최초 시도 때 저장해 둔
 // 입력값을 그대로 재사용한다.
 export async function POST(req: NextRequest) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "login_required", redirect: "/login?redirect=/premium/pet" }, { status: 401 });
-  }
-  const userId = session.user.id;
+  const user = await requireUser("/premium/pet");
+  if (!user.ok) return user.response;
+  const userId = user.userId;
 
   const body = await req.json();
   const attemptId = typeof body.attemptId === "string" ? body.attemptId : undefined;
 
-  const started = await startAttempt(userId, PRODUCT_ID, attemptId, body);
-  if (!started.ok) {
-    return NextResponse.json({ error: started.error, busy: started.busy ?? false }, { status: started.status });
-  }
-  const input = started.input;
+  const began = await beginAttempt(userId, PRODUCT_ID, attemptId, body);
+  if (!began.ok) return began.response;
+  const { attempt } = began;
+  const input = attempt.input;
 
   // 집사 사주는 화면에서 확정해 보낸다(생성 직전 컨펌). 예전처럼 "마지막에 등록한
   // 본인 사주"를 말없이 쓰지 않는다 — 가족 사주로 볼 방법이 없던 원인이었다.
   const parsedTarget = parseTargetBody(input);
   if (!parsedTarget.ok) {
-    await discardAttempt(started.attemptId);
-    return NextResponse.json({ error: parsedTarget.error }, { status: 400 });
+    return abortAttempt(attempt, NextResponse.json({ error: parsedTarget.error }, { status: 400 }));
   }
   const target = parsedTarget.input;
   const { ownProfile, isAdhoc } = await resolveTarget(userId, target);
@@ -54,8 +45,7 @@ export async function POST(req: NextRequest) {
   const petDay = input.petDay ? parseInt(String(input.petDay)) : null;
   const petName = String(input.petName ?? "").slice(0, 20).trim() || "아이";
   if (!petYear || petYear < 1980 || petYear > kstYear()) {
-    await discardAttempt(started.attemptId);
-    return NextResponse.json({ error: "반려동물 출생 연도를 확인해주세요." }, { status: 400 });
+    return abortAttempt(attempt, NextResponse.json({ error: "반려동물 출생 연도를 확인해주세요." }, { status: 400 }));
   }
 
   let facts;
@@ -65,102 +55,51 @@ export async function POST(req: NextRequest) {
     facts = petCompatibility(owner, { species, petYear, petMonth, petDay, petName });
   } catch (e) {
     console.error("premium pet engine error:", e);
-    await finishAttemptFailed(started.attemptId, "사주 계산 오류");
-    return NextResponse.json({ error: "사주 계산 오류", attemptId: started.attemptId }, { status: 500 });
+    return failAttempt(attempt, null, "사주 계산 오류",
+      NextResponse.json({ error: "사주 계산 오류", attemptId: attempt.attemptId }, { status: 500 }));
   }
 
   // 같은 아이·같은 조건이면 재생성하지 않는다. 캐시 키의 pet_day는 0이 '모름'.
   // 집사 사주가 다르면 같은 아이라도 다른 리포트이므로 variant에 함께 넣는다.
   const variant = [species, petName, petYear, petMonth, petDay ?? 0].join("|");
-  // 2026-09-22(CEO 지시, 프로모션 이용권 배포): 지금 쓸 수 있는 미사용 이용권이 있으면
-  // 캐시를 건너뛰고 새로 생성한다 — 안 그러면 같은 아이·같은 조건으로는 새 이용권을
-  // 영영 못 쓴다(유일한 우회가 "결과 삭제하기"뿐이었다). 구독자는 대상이 아니다.
-  const skipCacheForPass = await hasUnusedPassForRegenerate(userId, PRODUCT_ID);
-  if (!skipCacheForPass) {
-    if (isAdhoc) {
-      const cached = await readAdhocCache(userId, PRODUCT_ID, target, variant);
-      if (cached) {
-        await discardAttempt(started.attemptId);
-        return NextResponse.json({ report: cached, pet: facts.pet, petName, cached: true, adhoc: true });
-      }
-    } else if (ownProfile?.id) {
-      try {
-        const { data: cached } = await supabaseAdmin
-          .from("reports").select("content")
-          .eq("profile_id", ownProfile.id).eq("product_id", PRODUCT_ID).eq("variant", variant)
-          .or(notExpiredFilter()).limit(1).maybeSingle();
-        if (cached?.content) {
-          await discardAttempt(started.attemptId);
-          return NextResponse.json({ report: cached.content, pet: facts.pet, petName, cached: true });
-        }
-      } catch { /* 테이블 없음 또는 미저장 → 생성 진행 */ }
-    }
+  const key = { userId, productId: PRODUCT_ID, target, ownProfile, isAdhoc, variant };
+
+  // 캐시가 있으면 이용권 없이 재열람(미사용 이용권이 있으면 건너뛰고 새로 생성 — 프로모션 이용권 사용).
+  const cached = await findCached<string>(key);
+  if (cached) {
+    return abortAttempt(attempt, NextResponse.json({
+      report: cached.content, pet: facts.pet, petName, cached: true, ...(cached.adhoc ? { adhoc: true } : {}),
+    }));
   }
 
-  // 캐시가 없을 때만 구독 확인 (이미 본 결과는 재열람 허용)
-  // 구독자 또는 990원 단건 이용권 보유자만 통과. 이용권은 생성 성공 후 소진한다.
-  const access = await checkReportAccess(userId, PRODUCT_ID);
-  if (!access.allowed) {
-    await discardAttempt(started.attemptId);
-    return NextResponse.json({ error: "premium_required", redirect: "/premium/buy?product=pet_one" }, { status: 402 });
-  }
+  // 구독자 또는 990원 단건 이용권 보유자만 통과(원자적 선점).
+  const pass = await acquirePass(userId, PRODUCT_ID, attempt);
+  if (!pass.ok) return pass.response;
 
-  try {
-    const report = await generatePetReport(facts, petName, PET_BRANCH_HINT, PET_FLOW_HINT, owner);
-    // 캐시 저장 (테이블 없으면 무시)
-    if (isAdhoc) {
-      // 1회성 — 본인 프로필도, 본인 리포트 캐시도 건드리지 않는다.
-      await writeAdhocCache(userId, PRODUCT_ID, target, report, variant);
-    } else {
-      // 등록된 사주가 없던 사람이면 이 입력이 본인 프로필로 저장된다(016 규칙).
-      const profileId = await ensureOwnProfileId(userId, target, ownProfile);
-      if (profileId) {
-        try {
-          // QA(2026-09-05) D-2: upsert 충돌 시 created_at DEFAULT가 다시 안 타
-          // 재생성해도 생성일이 그대로였다 — 명시적으로 갱신한다.
-          await supabaseAdmin.from("reports").upsert(
-            {
-              profile_id: profileId, product_id: PRODUCT_ID, variant, user_id: userId,
-              content: report, extra: { species, pet_name: petName, pet_year: petYear, pet_month: petMonth, pet_day: petDay },
-              expires_at: reportExpiresAtIso(), created_at: new Date().toISOString(),
-            },
-            { onConflict: "profile_id,product_id,variant" }
-          );
-        } catch { /* noop */ }
-      }
-    }
-
-    await finishAttemptDone(started.attemptId);
-
-    return NextResponse.json({ report, pet: facts.pet, petName, cached: false });
-  } catch (e) {
-    console.error("premium pet LLM error:", e);
-    if (access.passId) await refundOneTimePass(access.passId);
-    await finishAttemptFailed(started.attemptId, "LLM 호출 오류");
-    return NextResponse.json({ error: "분석 중 오류가 발생했습니다. 같은 정보로 다시 시도해주세요.", attemptId: started.attemptId }, { status: 500 });
-  }
+  return runGeneration({
+    label: "pet",
+    attempt,
+    passId: pass.passId,
+    run: async () => {
+      const report = await generatePetReport(facts, petName, PET_BRANCH_HINT, PET_FLOW_HINT, owner);
+      await saveReport(key, report, { species, pet_name: petName, pet_year: petYear, pet_month: petMonth, pet_day: petDay });
+      return report;
+    },
+    ok: (report) => NextResponse.json({ report, pet: facts.pet, petName, cached: false }),
+  });
 }
 
 // DELETE /api/premium/pet — 로그인 필수. 사용자가 특정 반려동물의 궁합 결과를 직접 삭제.
 export async function DELETE(req: NextRequest) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "login_required" }, { status: 401 });
-  }
-  const userId = session.user.id;
+  const user = await requireUser("/premium/pet");
+  if (!user.ok) return NextResponse.json({ error: "login_required" }, { status: 401 });
+  const userId = user.userId;
 
   const body = await req.json().catch(() => ({}));
 
-  // §1(CoS 결정 2026-09-08): /premium/pet/[id](저장된 결과 재열람 전용, 이용권
-  // 검사 없음)는 이 행의 정확한 PK(id)를 이미 알고 있다. species·이름 등으로
-  // "본인 프로필과 일치하는지"를 되짚어 찾는 아래의 기존 방식은, 본인 사주를
-  // 재등록해 saju_profiles 행이 새로 생긴 경우 "지금의 본인 프로필"과 이 리포트가
-  // 실제로 속한(과거) 프로필이 달라질 수 있어 엉뚱한 행을 건드릴 여지가 있다.
-  // id가 오면 그 모호함 없이 바로, 소유자만 확인하고 지운다.
-  if (typeof body.id === "string" && body.id) {
-    await supabaseAdmin.from("reports").delete().eq("id", body.id).eq("user_id", userId).eq("product_id", PRODUCT_ID);
-    return NextResponse.json({ ok: true });
-  }
+  // §1(CoS 결정 2026-09-08): /premium/pet/[id](저장된 결과 재열람 전용)는 행의 정확한 PK(id)를 안다.
+  // species·이름 등으로 되짚으면 본인 사주를 재등록해 프로필이 바뀐 경우 엉뚱한 행을 건드릴 여지가 있다.
+  if (typeof body.id === "string" && body.id) return deleteById(userId, PRODUCT_ID, body.id);
 
   const species: PetSpecies = body.species === "cat" ? "cat" : "dog";
   const petYear = parseInt(String(body.petYear));
@@ -171,28 +110,11 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: "petYear is required" }, { status: 400 });
   }
 
-  // 대상(집사 사주)을 함께 받는다 — 안 받으면 가족 사주로 만든 리포트를 지우려다
-  // 본인 리포트가 지워진다.
+  // 대상(집사 사주)을 함께 받는다 — 안 받으면 가족 사주로 만든 리포트를 지우려다 본인 리포트가 지워진다.
   const parsedTarget = parseTargetBody(body);
-  const ownProfile = await loadOwnProfile(userId);
-
-  if (parsedTarget.ok && ownProfile && !sameAsProfile(parsedTarget.input, ownProfile)) {
-    const t = parsedTarget.input;
-    await supabaseAdmin.from("premium_adhoc_reports").delete()
-      .eq("user_id", userId).eq("product_id", PRODUCT_ID)
-      .eq("birth_date", t.birthDate).eq("birth_time", timeKeyOf(t.birthTime))
-      .eq("gender", t.gender)
-      .eq("variant", [species, petName, petYear, petMonth, petDay ?? 0].join("|"));
-    return NextResponse.json({ ok: true });
-  }
-
-  if (!ownProfile?.id) {
-    return NextResponse.json({ error: "profile_required" }, { status: 403 });
-  }
-
-  await supabaseAdmin.from("reports").delete()
-    .eq("profile_id", ownProfile.id).eq("product_id", PRODUCT_ID).eq("user_id", userId)
-    .eq("variant", [species, petName, petYear, petMonth, petDay ?? 0].join("|"));
-
-  return NextResponse.json({ ok: true });
+  return deleteByTarget({
+    userId, productId: PRODUCT_ID,
+    target: parsedTarget.ok ? parsedTarget.input : null,
+    variant: [species, petName, petYear, petMonth, petDay ?? 0].join("|"),
+  });
 }

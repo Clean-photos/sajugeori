@@ -1,13 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import { supabaseAdmin } from "@/lib/db/client";
-import { checkReportAccess, refundOneTimePass, hasUnusedPassForRegenerate } from "@/lib/billing/access";
-import { startAttempt, finishAttemptDone, finishAttemptFailed, discardAttempt } from "@/lib/billing/attempts";
-import { reportExpiresAtIso, notExpiredFilter } from "@/lib/billing/report-ttl";
-import {
-  parseTargetBody, resolveTarget, readAdhocCache, writeAdhocCache,
-  ensureOwnProfileId, isoOf, timeKeyOf, loadOwnProfile, sameAsProfile,
-} from "@/lib/billing/report-target";
+import { parseTargetBody, resolveTarget, isoOf, timeKeyOf } from "@/lib/billing/report-target";
+import { requireUser } from "@/lib/premium/require-user";
+import { beginAttempt, abortAttempt, acquirePass, runGeneration, failAttempt } from "@/lib/premium/pipeline";
+import { findCached, saveReport, deleteById, deleteByTarget } from "@/lib/premium/report-store";
 import { buildChart, mutualAnalysis } from "@/lib/saju-engine";
 import { generateCompatibilityReport } from "@/lib/premium/compat-generate";
 import { buildCompatPillarSummary } from "@/lib/premium/compat-pillars";
@@ -24,28 +19,24 @@ const PRODUCT_ID = "compatibility_one";
 // body에 attemptId가 있으면 "같은 정보로 재생성" 요청으로 보고, 새로 보낸 입력값 대신
 // 최초 시도 때 저장해 둔 입력값을 그대로 재사용한다.
 export async function POST(req: NextRequest) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "login_required", redirect: "/login?redirect=/premium/compatibility" }, { status: 401 });
-  }
-  const userId = session.user.id;
+  const user = await requireUser("/premium/compatibility");
+  if (!user.ok) return user.response;
+  const userId = user.userId;
 
   const body = await req.json();
   const attemptId = typeof body.attemptId === "string" ? body.attemptId : undefined;
 
-  const started = await startAttempt(userId, PRODUCT_ID, attemptId, body);
-  if (!started.ok) {
-    return NextResponse.json({ error: started.error, busy: started.busy ?? false }, { status: started.status });
-  }
-  const input = started.input;
+  const began = await beginAttempt(userId, PRODUCT_ID, attemptId, body);
+  if (!began.ok) return began.response;
+  const { attempt } = began;
+  const input = attempt.input;
 
   // A(첫 번째 사람)는 화면에서 확정해 보낸다(생성 직전 컨펌). 예전에는 별도
   // custom_person_a 체크박스로 받았고 **태어난 시각을 못 받아** 늘 시주 제외로
   // 계산됐다. 이제 다른 상품과 같은 확정 화면을 쓰므로 시각까지 반영된다.
   const parsedA = parseTargetBody(input);
   if (!parsedA.ok) {
-    await discardAttempt(started.attemptId);
-    return NextResponse.json({ error: parsedA.error }, { status: 400 });
+    return abortAttempt(attempt, NextResponse.json({ error: parsedA.error }, { status: 400 }));
   }
   const personA = parsedA.input;
   const { ownProfile, isAdhoc } = await resolveTarget(userId, personA);
@@ -57,15 +48,13 @@ export async function POST(req: NextRequest) {
   const partnerBirth = input.partner_birth as string;
   const partnerBirthTimeRaw = typeof input.partner_birth_time === "string" && input.partner_birth_time ? input.partner_birth_time : null;
   if (partnerBirthTimeRaw !== null && !/^\d{2}:\d{2}(:\d{2})?$/.test(partnerBirthTimeRaw)) {
-    await discardAttempt(started.attemptId);
-    return NextResponse.json({ error: "상대방 태어난 시각 형식을 확인해주세요." }, { status: 400 });
+    return abortAttempt(attempt, NextResponse.json({ error: "상대방 태어난 시각 형식을 확인해주세요." }, { status: 400 }));
   }
   const partnerBirthTime = partnerBirthTimeRaw ? timeKeyOf(partnerBirthTimeRaw) : "";
   const partnerGender = (input.partner_gender ?? "F") as "M" | "F";
   const context = (input.context ?? "romance") as Ctx;
   if (!partnerBirth) {
-    await discardAttempt(started.attemptId);
-    return NextResponse.json({ error: "partner_birth is required" }, { status: 400 });
+    return abortAttempt(attempt, NextResponse.json({ error: "partner_birth is required" }, { status: 400 }));
   }
 
   // A가 등록된 본인 사주가 아니면 "임의의 두 사람" 궁합이다(친구 커플·부모님 등).
@@ -91,40 +80,24 @@ export async function POST(req: NextRequest) {
     pillars = { a: buildCompatPillarSummary(meChart, personALabel), b: buildCompatPillarSummary(otherChart, partnerLabel) };
   } catch { /* 명식표는 부가 정보 — 실패해도 리포트 생성은 계속한다 */ }
 
-  // 2026-09-22(CEO 지시, 프로모션 이용권 배포): 지금 쓸 수 있는 미사용 이용권이 있으면
-  // 캐시를 건너뛰고 새로 생성한다 — 안 그러면 같은 두 사람·같은 관계유형으로는 새
-  // 이용권을 영영 못 쓴다(유일한 우회가 "결과 삭제하기"뿐이었다). 구독자는 대상이 아니다.
-  const skipCacheForPass = await hasUnusedPassForRegenerate(userId, PRODUCT_ID);
-  if (!skipCacheForPass) {
-    if (isAdhoc) {
-      const cached = await readAdhocCache<{ content: unknown; score: number }>(userId, PRODUCT_ID, personA, variant);
-      if (cached) {
-        await discardAttempt(started.attemptId);
-        return NextResponse.json({ report: cached.content, score: cached.score, context, cached: true, adhoc: true, pillars });
-      }
-    } else if (ownProfile?.id) {
-      try {
-        const { data: cached } = await supabaseAdmin
-          .from("reports").select("id, content")
-          .eq("profile_id", ownProfile.id).eq("product_id", PRODUCT_ID).eq("variant", variant)
-          .or(notExpiredFilter()).limit(1).maybeSingle();
-        const cachedContent = cached?.content as { text: string; score: number } | undefined;
-        if (cachedContent?.text) {
-          await discardAttempt(started.attemptId);
-          // §1(CoS 결정 2026-09-08): id를 함께 돌려줘야 마이페이지 "보기 →"가
-          // /premium/compatibility/{id}(이용권 검사 없는 열람 라우트)로 연결할 수 있다.
-          return NextResponse.json({ report: cachedContent.text, score: cachedContent.score, context, cached: true, id: cached!.id, pillars });
-        }
-      } catch { /* 테이블 없음 또는 미저장 → 생성 진행 */ }
-    }
+  // 같은 두 사람·같은 관계유형이면 재생성하지 않는다(재열람 무료). 미사용 이용권이 있으면 findCached가
+  // 캐시를 건너뛴다 — 프로모션 이용권이 실제로 쓰이게.
+  const key = { userId, productId: PRODUCT_ID, target: personA, ownProfile, isAdhoc, variant };
+  const cached = await findCached<{ content?: unknown; text?: string; score: number }>(key);
+  if (cached) {
+    // 1회성 캐시는 {content, score}, 본인 리포트는 {text, score}로 저장돼 있다.
+    // §1(CoS 결정 2026-09-08): 본인 리포트는 id를 함께 돌려줘야 마이페이지 "보기 →"가
+    // /premium/compatibility/{id}(이용권 검사 없는 열람 라우트)로 연결할 수 있다.
+    return abortAttempt(attempt, NextResponse.json({
+      report: cached.adhoc ? cached.content.content : cached.content.text,
+      score: cached.content.score, context, cached: true, pillars,
+      ...(cached.adhoc ? { adhoc: true } : { id: cached.id }),
+    }));
   }
 
-  // 구독자 또는 990원 단건 이용권 보유자만 통과. 이용권은 생성 성공 후 소진한다.
-  const access = await checkReportAccess(userId, PRODUCT_ID);
-  if (!access.allowed) {
-    await discardAttempt(started.attemptId);
-    return NextResponse.json({ error: "premium_required", redirect: "/premium/buy?product=compatibility_one" }, { status: 402 });
-  }
+  // 구독자 또는 990원 단건 이용권 보유자만 통과(원자적 선점).
+  const pass = await acquirePass(userId, PRODUCT_ID, attempt);
+  if (!pass.ok) return pass.response;
 
   // A 사주(등록된 내 사주 또는 직접 입력한 임의의 사람) + 상대 사주 재구성 후 양방향 분석.
   let mutual;
@@ -136,79 +109,42 @@ export async function POST(req: NextRequest) {
     normalizedScore = Math.min(100, Math.max(0, Math.round(38 + mutual.combinedScore * 6)));
   } catch (e) {
     console.error("premium compatibility engine error:", e);
-    if (access.passId) await refundOneTimePass(access.passId);
-    await finishAttemptFailed(started.attemptId, "사주 계산 오류");
-    return NextResponse.json({ error: "사주 계산 오류", attemptId: started.attemptId }, { status: 500 });
+    return failAttempt(attempt, pass.passId, "사주 계산 오류",
+      NextResponse.json({ error: "사주 계산 오류", attemptId: attempt.attemptId }, { status: 500 }));
   }
 
-  try {
-    const report = await generateCompatibilityReport(
-      mutual, context, normalizedScore,
-      useCustomA ? { a: "A", b: "B" } : { a: "나", b: "상대" }
-    );
-
-    // 캐시 저장 (테이블 없으면 무시)
-    let savedId: string | null = null;
-    if (isAdhoc) {
-      // 1회성 — 본인 프로필도, 본인 리포트 캐시도 건드리지 않는다.
-      await writeAdhocCache(userId, PRODUCT_ID, personA, { content: report, score: normalizedScore }, variant);
-    } else {
-      // 등록된 사주가 없던 사람이면 이 입력이 본인 프로필로 저장된다(016 규칙).
-      const profileId = await ensureOwnProfileId(userId, personA, ownProfile);
-      if (profileId) {
-        try {
-          // §1(CoS 결정 2026-09-08): 생성된 행의 id를 돌려줘야 "보기 →"가
-          // /premium/compatibility/{id}로 연결할 수 있다.
-          const { data: inserted, error: insertErr } = await supabaseAdmin.from("reports").upsert(
-            {
-              profile_id: profileId, product_id: PRODUCT_ID, variant, user_id: userId,
-              content: { text: report, score: normalizedScore }, expires_at: reportExpiresAtIso(),
-              created_at: new Date().toISOString(),
-            },
-            { onConflict: "profile_id,product_id,variant" }
-          ).select("id").single();
-          if (insertErr) throw insertErr;
-          savedId = inserted?.id ?? null;
-        } catch (e) {
-          // §C(CoS 실물 확인, 2026-09-29): 여기서 그냥 포기하면 결제한 궁합 리포트가
-          // 어디에도 저장되지 않아 "받은 리포트" 목록에 영원히 안 뜬다(결제 내역엔
-          // "사용함"으로 남는데 리포트 목록엔 없는 것과 정확히 일치하는 증상) — 018
-          // 1회성 캐시로라도 남겨, 최소한 마이페이지에서 다시 찾을 수 있게 한다.
-          console.error("궁합 저장 실패, 018 캐시로 폴백:", e);
-          await writeAdhocCache(userId, PRODUCT_ID, personA, { content: report, score: normalizedScore }, variant);
-        }
-      }
-    }
-
-    await finishAttemptDone(started.attemptId);
-
-    return NextResponse.json({ report, score: normalizedScore, context, cached: false, id: savedId, pillars });
-  } catch (e) {
-    console.error("premium compatibility LLM error:", e);
-    if (access.passId) await refundOneTimePass(access.passId);
-    await finishAttemptFailed(started.attemptId, "LLM 호출 오류");
-    return NextResponse.json({ error: "분석 중 오류가 발생했습니다. 같은 정보로 다시 시도해주세요.", attemptId: started.attemptId }, { status: 500 });
-  }
+  return runGeneration({
+    label: "compatibility",
+    attempt,
+    passId: pass.passId,
+    run: async () => {
+      const report = await generateCompatibilityReport(
+        mutual, context, normalizedScore,
+        useCustomA ? { a: "A", b: "B" } : { a: "나", b: "상대" }
+      );
+      // 1회성은 {content, score}, 본인 리포트는 {text, score}. 저장 실패 시 1회성 캐시 폴백은 saveReport가 맡는다.
+      const savedId = await saveReport(
+        key,
+        isAdhoc ? { content: report, score: normalizedScore } : { text: report, score: normalizedScore }
+      );
+      return { report, savedId };
+    },
+    ok: ({ report, savedId }) =>
+      NextResponse.json({ report, score: normalizedScore, context, cached: false, id: savedId, pillars }),
+  });
 }
 
 // DELETE /api/premium/compatibility — 로그인 필수. 사용자가 특정 상대와의 궁합 결과를 직접 삭제.
 export async function DELETE(req: NextRequest) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "login_required" }, { status: 401 });
-  }
-  const userId = session.user.id;
+  const user = await requireUser("/premium/compatibility");
+  if (!user.ok) return NextResponse.json({ error: "login_required" }, { status: 401 });
+  const userId = user.userId;
 
   const body = await req.json().catch(() => ({}));
 
-  // §1(CoS 결정 2026-09-08): /premium/compatibility/[id](저장된 결과 재열람
-  // 전용, 이용권 검사 없음)는 이 행의 정확한 PK(id)를 이미 알고 있다 — 상대
-  // 정보로 되짚어 찾는 아래 기존 방식과 달리 본인 사주 재등록으로 프로필이
-  // 바뀌어도 엉뚱한 행을 건드릴 여지가 없다(pet.ts와 동일한 이유).
-  if (typeof body.id === "string" && body.id) {
-    await supabaseAdmin.from("reports").delete().eq("id", body.id).eq("user_id", userId).eq("product_id", PRODUCT_ID);
-    return NextResponse.json({ ok: true });
-  }
+  // §1(CoS 결정 2026-09-08): /premium/compatibility/[id](저장된 결과 재열람 전용)는 행의 정확한 PK(id)를 안다 —
+  // 상대 정보로 되짚으면 본인 사주 재등록으로 프로필이 바뀐 경우 엉뚱한 행을 건드릴 여지가 있다.
+  if (typeof body.id === "string" && body.id) return deleteById(userId, PRODUCT_ID, body.id);
 
   const partnerBirth = body.partner_birth as string;
   const partnerBirthTime = typeof body.partner_birth_time === "string" ? timeKeyOf(body.partner_birth_time) : "";
@@ -220,25 +156,9 @@ export async function DELETE(req: NextRequest) {
 
   // A(첫 번째 사람)를 함께 받는다 — 안 받으면 다른 조합의 리포트가 지워진다.
   const parsedA = parseTargetBody(body);
-  const ownProfile = await loadOwnProfile(userId);
-
-  if (parsedA.ok && ownProfile && !sameAsProfile(parsedA.input, ownProfile)) {
-    const a = parsedA.input;
-    await supabaseAdmin.from("premium_adhoc_reports").delete()
-      .eq("user_id", userId).eq("product_id", PRODUCT_ID)
-      .eq("birth_date", a.birthDate).eq("birth_time", timeKeyOf(a.birthTime))
-      .eq("gender", a.gender)
-      .eq("variant", [partnerBirth, partnerBirthTime, partnerGender, context].join("|"));
-    return NextResponse.json({ ok: true });
-  }
-
-  if (!ownProfile?.id) {
-    return NextResponse.json({ error: "profile_required" }, { status: 403 });
-  }
-
-  await supabaseAdmin.from("reports").delete()
-    .eq("profile_id", ownProfile.id).eq("product_id", PRODUCT_ID).eq("user_id", userId)
-    .eq("variant", [partnerBirth, partnerBirthTime, partnerGender, context].join("|"));
-
-  return NextResponse.json({ ok: true });
+  return deleteByTarget({
+    userId, productId: PRODUCT_ID,
+    target: parsedA.ok ? parsedA.input : null,
+    variant: [partnerBirth, partnerBirthTime, partnerGender, context].join("|"),
+  });
 }

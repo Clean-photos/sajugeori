@@ -1,20 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import { supabaseAdmin } from "@/lib/db/client";
-import { checkReportAccess, refundOneTimePass, hasUnusedPassForRegenerate } from "@/lib/billing/access";
-import { startAttempt, finishAttemptDone, finishAttemptFailed, discardAttempt } from "@/lib/billing/attempts";
-import { reportExpiresAtIso, notExpiredFilter } from "@/lib/billing/report-ttl";
-import {
-  parseTargetBody, resolveTarget, readAdhocCache, writeAdhocCache,
-  ensureOwnProfileId, isoOf, timeKeyOf, loadOwnProfile, sameAsProfile,
-} from "@/lib/billing/report-target";
+import { parseTargetBody, resolveTarget, isoOf, timeKeyOf } from "@/lib/billing/report-target";
+import { requireUser } from "@/lib/premium/require-user";
+import { beginAttempt, acquirePass, runGeneration } from "@/lib/premium/pipeline";
+import { findCached, saveReport, deleteById, deleteByTarget } from "@/lib/premium/report-store";
 import { buildChart } from "@/lib/saju-engine";
 import { classify } from "@/lib/wuxing/classify";
 import { buildDiagnosis } from "@/lib/wuxing/diagnosis";
 import { generateDiagnosisNarrative } from "@/lib/wuxing/diagnosis-narrative";
 import { buildSeunPrescription } from "@/lib/wuxing/seun-prescription";
 import { generateSeunNarrative } from "@/lib/wuxing/seun-narrative";
-import { buildWuxingReport, type WuxingNarratives } from "@/lib/wuxing/report";
+import { buildWuxingReport, type WuxingNarratives, type WuxingReportData } from "@/lib/wuxing/report";
 
 // LLM 호출 2곳(§① 보충 문장·§⑥ 흐름 문단)이 병렬이라 개별 실측(6~14초)보다 여유 있게 잡는다.
 // 실측(2026-08-31, claude-sonnet-5): 평균 9.2초, 최대 12.0초 — 60초 상한에 여유 충분.
@@ -80,18 +75,16 @@ async function buildFullReport(chart: ReturnType<typeof buildChart>) {
 /**
  * POST /api/premium/wuxing — 로그인+프리미엄 필수.
  * body: { birth_date, birth_time|null, gender, calendar? } — 화면에서 확정한 대상 사주.
- * 흐름: 대상 확정 → 캐시 → 게이트 → 생성 → 이용권 소진 → 캐시 저장.
+ * 흐름: 대상 확정 → 캐시 → 게이트 → 생성 → 저장.
  */
 export async function POST(req: NextRequest) {
   if (!isEnabled()) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "login_required", redirect: "/login?redirect=/premium/ohang" }, { status: 401 });
-  }
-  const userId = session.user.id;
+  const user = await requireUser("/premium/ohang");
+  if (!user.ok) return user.response;
+  const userId = user.userId;
 
   // 대상 사주는 화면에서 확정해 보낸다(생성 직전 컨펌). 예전처럼 "마지막에 등록한
   // 본인 사주"를 말없이 쓰지 않는다 — 가족 사주를 볼 방법이 없던 원인이었다.
@@ -105,138 +98,78 @@ export async function POST(req: NextRequest) {
   }
 
   const { ownProfile, isAdhoc } = await resolveTarget(userId, input);
+  const key = { userId, productId: PRODUCT_ID, target: input, ownProfile, isAdhoc };
 
   // 캐시를 게이트보다 먼저 본다. 이용권은 생성 성공 시 소진되므로, 게이트를 먼저
-  // 통과시키면 이미 결제해 만든 리포트를 다시 열지 못한다.
-  //
-  // 2026-09-22(CEO 지시, 프로모션 이용권 배포): 단, 지금 쓸 수 있는 미사용 이용권이
-  // 있으면 캐시를 건너뛰고 새로 생성한다 — 그래야 그 이용권이 실제로 쓰인다. 이 순서
-  // 그대로 두면 이미 리포트가 있는 프로필엔 새 이용권을 영영 못 쓰고, 유일한 우회가
-  // "결과 삭제하기"뿐이었다(프로모션으로 준 이용권을 쓰라면서 기존 결과부터 지우라고
-  // 할 수 없다). 구독자는 대상이 아니다(무제한 무료 열람이 이미 보장돼 재생성은
-  // 비용만 늘린다) — hasUnusedPassForRegenerate는 구독 여부와 무관하게 단건 이용권만 본다.
-  const skipCacheForPass = await hasUnusedPassForRegenerate(userId, PRODUCT_ID);
-  if (!skipCacheForPass) {
-    if (isAdhoc) {
-      const cached = await readAdhocCache(userId, PRODUCT_ID, input);
-      if (cached) return NextResponse.json({ report: cached, cached: true, adhoc: true });
-    } else if (ownProfile?.id) {
-      try {
-        const { data: cached } = await supabaseAdmin
-          .from("reports").select("content")
-          .eq("profile_id", ownProfile.id).eq("product_id", PRODUCT_ID).eq("variant", "")
-          .or(notExpiredFilter()).limit(1).maybeSingle();
-        if (cached?.content) return NextResponse.json({ report: cached.content, cached: true, profileId: ownProfile.id });
-      } catch { /* 테이블 없음(마이그레이션 미적용) → 생성으로 진행 */ }
-    }
+  // 통과시키면 이미 결제해 만든 리포트를 다시 열지 못한다. (미사용 이용권이 있으면
+  // findCached가 건너뛴다 — 프로모션 이용권이 실제로 쓰이게. 구독자는 대상이 아니다.)
+  const cached = await findCached<WuxingReportData>(key);
+  if (cached) {
+    // profileId는 화면이 "마이페이지에서 다시 열 수 있어요" 안내를 띄울지 판단하는 용도(값의 유무만 본다).
+    return NextResponse.json(
+      cached.adhoc
+        ? { report: cached.content, cached: true, adhoc: true }
+        : { report: cached.content, cached: true, profileId: cached.id }
+    );
   }
 
-  // 대상이 다르면 다른 생성 시도다 — 입력값을 그대로 기록해 두면 실패 원인 추적이 쉽다.
-  const started = await startAttempt(userId, PRODUCT_ID, undefined, {
-    birth_date: input.birthDate, birth_time: timeKeyOf(input.birthTime), gender: input.gender,
-  });
-  if (!started.ok) {
-    return NextResponse.json({ error: started.error, busy: started.busy ?? false }, { status: started.status });
-  }
-
-  const { allowed, passId } = await checkReportAccess(userId, PRODUCT_ID);
-  if (!allowed) {
-    await discardAttempt(started.attemptId);
-    return NextResponse.json({ error: "premium_required", redirect: "/premium/buy?product=wuxing_one" }, { status: 402 });
-  }
-
+  // 결정론적 계산 — 실패하면 이용권을 만지기 전에 돌려보낸다.
   let chart: ReturnType<typeof buildChart>;
   try {
     chart = buildChart(isoOf(input), input.gender, !!input.birthTime);
   } catch (e) {
-    // discardAttempt(시도 기록 자체를 삭제)는 "생성 시도로 볼 수 없는 조기 반환"
-    // 전용이다(예: 이용권 부족). 사주 계산 실패는 실제 생성 시도가 실패한 것이므로
-    // finishAttemptFailed로 error_message를 남겨야 사후 조회로 원인 파악이 가능하다.
     console.error("wuxing [사주 계산 실패]:", e);
-    if (passId) await refundOneTimePass(passId);
-    await finishAttemptFailed(started.attemptId, "사주 계산 오류");
     return NextResponse.json({ error: "사주 계산 오류" }, { status: 400 });
   }
 
-  let report: Awaited<ReturnType<typeof buildFullReport>>;
-  try {
-    report = await buildFullReport(chart);
-  } catch (e) {
-    console.error("wuxing [리포트 조립 실패]:", e);
-    if (passId) await refundOneTimePass(passId);
-    await finishAttemptFailed(started.attemptId, e instanceof Error ? e.message : "생성 실패");
-    return NextResponse.json({ error: "생성에 실패했습니다. 잠시 후 다시 시도해주세요." }, { status: 500 });
-  }
+  // 대상이 다르면 다른 생성 시도다 — 입력값을 그대로 기록해 두면 실패 원인 추적이 쉽다.
+  const began = await beginAttempt(userId, PRODUCT_ID, undefined, {
+    birth_date: input.birthDate, birth_time: timeKeyOf(input.birthTime), gender: input.gender,
+  });
+  if (!began.ok) return began.response;
+  const pass = await acquirePass(userId, PRODUCT_ID, began.attempt);
+  if (!pass.ok) return pass.response;
 
-  await finishAttemptDone(started.attemptId);
-
-  if (isAdhoc) {
-    // 1회성 — 본인 프로필도, 본인 리포트 캐시도 건드리지 않는다.
-    await writeAdhocCache(userId, PRODUCT_ID, input, report);
-    return NextResponse.json({ report, cached: false, adhoc: true });
-  }
-
-  // 본인 케이스. 등록된 사주가 없던 사람이면 이 입력이 본인 프로필로 저장된다(016 규칙).
-  const profileId = await ensureOwnProfileId(userId, input, ownProfile);
-  if (profileId) {
-    try {
-      // QA(2026-09-05) D-2: upsert 충돌 시 created_at DEFAULT가 다시 안 타
-      // 재생성해도 생성일이 그대로였다 — 명시적으로 갱신한다.
-      await supabaseAdmin.from("reports").upsert(
-        { profile_id: profileId, product_id: PRODUCT_ID, variant: "", user_id: userId, content: report, expires_at: reportExpiresAtIso(), created_at: new Date().toISOString() },
-        { onConflict: "profile_id,product_id,variant" }
-      );
-    } catch { /* noop */ }
-  }
-
-  return NextResponse.json({ report, cached: false, savedProfile: !ownProfile, profileId });
+  return runGeneration({
+    label: "wuxing",
+    attempt: began.attempt,
+    passId: pass.passId,
+    run: async () => {
+      const report = await buildFullReport(chart);
+      const savedId = await saveReport(key, report);
+      return { report, savedId };
+    },
+    ok: ({ report, savedId }) =>
+      NextResponse.json(
+        isAdhoc
+          ? { report, cached: false, adhoc: true }
+          : { report, cached: false, savedProfile: !ownProfile, profileId: savedId }
+      ),
+    failureMessage: "생성에 실패했습니다. 잠시 후 다시 시도해주세요.",
+    includeAttemptIdOnFailure: false,
+  });
 }
 
 /**
  * DELETE /api/premium/wuxing — 로그인 필수. 사용자가 자기 결과를 직접 삭제.
- * query: birth_date/birth_time/gender — 지금 화면에 띄운 리포트의 대상.
+ * query: id 또는 birth_date/birth_time/gender — 지금 화면에 띄운 리포트의 대상.
  *
  * 대상을 받지 않으면 가족 사주로 만든 리포트를 지우려다 **본인 리포트가 지워진다**.
  * 대상이 본인 사주와 같으면 기존 캐시에서, 다르면 1회성 캐시에서 지운다.
  */
 export async function DELETE(req: NextRequest) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "login_required" }, { status: 401 });
-  }
-  const userId = session.user.id;
+  const user = await requireUser("/premium/ohang");
+  if (!user.ok) return NextResponse.json({ error: "login_required" }, { status: 401 });
 
   const q = req.nextUrl.searchParams;
   const reportIdParam = q.get("id");
-  if (reportIdParam) {
-    await supabaseAdmin.from("reports").delete().eq("id", reportIdParam).eq("user_id", userId).eq("product_id", PRODUCT_ID);
-    return NextResponse.json({ ok: true });
-  }
+  if (reportIdParam) return deleteById(user.userId, PRODUCT_ID, reportIdParam);
+
   const parsed = parseTargetBody({
     birth_date: q.get("birth_date"), birth_time: q.get("birth_time"), gender: q.get("gender"),
   });
-
-  const ownProfile = await loadOwnProfile(userId);
-
   // 대상이 안 왔으면(구버전 클라이언트 등) 예전처럼 본인 리포트를 지운다.
-  if (!parsed.ok) {
-    if (!ownProfile?.id) return NextResponse.json({ error: "profile_required" }, { status: 403 });
-    await supabaseAdmin.from("reports").delete()
-      .eq("profile_id", ownProfile.id).eq("product_id", PRODUCT_ID).eq("user_id", userId);
-    return NextResponse.json({ ok: true });
-  }
-
-  const input = parsed.input;
-  if (ownProfile && !sameAsProfile(input, ownProfile)) {
-    await supabaseAdmin.from("premium_adhoc_reports").delete()
-      .eq("user_id", userId).eq("product_id", PRODUCT_ID)
-      .eq("birth_date", input.birthDate).eq("birth_time", timeKeyOf(input.birthTime))
-      .eq("gender", input.gender).eq("variant", "");
-    return NextResponse.json({ ok: true });
-  }
-
-  if (!ownProfile?.id) return NextResponse.json({ error: "profile_required" }, { status: 403 });
-  await supabaseAdmin.from("reports").delete()
-    .eq("profile_id", ownProfile.id).eq("product_id", PRODUCT_ID).eq("user_id", userId);
-  return NextResponse.json({ ok: true });
+  return deleteByTarget({
+    userId: user.userId, productId: PRODUCT_ID, target: parsed.ok ? parsed.input : null, variant: "",
+  });
 }

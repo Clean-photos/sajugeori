@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/db/client";
-import { checkReportAccess, refundOneTimePass, hasUnusedPassForRegenerate } from "@/lib/billing/access";
-import { startAttempt, finishAttemptDone, finishAttemptFailed, discardAttempt } from "@/lib/billing/attempts";
+import { hasUnusedPassForRegenerate } from "@/lib/billing/access";
 import { reportExpiresAtIso, notExpiredFilter } from "@/lib/billing/report-ttl";
+import { requireUser } from "@/lib/premium/require-user";
+import { beginAttempt, acquirePass, runGeneration } from "@/lib/premium/pipeline";
 import { generateReport } from "@/lib/premium/saju-generate";
 import { runSajuEngine } from "@/lib/saju-engine";
 import { parseTargetBody, resolveTarget, saveAsOwnProfile } from "@/lib/billing/report-target";
@@ -15,11 +15,9 @@ export const maxDuration = 60;
 
 // GET /api/premium/report — 로그인+프리미엄 필수. 캐시 있으면 반환, 없으면 생성.
 export async function GET(req: NextRequest) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "login_required", redirect: "/login?redirect=/premium" }, { status: 401 });
-  }
-  const userId = session.user.id;
+  const user = await requireUser("/premium");
+  if (!user.ok) return user.response;
+  const userId = user.userId;
 
   // §[다중 사주 우선순위 확정, 2026-10-01, 마이그레이션 021]: is_primary 플래그로 고정.
   const { data: profile } = await supabaseAdmin
@@ -57,38 +55,34 @@ export async function GET(req: NextRequest) {
     } catch { /* 테이블 없음 → 생성으로 진행 */ }
   }
 
-  // 동시 중복 생성(더블클릭 레이스) 차단 — 입력은 서버 저장된 profile이라 재입력 걱정은 없다.
-  const started = await startAttempt(userId, PRODUCT_ID, undefined, { saju_profile_id: profile.id });
-  if (!started.ok) {
-    return NextResponse.json({ error: started.error, busy: started.busy ?? false }, { status: started.status });
-  }
+  // 동시 중복 생성(더블클릭 레이스) 차단 → 이용권 원자적 선점 — 입력은 서버 저장된 profile이라 재입력 걱정은 없다.
+  const began = await beginAttempt(userId, PRODUCT_ID, undefined, { saju_profile_id: profile.id });
+  if (!began.ok) return began.response;
+  const pass = await acquirePass(userId, PRODUCT_ID, began.attempt);
+  if (!pass.ok) return pass.response;
 
-  // 구독자 또는 990원 1회 이용권 보유자만 신규 생성 가능
-  const { allowed, passId } = await checkReportAccess(userId, PRODUCT_ID);
-  if (!allowed) {
-    await discardAttempt(started.attemptId);
-    return NextResponse.json({ error: "premium_required", redirect: "/premium/buy?product=saju_one" }, { status: 402 });
-  }
-
-  const report = await generateReport(j, profile.birth_date);
-  if (!report) {
-    if (passId) await refundOneTimePass(passId);
-    await finishAttemptFailed(started.attemptId, "빈 응답");
-    return NextResponse.json({ error: "생성에 실패했습니다. 잠시 후 다시 시도해주세요." }, { status: 500 });
-  }
-  await finishAttemptDone(started.attemptId);
-
-  // 캐시 저장 (테이블 없으면 무시)
-  try {
-    // QA(2026-09-05) D-2: upsert 충돌 시 created_at DEFAULT가 다시 안 타 재생성해도
-    // 생성일이 그대로였다 — 명시적으로 갱신한다.
-    await supabaseAdmin.from("reports").upsert(
-      { profile_id: profile.id, product_id: PRODUCT_ID, variant: "", user_id: userId, content: report, expires_at: reportExpiresAtIso(), created_at: new Date().toISOString() },
-      { onConflict: "profile_id,product_id,variant" }
-    );
-  } catch { /* noop */ }
-
-  return NextResponse.json({ report, day_master: dayMaster, strength, cached: false });
+  return runGeneration({
+    label: "saju",
+    attempt: began.attempt,
+    passId: pass.passId,
+    run: async () => {
+      const report = await generateReport(j, profile.birth_date);
+      if (!report) throw new Error("빈 응답");
+      // 캐시 저장 (테이블 없으면 무시)
+      try {
+        // QA(2026-09-05) D-2: upsert 충돌 시 created_at DEFAULT가 다시 안 타 재생성해도
+        // 생성일이 그대로였다 — 명시적으로 갱신한다.
+        await supabaseAdmin.from("reports").upsert(
+          { profile_id: profile.id, product_id: PRODUCT_ID, variant: "", user_id: userId, content: report, expires_at: reportExpiresAtIso(), created_at: new Date().toISOString() },
+          { onConflict: "profile_id,product_id,variant" }
+        );
+      } catch { /* noop */ }
+      return report;
+    },
+    ok: (report) => NextResponse.json({ report, day_master: dayMaster, strength, cached: false }),
+    failureMessage: "생성에 실패했습니다. 잠시 후 다시 시도해주세요.",
+    includeAttemptIdOnFailure: false,
+  });
 }
 
 /**
@@ -99,11 +93,9 @@ export async function GET(req: NextRequest) {
  * 이미 등록된 사주가 있는 사람은 프로필을 건드리지 않고 1회성으로 처리한다.
  */
 export async function POST(req: NextRequest) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "login_required", redirect: "/login?redirect=/premium" }, { status: 401 });
-  }
-  const userId = session.user.id;
+  const user = await requireUser("/premium");
+  if (!user.ok) return user.response;
+  const userId = user.userId;
 
   const parsed = parseTargetBody(await req.json().catch(() => ({})));
   if (!parsed.ok) {
@@ -164,62 +156,61 @@ export async function POST(req: NextRequest) {
     } catch { /* 테이블 없음 → 생성으로 진행 */ }
   }
 
-  const started = await startAttempt(userId, PRODUCT_ID, undefined, { birth_date: birthDate, birth_time: timeKey, gender });
-  if (!started.ok) {
-    return NextResponse.json({ error: started.error, busy: started.busy ?? false }, { status: started.status });
-  }
+  const began = await beginAttempt(userId, PRODUCT_ID, undefined, { birth_date: birthDate, birth_time: timeKey, gender });
+  if (!began.ok) return began.response;
+  const pass = await acquirePass(userId, PRODUCT_ID, began.attempt);
+  if (!pass.ok) return pass.response;
 
-  const { allowed, passId } = await checkReportAccess(userId, PRODUCT_ID);
-  if (!allowed) {
-    await discardAttempt(started.attemptId);
-    return NextResponse.json({ error: "premium_required", redirect: "/premium/buy?product=saju_one" }, { status: 402 });
-  }
+  return runGeneration({
+    label: "saju",
+    attempt: began.attempt,
+    passId: pass.passId,
+    run: async () => {
+      const report = await generateReport(j, birthDate);
+      if (!report) throw new Error("빈 응답");
 
-  const report = await generateReport(j, birthDate);
-  if (!report) {
-    if (passId) await refundOneTimePass(passId);
-    await finishAttemptFailed(started.attemptId, "빈 응답");
-    return NextResponse.json({ error: "생성에 실패했습니다. 잠시 후 다시 시도해주세요." }, { status: 500 });
-  }
-  await finishAttemptDone(started.attemptId);
+      if (existingProfile?.id) {
+        // 1회성 — 본인 프로필은 그대로 두고 별도 캐시에만 저장한다.
+        try {
+          await supabaseAdmin.from("premium_saju_adhoc_reports").upsert(
+            {
+              user_id: userId, birth_date: birthDate, birth_time: timeKey, gender,
+              content: report, expires_at: reportExpiresAtIso(), created_at: new Date().toISOString(),
+            },
+            { onConflict: "user_id,birth_date,birth_time,gender" }
+          );
+        } catch { /* noop */ }
+        return { report, adhoc: true as const, savedProfile: false };
+      }
 
-  if (existingProfile?.id) {
-    // 1회성 — 본인 프로필은 그대로 두고 별도 캐시에만 저장한다.
-    try {
-      await supabaseAdmin.from("premium_saju_adhoc_reports").upsert(
-        {
-          user_id: userId, birth_date: birthDate, birth_time: timeKey, gender,
-          content: report, expires_at: reportExpiresAtIso(), created_at: new Date().toISOString(),
-        },
-        { onConflict: "user_id,birth_date,birth_time,gender" }
-      );
-    } catch { /* noop */ }
-    return NextResponse.json({ report, day_master: dayMaster, strength, cached: false, adhoc: true });
-  }
-
-  // 본인 대상 — 등록된 사주가 없던 사람이면 이 입력을 본인 프로필로 저장한다(016 규칙).
-  const createdId = ownProfile?.id ?? await saveAsOwnProfile(userId, parsed.input, engine);
-  const created = createdId ? { id: createdId } : null;
-
-  if (created?.id) {
-    try {
-      await supabaseAdmin.from("reports").upsert(
-        { profile_id: created.id, product_id: PRODUCT_ID, variant: "", user_id: userId, content: report, expires_at: reportExpiresAtIso(), created_at: new Date().toISOString() },
-        { onConflict: "profile_id,product_id,variant" }
-      );
-    } catch { /* noop */ }
-  }
-
-  return NextResponse.json({ report, day_master: dayMaster, strength, cached: false, savedProfile: !ownProfile });
+      // 본인 대상 — 등록된 사주가 없던 사람이면 이 입력을 본인 프로필로 저장한다(016 규칙).
+      const createdId = ownProfile?.id ?? await saveAsOwnProfile(userId, parsed.input, engine);
+      if (createdId) {
+        try {
+          await supabaseAdmin.from("reports").upsert(
+            { profile_id: createdId, product_id: PRODUCT_ID, variant: "", user_id: userId, content: report, expires_at: reportExpiresAtIso(), created_at: new Date().toISOString() },
+            { onConflict: "profile_id,product_id,variant" }
+          );
+        } catch { /* noop */ }
+      }
+      return { report, adhoc: false as const, savedProfile: !ownProfile };
+    },
+    ok: (r) =>
+      NextResponse.json(
+        r.adhoc
+          ? { report: r.report, day_master: dayMaster, strength, cached: false, adhoc: true }
+          : { report: r.report, day_master: dayMaster, strength, cached: false, savedProfile: r.savedProfile }
+      ),
+    failureMessage: "생성에 실패했습니다. 잠시 후 다시 시도해주세요.",
+    includeAttemptIdOnFailure: false,
+  });
 }
 
 // DELETE /api/premium/report — 로그인 필수. 사용자가 자기 프리미엄 사주 결과를 직접 삭제.
 export async function DELETE(req: NextRequest) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "login_required" }, { status: 401 });
-  }
-  const userId = session.user.id;
+  const user = await requireUser("/premium");
+  if (!user.ok) return NextResponse.json({ error: "login_required" }, { status: 401 });
+  const userId = user.userId;
 
   // 9차 B: /premium/report/[id](저장본 재열람)는 이 행의 정확한 PK를 안다 — "지금의
   // 본인 프로필"로 되짚지 않는다(다른 사주를 등록했더라도 엉뚱한 행을 건드리지 않는다).

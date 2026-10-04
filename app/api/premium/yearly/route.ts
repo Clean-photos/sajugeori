@@ -1,13 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import { supabaseAdmin } from "@/lib/db/client";
-import { isPremiumUser, findUnusedOneTimePass, ANY_REPORT_PASS, claimOneTimePass, refundOneTimePass, hasUnusedPassForRegenerate } from "@/lib/billing/access";
-import { startAttempt, finishAttemptDone, finishAttemptFailed, discardAttempt } from "@/lib/billing/attempts";
-import { reportExpiresAtIso, notExpiredFilter } from "@/lib/billing/report-ttl";
-import {
-  parseTargetBody, resolveTarget, readAdhocCache, writeAdhocCache,
-  ensureOwnProfileId, isoOf, timeKeyOf, loadOwnProfile, sameAsProfile,
-} from "@/lib/billing/report-target";
+import { parseTargetBody, resolveTarget, isoOf, timeKeyOf } from "@/lib/billing/report-target";
+import { requireUser } from "@/lib/premium/require-user";
+import { beginAttempt, acquirePass, runGeneration } from "@/lib/premium/pipeline";
+import { findCached, saveReport, deleteById, deleteByTarget } from "@/lib/premium/report-store";
 import { buildChart, scoreYear } from "@/lib/saju-engine";
 import { generateYearlyReport } from "@/lib/premium/yearly-generate";
 import { buildYearlyCard } from "@/lib/premium/yearly-card";
@@ -19,27 +14,11 @@ export const maxDuration = 60;
 
 const PRODUCT_ID = "yearly_one";
 
-// POST /api/premium/yearly — 로그인+프리미엄 필수. 등록된 내 사주로 세운·월운 실계산.
+// POST /api/premium/yearly — 로그인 필수. 캐시 → (구독자 또는 990원 단건 이용권) → 생성.
 export async function POST(req: NextRequest) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "login_required", redirect: "/login?redirect=/premium/yearly" }, { status: 401 });
-  }
-  const userId = session.user.id;
-
-  // 구독자 또는 990원 단건 이용권 보유자만 통과.
-  //
-  // §순서 주의(2026-10-02): 아래 hasUnusedPassForRegenerate(캐시 건너뛰기 판단)보다
-  // 먼저 실행돼야 하는데, 여기서 이용권을 바로 선점(claim)해버리면 그 판단이
-  // "방금 선점돼 사라진" 이용권을 못 보고 캐시로 돌려보내 프로모션 이용권 기능이
-  // 깨진다. 그래서 여기는 순수 조회(findUnusedOneTimePass)만 하고, 실제 선점은
-  // 캐시를 다 확인한 뒤 생성 직전에 claimOneTimePass로 한다(레이스 수정 핵심은
-  // "선점"이 아니라 "생성 비용을 쓰기 직전에 원자적으로 확정"하는 것).
-  const premium = await isPremiumUser(userId);
-  const hasPass = premium ? true : (await findUnusedOneTimePass(userId, "yearly_one")) !== null;
-  if (!hasPass) {
-    return NextResponse.json({ error: "premium_required", redirect: "/premium/buy?product=yearly_one" }, { status: 402 });
-  }
+  const user = await requireUser("/premium/yearly");
+  if (!user.ok) return user.response;
+  const userId = user.userId;
 
   const body = await req.json().catch(() => ({}));
   const year = parseInt(body.year) || kstYear();
@@ -53,7 +32,7 @@ export async function POST(req: NextRequest) {
   const input = parsed.input;
   const { ownProfile, isAdhoc } = await resolveTarget(userId, input);
   // 같은 대상이라도 연도가 다르면 다른 리포트다.
-  const variant = String(year);
+  const key = { userId, productId: PRODUCT_ID, target: input, ownProfile, isAdhoc, variant: String(year) };
 
   // 확정한 대상 사주로 차트 구성 후 세운·월운 스코어링.
   // 2026-09-22(카드 도입): 같은 입력이면 항상 같은 출력(결정적)이라 캐시 히트 때도 이걸 다시 돌려
@@ -69,120 +48,50 @@ export async function POST(req: NextRequest) {
   }
   const card = buildYearlyCard(yr);
 
-  // 캐시 조회 (테이블 없으면 조용히 무시).
-  //
-  // 2026-09-22(CEO 지시, 프로모션 이용권 배포): 단, 지금 쓸 수 있는 미사용 이용권이
-  // 있으면 캐시를 건너뛰고 새로 생성한다 — 위에서 hasPass로 이미 통과했더라도
-  // 캐시가 먼저 걸리면 생성 자체를 안 해 그 이용권이 영영 안 쓰인다(아래에서
-  // 실제 선점·소진은 생성 직전에만 한다). 유일한 우회가 "결과 삭제하기"뿐이었다.
-  // 구독자는 대상이 아니다.
-  const skipCacheForPass = await hasUnusedPassForRegenerate(userId, PRODUCT_ID);
-  if (!skipCacheForPass) {
-    if (isAdhoc) {
-      const cached = await readAdhocCache(userId, PRODUCT_ID, input, variant);
-      if (cached) return NextResponse.json({ report: cached, year, card, cached: true, adhoc: true });
-    } else if (ownProfile?.id) {
-      try {
-        const { data: cached } = await supabaseAdmin
-          .from("reports").select("content")
-          .eq("profile_id", ownProfile.id).eq("product_id", PRODUCT_ID).eq("variant", variant)
-          .or(notExpiredFilter()).limit(1).maybeSingle();
-        if (cached?.content) {
-          return NextResponse.json({ report: cached.content, year, card, cached: true });
-        }
-      } catch { /* 테이블 없음 → 생성 진행 */ }
-    }
+  // 캐시를 게이트보다 먼저 본다 — 이미 결제해 만든 리포트는 이용권이 소진된 뒤에도 다시 열려야 한다.
+  // (예전엔 이 라우트만 게이트를 먼저 걸어 이용권을 쓴 사용자가 자기 결과를 다시 못 열었다.)
+  const cached = await findCached<string>(key);
+  if (cached) {
+    return NextResponse.json({ report: cached.content, year, card, cached: true, ...(cached.adhoc ? { adhoc: true } : {}) });
   }
 
-  // 동시 중복 생성(더블클릭 레이스) 차단
-  const started = await startAttempt(userId, PRODUCT_ID, undefined, {
+  // 동시 중복 생성(더블클릭 레이스) 차단 → 이용권 원자적 선점(실패 시 시도 기록 삭제 + 402)
+  const began = await beginAttempt(userId, PRODUCT_ID, undefined, {
     birth_date: input.birthDate, birth_time: timeKeyOf(input.birthTime), gender: input.gender, year,
   });
-  if (!started.ok) {
-    return NextResponse.json({ error: started.error, busy: started.busy ?? false }, { status: started.status });
-  }
+  if (!began.ok) return began.response;
+  const pass = await acquirePass(userId, PRODUCT_ID, began.attempt);
+  if (!pass.ok) return pass.response;
 
-  // §레이스 수정(2026-10-02): 여기서, 즉 실제로 LLM을 호출하기 직전에만 이용권을
-  // 원자적으로 선점한다 — 위쪽의 hasPass는 순수 조회였으므로 동시에 2번 요청하면
-  // 둘 다 통과했지만, 이 선점은 한쪽만 성공한다(claimOneTimePass 주석 참고).
-  let passId: string | null = null;
-  if (!premium) {
-    passId = await claimOneTimePass(userId, [PRODUCT_ID, ANY_REPORT_PASS]);
-    if (!passId) {
-      await discardAttempt(started.attemptId);
-      return NextResponse.json({ error: "premium_required", redirect: "/premium/buy?product=yearly_one" }, { status: 402 });
-    }
-  }
-
-  try {
-    const report = await generateYearlyReport(yr, year, chart);
-
-    // 캐시 저장 (테이블 없으면 무시)
-    if (isAdhoc) {
-      // 1회성 — 본인 프로필도, 본인 리포트 캐시도 건드리지 않는다.
-      await writeAdhocCache(userId, PRODUCT_ID, input, report, variant);
-    } else {
-      // 등록된 사주가 없던 사람이면 이 입력이 본인 프로필로 저장된다(016 규칙).
-      const profileId = await ensureOwnProfileId(userId, input, ownProfile);
-      if (profileId) {
-        try {
-          // QA(2026-09-05) D-2: upsert 충돌 시 created_at DEFAULT가 다시 안 타
-          // 재생성해도 생성일이 그대로였다 — 명시적으로 갱신한다.
-          await supabaseAdmin.from("reports").upsert(
-            { profile_id: profileId, product_id: PRODUCT_ID, variant, user_id: userId, content: report, extra: { year }, expires_at: reportExpiresAtIso(), created_at: new Date().toISOString() },
-            { onConflict: "profile_id,product_id,variant" }
-          );
-        } catch { /* noop */ }
-      }
-    }
-
-    await finishAttemptDone(started.attemptId);
-
-    return NextResponse.json({ report, year, card, cached: false });
-  } catch (e) {
-    console.error("premium yearly LLM error:", e);
-    if (passId) await refundOneTimePass(passId);
-    await finishAttemptFailed(started.attemptId, "LLM 호출 오류");
-    return NextResponse.json({ error: "분석 중 오류가 발생했습니다. 같은 정보로 다시 시도해주세요.", attemptId: started.attemptId }, { status: 500 });
-  }
+  return runGeneration({
+    label: "yearly",
+    attempt: began.attempt,
+    passId: pass.passId,
+    run: async () => {
+      const report = await generateYearlyReport(yr, year, chart);
+      await saveReport(key, report, { year });
+      return report;
+    },
+    ok: (report) => NextResponse.json({ report, year, card, cached: false }),
+  });
 }
 
 /**
  * DELETE /api/premium/yearly — 로그인 필수. 사용자가 자기 연운세 결과(연도별)를 직접 삭제.
- * body: { year, birth_date, birth_time|null, gender } — 지금 화면에 띄운 리포트의 대상.
+ * body: { id } 또는 { year, birth_date, birth_time|null, gender } — 지금 화면에 띄운 리포트의 대상.
  * 대상을 받지 않으면 가족 리포트를 지우려다 본인 리포트가 지워진다.
  */
 export async function DELETE(req: NextRequest) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "login_required" }, { status: 401 });
-  }
-  const userId = session.user.id;
+  const user = await requireUser("/premium/yearly");
+  if (!user.ok) return NextResponse.json({ error: "login_required" }, { status: 401 });
 
   const body = await req.json().catch(() => ({}));
-  // 저장본 재열람 화면은 이 행의 정확한 PK를 안다 — "지금의 본인 프로필"로 되짚지 않는다.
-  if (typeof body.id === "string" && body.id) {
-    await supabaseAdmin.from("reports").delete().eq("id", body.id).eq("user_id", userId).eq("product_id", PRODUCT_ID);
-    return NextResponse.json({ ok: true });
-  }
-  const year = parseInt(body.year) || kstYear();
+  if (typeof body.id === "string" && body.id) return deleteById(user.userId, PRODUCT_ID, body.id);
+
   const parsed = parseTargetBody(body);
-  const ownProfile = await loadOwnProfile(userId);
-
-  if (parsed.ok && ownProfile && !sameAsProfile(parsed.input, ownProfile)) {
-    const input = parsed.input;
-    await supabaseAdmin.from("premium_adhoc_reports").delete()
-      .eq("user_id", userId).eq("product_id", PRODUCT_ID)
-      .eq("birth_date", input.birthDate).eq("birth_time", timeKeyOf(input.birthTime))
-      .eq("gender", input.gender).eq("variant", String(year));
-    return NextResponse.json({ ok: true });
-  }
-
-  if (!ownProfile?.id) {
-    return NextResponse.json({ error: "profile_required" }, { status: 403 });
-  }
-  await supabaseAdmin.from("reports").delete()
-    .eq("profile_id", ownProfile.id).eq("product_id", PRODUCT_ID).eq("user_id", userId).eq("variant", String(year));
-
-  return NextResponse.json({ ok: true });
+  return deleteByTarget({
+    userId: user.userId, productId: PRODUCT_ID,
+    target: parsed.ok ? parsed.input : null,
+    variant: String(parseInt(body.year) || kstYear()),
+  });
 }

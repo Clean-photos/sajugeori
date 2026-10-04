@@ -1,13 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import { supabaseAdmin } from "@/lib/db/client";
-import { checkReportAccess, refundOneTimePass, hasUnusedPassForRegenerate } from "@/lib/billing/access";
-import { startAttempt, finishAttemptDone, finishAttemptFailed, discardAttempt } from "@/lib/billing/attempts";
-import { reportExpiresAtIso, notExpiredFilter } from "@/lib/billing/report-ttl";
-import {
-  parseTargetBody, resolveTarget, readAdhocCache, writeAdhocCache,
-  ensureOwnProfileId, isoOf,
-} from "@/lib/billing/report-target";
+import { parseTargetBody, resolveTarget, isoOf } from "@/lib/billing/report-target";
+import { requireUser } from "@/lib/premium/require-user";
+import { beginAttempt, abortAttempt, acquirePass, runGeneration, failAttempt } from "@/lib/premium/pipeline";
+import { findCached, saveReport, deleteById } from "@/lib/premium/report-store";
 import { buildChart, rankDates } from "@/lib/saju-engine";
 import type { TaekilPurpose } from "@/lib/saju-engine";
 import { generateTaekilReport } from "@/lib/premium/taekil-generate";
@@ -29,27 +24,23 @@ const PRODUCT_ID = "taekil_one";
 // body에 attemptId가 있으면 "같은 정보로 재생성" 요청으로 보고, 최초 시도 때 저장해 둔
 // 입력값을 그대로 재사용한다.
 export async function POST(req: NextRequest) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "login_required", redirect: "/login?redirect=/premium/taekil" }, { status: 401 });
-  }
-  const userId = session.user.id;
+  const user = await requireUser("/premium/taekil");
+  if (!user.ok) return user.response;
+  const userId = user.userId;
 
   const body = await req.json();
   const attemptId = typeof body.attemptId === "string" ? body.attemptId : undefined;
 
-  const started = await startAttempt(userId, PRODUCT_ID, attemptId, body);
-  if (!started.ok) {
-    return NextResponse.json({ error: started.error, busy: started.busy ?? false }, { status: started.status });
-  }
-  const input = started.input;
+  const began = await beginAttempt(userId, PRODUCT_ID, attemptId, body);
+  if (!began.ok) return began.response;
+  const { attempt } = began;
+  const input = attempt.input;
 
   // 대상 사주는 화면에서 확정해 보낸다(생성 직전 컨펌). 예전처럼 "마지막에 등록한
   // 본인 사주"를 말없이 쓰지 않는다 — 가족 사주로 볼 방법이 없던 원인이었다.
   const parsedTarget = parseTargetBody(input);
   if (!parsedTarget.ok) {
-    await discardAttempt(started.attemptId);
-    return NextResponse.json({ error: parsedTarget.error }, { status: 400 });
+    return abortAttempt(attempt, NextResponse.json({ error: parsedTarget.error }, { status: 400 }));
   }
   const target = parsedTarget.input;
   const { ownProfile, isAdhoc } = await resolveTarget(userId, target);
@@ -58,8 +49,7 @@ export async function POST(req: NextRequest) {
   const from = input.range_from as string;
   const to = input.range_to as string;
   if (!from || !to) {
-    await discardAttempt(started.attemptId);
-    return NextResponse.json({ error: "range_from, range_to are required" }, { status: 400 });
+    return abortAttempt(attempt, NextResponse.json({ error: "range_from, range_to are required" }, { status: 400 }));
   }
 
   // 확정한 대상 사주로 차트 구성 후 일진 스코어링.
@@ -72,49 +62,31 @@ export async function POST(req: NextRequest) {
     ranked = rankDates(chart, from, to, purpose);
   } catch (e) {
     console.error("premium taekil engine error:", e);
-    await finishAttemptFailed(started.attemptId, "사주 계산 오류");
-    return NextResponse.json({ error: "사주 계산 오류", attemptId: started.attemptId }, { status: 500 });
+    return failAttempt(attempt, null, "사주 계산 오류",
+      NextResponse.json({ error: "사주 계산 오류", attemptId: attempt.attemptId }, { status: 500 }));
   }
   const card = buildTaekilCard(ranked, PURPOSE_LABEL[purpose] ?? String(purpose));
   const bestForClient = ranked.best.map((d) => ({ date: d.date, weekday: d.weekday, ganji: d.ganji }));
 
   // 같은 목적·같은 기간 조회면 재생성하지 않는다 (재열람 무료).
   // 대상 사주가 다르면 같은 조건이라도 다른 리포트이므로 variant에 함께 넣는다.
-  //
-  // 2026-09-22(CEO 지시, 프로모션 이용권 배포): 단, 지금 쓸 수 있는 미사용 이용권이
-  // 있으면 캐시를 건너뛰고 새로 생성한다 — 안 그러면 같은 목적·기간으로는 새 이용권을
-  // 영영 못 쓴다(유일한 우회가 "결과 삭제하기"뿐이었다). 구독자는 대상이 아니다.
+  // 미사용 이용권이 있으면 findCached가 캐시를 건너뛴다(프로모션 이용권이 실제로 쓰이게).
   const variant = [purpose, from, to].join("|");
-  const skipCacheForPass = await hasUnusedPassForRegenerate(userId, PRODUCT_ID);
-  if (!skipCacheForPass) {
-    if (isAdhoc) {
-      const cached = await readAdhocCache<{ content: unknown; best: unknown }>(userId, PRODUCT_ID, target, variant);
-      if (cached) {
-        await discardAttempt(started.attemptId);
-        return NextResponse.json({ report: cached.content, best: bestForClient, card, purpose, range: { from, to }, cached: true, adhoc: true });
-      }
-    } else if (ownProfile?.id) {
-      try {
-        const { data: cached } = await supabaseAdmin
-          .from("reports").select("id, content")
-          .eq("profile_id", ownProfile.id).eq("product_id", PRODUCT_ID).eq("variant", variant)
-          .or(notExpiredFilter()).limit(1).maybeSingle();
-        if (cached?.content) {
-          await discardAttempt(started.attemptId);
-          // §1(CoS 결정 2026-09-08): id를 함께 돌려줘야 마이페이지 "보기 →"가
-          // /premium/taekil/{id}(이용권 검사 없는 열람 라우트)로 연결할 수 있다.
-          return NextResponse.json({ report: cached.content, best: bestForClient, card, purpose, range: { from, to }, cached: true, id: cached.id });
-        }
-      } catch { /* 테이블 없음 또는 미저장 → 생성 진행 */ }
-    }
+  const key = { userId, productId: PRODUCT_ID, target, ownProfile, isAdhoc, variant };
+  const cached = await findCached<unknown>(key);
+  if (cached) {
+    // 1회성 캐시는 content와 best를 묶어 저장해 둔다. 본인 리포트는 §1(CoS 결정 2026-09-08)대로 id를 돌려줘야
+    // 마이페이지 "보기 →"가 /premium/taekil/{id}로 연결된다.
+    const report = cached.adhoc ? (cached.content as { content: unknown }).content : cached.content;
+    return abortAttempt(attempt, NextResponse.json({
+      report, best: bestForClient, card, purpose, range: { from, to }, cached: true,
+      ...(cached.adhoc ? { adhoc: true } : { id: cached.id }),
+    }));
   }
 
-  // 구독자 또는 990원 단건 이용권 보유자만 통과. 이용권은 생성 성공 후 소진한다.
-  const access = await checkReportAccess(userId, PRODUCT_ID);
-  if (!access.allowed) {
-    await discardAttempt(started.attemptId);
-    return NextResponse.json({ error: "premium_required", redirect: "/premium/buy?product=taekil_one" }, { status: 402 });
-  }
+  // 구독자 또는 990원 단건 이용권 보유자만 통과(원자적 선점).
+  const pass = await acquirePass(userId, PRODUCT_ID, attempt);
+  if (!pass.ok) return pass.response;
 
   const bestLines = ranked.best
     .map((d) => `- ${d.date} (${d.weekday}) ${d.ganji} [점수 ${d.score}]: ${d.notes.join("; ")}`)
@@ -142,52 +114,23 @@ ${bestLines || "- 조건에 맞는 좋은 날을 찾지 못함"}
 [피해야 할 날 — 일지 충]
 ${avoidLines}`.trim();
 
-  try {
-    const report = await generateTaekilReport(engineSummary, PURPOSE_LABEL[purpose] ?? purpose);
-
-    // 캐시 저장 (테이블 없으면 무시)
-    let savedId: string | null = null;
-    if (isAdhoc) {
-      // 1회성 — 본인 프로필도, 본인 리포트 캐시도 건드리지 않는다.
-      // 이 상품은 content와 best를 함께 돌려주므로 묶어서 캐시한다.
-      await writeAdhocCache(userId, PRODUCT_ID, target, { content: report, best: bestForClient }, variant);
-    } else {
-      // 등록된 사주가 없던 사람이면 이 입력이 본인 프로필로 저장된다(016 규칙).
-      const profileId = await ensureOwnProfileId(userId, target, ownProfile);
-      if (profileId) {
-        try {
-          // §1(CoS 결정 2026-09-08): 생성된 행의 id를 돌려줘야 "보기 →"가
-          // /premium/taekil/{id}로 연결할 수 있다.
-          const { data: inserted } = await supabaseAdmin.from("reports").upsert(
-            {
-              profile_id: profileId, product_id: PRODUCT_ID, variant, user_id: userId,
-              content: report, extra: { purpose, range_from: from, range_to: to },
-              expires_at: reportExpiresAtIso(), created_at: new Date().toISOString(),
-            },
-            { onConflict: "profile_id,product_id,variant" }
-          ).select("id").single();
-          savedId = inserted?.id ?? null;
-        } catch { /* noop */ }
-      }
-    }
-
-    await finishAttemptDone(started.attemptId);
-
-    return NextResponse.json({
-      report,
-      best: bestForClient,
-      card,
-      purpose,
-      range: ranked.range,
-      cached: false,
-      id: savedId,
-    });
-  } catch (e) {
-    console.error("premium taekil LLM error:", e);
-    if (access.passId) await refundOneTimePass(access.passId);
-    await finishAttemptFailed(started.attemptId, "LLM 호출 오류");
-    return NextResponse.json({ error: "분석 중 오류가 발생했습니다. 같은 정보로 다시 시도해주세요.", attemptId: started.attemptId }, { status: 500 });
-  }
+  return runGeneration({
+    label: "taekil",
+    attempt,
+    passId: pass.passId,
+    run: async () => {
+      const report = await generateTaekilReport(engineSummary, PURPOSE_LABEL[purpose] ?? purpose);
+      // 1회성은 content와 best를 묶어 캐시한다. 본인 리포트는 문자열 그대로 저장하고 id를 돌려받는다.
+      const savedId = await saveReport(
+        key,
+        isAdhoc ? { content: report, best: bestForClient } : report,
+        { purpose, range_from: from, range_to: to }
+      );
+      return { report, savedId };
+    },
+    ok: ({ report, savedId }) =>
+      NextResponse.json({ report, best: bestForClient, card, purpose, range: ranked.range, cached: false, id: savedId }),
+  });
 }
 
 /**
@@ -201,16 +144,12 @@ ${avoidLines}`.trim();
  * 방식을 도입했다).
  */
 export async function DELETE(req: NextRequest) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "login_required" }, { status: 401 });
-  }
-  const userId = session.user.id;
+  const user = await requireUser("/premium/taekil");
+  if (!user.ok) return NextResponse.json({ error: "login_required" }, { status: 401 });
 
   const body = await req.json().catch(() => ({}));
   if (typeof body.id !== "string" || !body.id) {
     return NextResponse.json({ error: "id is required" }, { status: 400 });
   }
-  await supabaseAdmin.from("reports").delete().eq("id", body.id).eq("user_id", userId).eq("product_id", PRODUCT_ID);
-  return NextResponse.json({ ok: true });
+  return deleteById(user.userId, PRODUCT_ID, body.id);
 }
