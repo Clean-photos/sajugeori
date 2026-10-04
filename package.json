@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
+    "@sentry/nextjs": "^11.4.0",
     "@supabase/supabase-js": "^2.49.2",
     "clsx": "^2.1.1",
     "html2canvas": "^1.4.1",

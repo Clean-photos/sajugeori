@@ -151,6 +151,10 @@ export default function PrivacyPage() {
                   items: "카카오 로그인 시 계정 식별값·이메일, 광고 노출 관련 기기 식별 정보", period: "업체 정책에 따름",
                 },
                 {
+                  name: "Functional Software, Inc. (Sentry)", country: "미국", task: "서비스 오류 진단·모니터링",
+                  items: "오류 내용·발생 위치, 브라우저·기기 종류, 내부 회원 식별 번호. 이메일·생년월일·입력값·쿠키는 전송 전에 제거하며 접속 IP 주소는 저장하지 않음", period: "90일 후 자동 삭제 (업체 정책)",
+                },
+                {
                   name: "토스페이먼츠 주식회사", country: "대한민국", task: "결제 처리",
                   items: "주문번호, 결제금액, 결제 상태 (결제수단 정보는 토스페이먼츠가 직접 처리)", period: "5년 (전자상거래법)",
                 },

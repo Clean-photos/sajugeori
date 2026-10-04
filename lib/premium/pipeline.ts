@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { checkReportAccess, refundOneTimePass } from "@/lib/billing/access";
 import { startAttempt, finishAttemptDone, finishAttemptFailed, discardAttempt } from "@/lib/billing/attempts";
+import { reportError } from "@/lib/monitoring/report";
 
 /**
  * 프리미엄 리포트 라우트 공통 생성 파이프라인 (2026-10-04 리팩터).
@@ -116,7 +117,7 @@ export async function runGeneration<T>(
   try {
     value = await opts.run();
   } catch (e) {
-    console.error(`premium ${opts.label} LLM error:`, e);
+    reportError(e, "premium_generation_failed", { product: opts.label });
     const body: Record<string, unknown> = { error: opts.failureMessage ?? DEFAULT_FAILURE };
     if (opts.includeAttemptIdOnFailure !== false) body.attemptId = opts.attempt.attemptId;
     return failAttempt(

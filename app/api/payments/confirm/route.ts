@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/db/client";
 import { getPlan } from "@/lib/billing/plans";
 import { fulfillPayment } from "@/lib/billing/fulfill";
+import { reportError } from "@/lib/monitoring/report";
 
 // POST /api/payments/confirm
 // Toss Payments 결제 승인 → 구독 활성화
@@ -81,6 +82,7 @@ export async function POST(req: NextRequest) {
   // 이용권 발급/구독 연장은 웹훅 복구 경로와 공유한다(lib/billing/fulfill.ts).
   const result = await fulfillPayment({ userId, planId: plan.id, orderId, paymentKey });
   if (!result.ok) {
+    reportError(new Error("confirm_save_stage_failed"), "payment.confirm", { orderId, planId: plan.id });
     return NextResponse.json(
       { error: "결제는 확인되었으나 처리 중 문제가 발생했습니다.", orderId, stage: "save", charged: true },
       { status: 500 }

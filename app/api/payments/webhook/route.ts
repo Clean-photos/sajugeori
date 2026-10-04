@@ -3,6 +3,7 @@ import crypto from "crypto";
 import { supabaseAdmin } from "@/lib/db/client";
 import { fulfillPayment } from "@/lib/billing/fulfill";
 import { fetchTossPayment } from "@/lib/billing/toss";
+import { reportError } from "@/lib/monitoring/report";
 
 // Toss 대시보드에 등록한 웹훅의 서명 검증용 시크릿. 웹훅 등록 시 별도로 발급됨(API 시크릿키와 다름).
 const WEBHOOK_SECRET = process.env.TOSS_WEBHOOK_SECRET;
@@ -103,6 +104,7 @@ export async function POST(req: NextRequest) {
       if (order && order.user_id && order.status !== "done") {
         const verified = await verifyPaymentWithToss(order.order_id, order.amount);
         if (!verified.ok) {
+          reportError(new Error("webhook_verify_failed"), "payment.webhook", { orderId: data.orderId, reason: verified.reason }, { log: false });
           console.error("[payment_webhook_verify_failed]", JSON.stringify({ orderId: data.orderId, reason: verified.reason }));
         } else {
           console.log("[payment_webhook_recovery]", JSON.stringify({ orderId: data.orderId, userId: order.user_id }));
@@ -113,6 +115,7 @@ export async function POST(req: NextRequest) {
             paymentKey: verified.paymentKey,
           });
           if (!result.ok) {
+            reportError(new Error("webhook_recovery_failed"), "payment.webhook", { orderId: data.orderId }, { log: false });
             console.error("[payment_webhook_recovery_failed]", JSON.stringify({ orderId: data.orderId, error: result.error }));
           }
         }
@@ -127,10 +130,12 @@ export async function POST(req: NextRequest) {
       // 취소 상태일 때만 회수한다. 조회 자체가 불안정하면 503으로 돌려 토스가 재시도하게 한다.
       const looked = await fetchTossPayment({ orderId, paymentKey });
       if (!looked.ok && !looked.notFound) {
+        reportError(new Error("webhook_cancel_lookup_failed"), "payment.webhook", { orderId: orderId ?? null, reason: looked.reason }, { log: false });
         console.error("[payment_webhook_cancel_lookup_failed]", JSON.stringify({ orderId, reason: looked.reason }));
         return NextResponse.json({ error: "verify_unavailable" }, { status: 503 });
       }
       if (!looked.ok || !CANCEL_STATUSES.has(looked.status)) {
+        reportError(new Error("webhook_cancel_ignored"), "payment.webhook", { orderId: orderId ?? null, claimed: data.status ?? null }, { log: false });
         console.error("[payment_webhook_cancel_ignored]", JSON.stringify({
           orderId, claimed: data.status, actual: looked.ok ? looked.status : looked.reason,
         }));
@@ -159,7 +164,7 @@ export async function POST(req: NextRequest) {
       }
     }
   } catch (e) {
-    console.error("toss webhook processing error:", e);
+    reportError(e, "payment.webhook.processing");
   }
 
   // Toss는 200 응답을 받아야 재시도하지 않으므로, 내부 처리 실패와 무관하게 수신 확인은 항상 반환

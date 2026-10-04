@@ -1,6 +1,7 @@
 import { supabaseAdmin } from "@/lib/db/client";
 import { getPlan, BUNDLE_CREDITS } from "@/lib/billing/plans";
 import { ANY_REPORT_PASS } from "@/lib/billing/access";
+import { reportError } from "@/lib/monitoring/report";
 
 /**
  * 승인이 끝난 결제를 실제 권한으로 바꾼다 (이용권 발급 또는 구독 연장).
@@ -39,6 +40,8 @@ export async function fulfillPayment(opts: {
         return { ok: true, duplicate: true };
       }
       console.error("[payment_save_failed]", JSON.stringify({ userId, orderId, paymentKey, dbError: error }));
+      // 결제는 승인됐는데 이용권 저장이 실패한 상태 — 가장 먼저 알아야 하는 사고라 모니터링으로도 보낸다(개인정보 제외).
+      reportError(new Error("payment_save_failed"), "payment.fulfill", { orderId, dbCode: error.code ?? null }, { log: false });
       return { ok: false, error: "구매 기록 저장 실패" };
     }
     await markOrderDone(orderId, paymentKey);

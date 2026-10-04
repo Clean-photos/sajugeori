@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/db/client";
+import { reportError } from "@/lib/monitoring/report";
 
 // 열람기간 1년이 지난 리포트를 실제로 삭제하는 배치. Vercel Cron이 매일 1회 호출한다
 // (vercel.json 참고). 사용자 요청 경로(조회 시 만료 필터)와 분리해, 실제 삭제는
@@ -44,6 +45,7 @@ export async function GET(req: NextRequest) {
         .not("expires_at", "is", null)
         .lte("expires_at", nowIso);
       if (error) {
+        reportError(new Error(`purge_failed:${table}`), "cron.purge", { table, message: error.message });
         results[table] = `error: ${error.message}`;
         continue;
       }
