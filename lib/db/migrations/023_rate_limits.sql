@@ -16,6 +16,10 @@ create index if not exists idx_rate_limit_created
 
 alter table public.rate_limit_events enable row level security;
 
+-- SQL Editor로 만든 테이블은 API 롤에 권한이 자동 부여되지 않으므로 명시적으로 GRANT(다른 마이그레이션과 동일).
+grant all on table public.rate_limit_events to service_role;
+grant usage, select on all sequences in schema public to service_role;
+
 -- 비밀번호 해시 형식이 scrypt$N$salt$hash(약 170자)로 바뀌므로 컬럼이 길이 제한 없는 text여야 한다.
 -- 이미 text면 아무 일도 일어나지 않는다.
 alter table public.users alter column password_hash type text;
